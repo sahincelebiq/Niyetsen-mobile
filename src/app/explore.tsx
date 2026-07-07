@@ -102,7 +102,7 @@ export default function PlanScreen() {
               onPress={() => router.push('/')}
               style={({ pressed }) => [
                 styles.ctaButton,
-                { backgroundColor: theme.text },
+                { backgroundColor: theme.tint },
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.background }}>
@@ -147,7 +147,9 @@ function DaySection({ day }: { day: PlanDay }) {
               <ThemedView style={styles.tagRow}>
                 {task.categories.map((c) => (
                   <ThemedView key={c} type="backgroundSelected" style={styles.tag}>
-                    <ThemedText type="small">{c}</ThemedText>
+                    <ThemedText type="small" themeColor="accentWarm">
+                      {c}
+                    </ThemedText>
                   </ThemedView>
                 ))}
               </ThemedView>
@@ -198,6 +200,11 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.five,
+    shadowColor: '#3B3327',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 2,
   },
   pressed: {
     opacity: 0.8,
@@ -216,6 +223,11 @@ const styles = StyleSheet.create({
   taskCard: {
     borderRadius: Spacing.three,
     overflow: 'hidden',
+    shadowColor: '#3B3327',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 1,
   },
   taskImage: {
     width: '100%',

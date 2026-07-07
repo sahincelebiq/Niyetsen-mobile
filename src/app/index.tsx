@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -108,6 +109,12 @@ export default function ChatScreen() {
       behavior={Platform.select({ ios: 'padding', default: undefined })}
       keyboardVerticalOffset={Platform.select({ ios: 90, default: 0 })}>
       <ThemedView style={styles.flex}>
+        <Image
+          source={require('@/assets/images/chat-mystic-bg.png')}
+          style={styles.backgroundImage}
+          contentFit="cover"
+          pointerEvents="none"
+        />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
           <FlatList
             ref={listRef}
@@ -135,7 +142,7 @@ export default function ChatScreen() {
                     disabled={generatingPlan}
                     style={({ pressed }) => [
                       styles.ctaButton,
-                      { backgroundColor: theme.text },
+                      { backgroundColor: theme.tint },
                       pressed && styles.pressed,
                     ]}>
                     {generatingPlan ? (
@@ -157,7 +164,7 @@ export default function ChatScreen() {
               onChangeText={setInput}
               placeholder="Mesajını yaz…"
               placeholderTextColor={theme.textSecondary}
-              style={[styles.input, { color: theme.text }]}
+              style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
               multiline
               editable={!sending}
               onSubmitEditing={handleSend}
@@ -169,7 +176,7 @@ export default function ChatScreen() {
                 styles.sendButton,
                 { opacity: sending || !input.trim() ? 0.4 : pressed ? 0.7 : 1 },
               ]}>
-              <ThemedText type="smallBold" themeColor="text">
+              <ThemedText type="smallBold" themeColor="tint">
                 Gönder
               </ThemedText>
             </Pressable>
@@ -188,7 +195,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       style={[
         styles.bubble,
         isUser ? styles.bubbleUser : styles.bubbleAssistant,
-        { backgroundColor: isUser ? theme.text : theme.backgroundElement },
+        { backgroundColor: isUser ? theme.tint : theme.backgroundElement },
       ]}>
       <ThemedText style={isUser ? { color: theme.background } : undefined}>
         {message.content}
@@ -200,6 +207,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.08,
   },
   listContent: {
     paddingHorizontal: Spacing.three,
@@ -239,6 +250,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#3B3327',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 2,
   },
   pressed: {
     opacity: 0.8,
@@ -253,6 +269,8 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
+    borderTopLeftRadius: Spacing.four,
+    borderTopRightRadius: Spacing.four,
   },
   input: {
     flex: 1,

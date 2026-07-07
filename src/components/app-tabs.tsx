@@ -1,25 +1,25 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      indicatorColor={colors.backgroundSelected}
+      labelStyle={{ selected: { color: colors.tint } }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Sohbet</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right.fill" md="chat" />
+        <Label>Sohbet</Label>
+        <Icon sf="bubble.left.and.bubble.right.fill" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Planım</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="calendar" md="event" />
+        <Label>Planım</Label>
+        <Icon sf="calendar" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
