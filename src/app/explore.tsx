@@ -1,23 +1,58 @@
+import { useCallback, useState } from 'react';
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ExternalLink } from '@/components/external-link';
+import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError, getCurrentPlan, Plan, PlanDay } from '@/lib/api';
 
-export default function TabTwoScreen() {
+export default function PlanScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
     bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
   };
   const theme = useTheme();
+  const router = useRouter();
+
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const result = await getCurrentPlan();
+      setPlan(result);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
 
   const contentPlatformStyle = Platform.select({
     android: {
@@ -36,92 +71,91 @@ export default function TabTwoScreen() {
     <ScrollView
       style={[styles.scrollView, { backgroundColor: theme.background }]}
       contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
+      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+      }>
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
-
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
+          <ThemedText type="subtitle">Planım</ThemedText>
         </ThemedView>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        {loading && (
+          <ThemedView style={styles.centerBlock}>
+            <ActivityIndicator size="large" color={theme.textSecondary} />
+          </ThemedView>
+        )}
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
+        {!loading && error && (
+          <ThemedView style={styles.bannerWrapper}>
+            <ErrorBanner message={error} onRetry={() => void load()} retrying={refreshing} />
+          </ThemedView>
+        )}
+
+        {!loading && !error && !plan && (
+          <ThemedView style={styles.emptyState}>
+            <ThemedText style={styles.centerText} themeColor="textSecondary">
+              Henüz bir planın yok. Sohbete başlayıp bu yılki niyetini anlat, sana özel görselli
+              planını birlikte çıkaralım. 🌙
+            </ThemedText>
+            <Pressable
+              onPress={() => router.push('/')}
+              style={({ pressed }) => [
+                styles.ctaButton,
+                { backgroundColor: theme.text },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.background }}>
+                Sohbete Başla
               </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+            </Pressable>
+          </ThemedView>
+        )}
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
+        {!loading && !error && plan && (
+          <ThemedView style={styles.daysWrapper}>
+            {plan.days.map((day) => (
+              <DaySection key={day.day} day={day} />
+            ))}
+          </ThemedView>
+        )}
       </ThemedView>
     </ScrollView>
+  );
+}
+
+function DaySection({ day }: { day: PlanDay }) {
+  return (
+    <ThemedView style={styles.daySection}>
+      <ThemedText type="smallBold">
+        Gün {day.day}
+        {day.theme ? ` — ${day.theme}` : ''}
+      </ThemedText>
+      <ThemedView style={styles.taskList}>
+        {day.tasks.map((task) => (
+          <ThemedView key={task.id} type="backgroundElement" style={styles.taskCard}>
+            {!!task.image_url && (
+              <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+            )}
+            <ThemedView style={styles.taskInfo}>
+              <ThemedText type="default">{task.title}</ThemedText>
+              {!!task.tiny_version && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  En küçük halka: {task.tiny_version}
+                </ThemedText>
+              )}
+              <ThemedView style={styles.tagRow}>
+                {task.categories.map((c) => (
+                  <ThemedView key={c} type="backgroundSelected" style={styles.tag}>
+                    <ThemedText type="small">{c}</ThemedText>
+                  </ThemedView>
+                ))}
+              </ThemedView>
+            </ThemedView>
+          </ThemedView>
+        ))}
+      </ThemedView>
+    </ThemedView>
   );
 }
 
@@ -136,45 +170,70 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
+    width: '100%',
   },
   titleContainer: {
     gap: Spacing.three,
     alignItems: 'center',
     paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    paddingVertical: Spacing.four,
   },
   centerText: {
     textAlign: 'center',
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
+  centerBlock: {
+    paddingVertical: Spacing.six,
     alignItems: 'center',
   },
-  sectionsWrapper: {
+  bannerWrapper: {
+    paddingHorizontal: Spacing.four,
+  },
+  emptyState: {
+    gap: Spacing.four,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.five,
+  },
+  ctaButton: {
+    borderRadius: Spacing.four,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.five,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  daysWrapper: {
     gap: Spacing.five,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
   },
-  collapsibleContent: {
-    alignItems: 'center',
+  daySection: {
+    gap: Spacing.three,
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
+  taskList: {
+    gap: Spacing.three,
+  },
+  taskCard: {
     borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+    overflow: 'hidden',
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  taskImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  taskInfo: {
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+  },
+  tag: {
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
 });
