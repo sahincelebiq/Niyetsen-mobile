@@ -17,7 +17,12 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  MaxContentWidth, Radii, Shadows, Spacing, Texture,
+  BottomTabInset,
+  MaxContentWidth,
+  Radii,
+  Shadows,
+  Spacing,
+  Texture,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -176,7 +181,7 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.select({ ios: 'padding', default: undefined })}
-      keyboardVerticalOffset={Platform.select({ ios: 90, default: 0 })}>
+      keyboardVerticalOffset={Platform.select({ ios: BottomTabInset + 12, default: 0 })}>
       <ThemedView style={styles.flex}>
         <Image
           source={require('@/assets/images/chat-mystic-bg.png')}
@@ -290,7 +295,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.five,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',

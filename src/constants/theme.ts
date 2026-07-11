@@ -123,5 +123,6 @@ export const Texture = {
   cardBorderWidth: 1,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+/** Native tab bar yüksekliği — etiketli iOS sekmeleri için ~84pt. */
+export const BottomTabInset = Platform.select({ ios: 84, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

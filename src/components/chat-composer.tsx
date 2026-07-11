@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -21,9 +22,15 @@ export function ChatComposer({
   disabled,
 }: ChatComposerProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const canSend = !disabled && !!value.trim();
   return (
-    <ThemedView type="backgroundElement" style={styles.inputRow}>
+    <ThemedView
+      type="backgroundElement"
+      style={[
+        styles.inputRow,
+        { paddingBottom: insets.bottom + BottomTabInset + Spacing.two },
+      ]}>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -59,11 +66,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    paddingBottom: BottomTabInset > 0 ? Spacing.two : Spacing.three,
+    paddingTop: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopLeftRadius: Radii.large,
     borderTopRightRadius: Radii.large,
     ...(Shadows.soft ?? {}),
