@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 
-import classes from './animated-icon.module.css';
 const DURATION = 300;
 
 export function AnimatedSplashOverlay() {
@@ -61,12 +60,14 @@ export function AnimatedIcon() {
         <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
       </Animated.View>
 
-      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)}>
-        <div className={classes.expoLogoBackground} />
-      </Animated.View>
+      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)} />
 
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+        <Image
+          style={styles.image}
+          source={require('@/assets/images/niyetsen-chain.png')}
+          contentFit="contain"
+        />
       </Animated.View>
     </View>
   );
@@ -97,10 +98,12 @@ const styles = StyleSheet.create({
   },
   image: {
     position: 'absolute',
-    width: 76,
-    height: 71,
+    width: 92,
+    height: 92,
   },
   background: {
+    backgroundColor: '#F0E9D8',
+    borderRadius: 40,
     width: 128,
     height: 128,
     position: 'absolute',

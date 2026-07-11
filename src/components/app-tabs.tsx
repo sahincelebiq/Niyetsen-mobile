@@ -17,10 +17,32 @@ export default function AppTabs() {
         <Icon sf="bubble.left.and.bubble.right.fill" />
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="daily">
+        <Label>Bugün</Label>
+        <Icon sf="checkmark.circle.fill" />
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="explore">
         <Label>Planım</Label>
         <Icon sf="calendar" />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="rank">
+        <Label>Rütbe</Label>
+        <Icon sf="chart.bar.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="mystic">
+        <Label>Mistik</Label>
+        <Icon sf="sparkles" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="settings">
+        <Label>Ayarlar</Label>
+        <Icon sf="gearshape.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="bonus" hidden />
     </NativeTabs>
   );
 }

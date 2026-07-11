@@ -19,6 +19,8 @@ export const Colors = {
     tint: '#7C9473',
     accentWarm: '#B98B5E',
     border: '#E3D9BE',
+    success: '#567A50',
+    danger: '#A14F4F',
   },
   dark: {
     text: '#F2EAD9',
@@ -29,6 +31,8 @@ export const Colors = {
     tint: '#93AF86',
     accentWarm: '#CDA06D',
     border: '#3D362A',
+    success: '#A7C89B',
+    danger: '#E49A9A',
   },
 } as const;
 
@@ -82,6 +86,41 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+} as const;
+
+export const Radii = {
+  small: 10,
+  medium: 16,
+  large: 24,
+  pill: 999,
+} as const;
+
+export const Shadows = {
+  soft: Platform.select({
+    web: { boxShadow: '0 8px 28px rgba(59, 51, 39, 0.10)' },
+    default: {
+      shadowColor: '#3B3327',
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+  }),
+  subtle: Platform.select({
+    web: { boxShadow: '0 3px 12px rgba(59, 51, 39, 0.07)' },
+    default: {
+      shadowColor: '#3B3327',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.07,
+      shadowRadius: 8,
+      elevation: 1,
+    },
+  }),
+} as const;
+
+export const Texture = {
+  backgroundOpacity: 0.13,
+  cardBorderWidth: 1,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

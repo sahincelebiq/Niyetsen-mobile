@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
@@ -7,15 +7,18 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { ChatComposer } from '@/components/chat-composer';
+import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  MaxContentWidth, Radii, Shadows, Spacing, Texture,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -23,10 +26,14 @@ import {
   CollectedIntent,
   EMPTY_COLLECTED,
   generatePlan,
+  generateMessageId,
+  getChatSession,
   sendChatMessage,
 } from '@/lib/api';
+import { executeDeviceTool } from '@/lib/task-reminders';
 
 const WELCOME_MESSAGE: ChatMessage = {
+  id: 'welcome',
   role: 'assistant',
   content:
     'Merhaba 🌙 Ben Niyetsen. Bu yılı nasıl geçirmek istediğini birlikte konuşalım — ' +
@@ -36,6 +43,8 @@ const WELCOME_MESSAGE: ChatMessage = {
 export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { status: consentStatus } = useConsentPreferences();
+  const aiAllowed = consentStatus.ai_chat_processing.accepted;
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
@@ -46,9 +55,36 @@ export default function ChatScreen() {
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<'send' | 'generate' | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }, []);
+
+  // Faz 2: sohbet artık backend'de kalıcı — uygulama yeniden açılınca / yeni
+  // cihazda kaldığı yerden devam etsin (önceden sadece bu bileşenin local
+  // state'inde yaşıyordu, kapanınca kaybolurdu).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await getChatSession();
+        if (!cancelled) {
+          if (session.messages.length > 0) {
+            setMessages(session.messages);
+          }
+          setCollected(session.collected);
+          setReadyForPlan(session.ready_for_plan);
+        }
+      } catch {
+        // Geçmiş yüklenemezse sessizce karşılama mesajıyla devam et.
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const doSend = useCallback(
@@ -58,7 +94,29 @@ export default function ChatScreen() {
       setLastAction('send');
       try {
         const res = await sendChatMessage(nextMessages, collected);
-        setMessages([...nextMessages, { role: 'assistant', content: res.reply }]);
+        const deviceResults = await Promise.all(
+          (res.tool_calls ?? [])
+            .filter((call) => call.name === 'alarm_kur' || call.name === 'takvime_ekle')
+            .map(async (call) => {
+              try {
+                return await executeDeviceTool(call);
+              } catch {
+                return { ok: false, message: 'Cihaz işlemi tamamlanamadı.' };
+              }
+            }),
+        );
+        const assistantContent = [
+          res.reply,
+          ...deviceResults.map((result) => result.message),
+        ].filter(Boolean).join('\n\n');
+        setMessages([
+          ...nextMessages,
+          {
+            id: res.message_id ?? generateMessageId(),
+            role: 'assistant',
+            content: assistantContent,
+          },
+        ]);
         setCollected(res.collected);
         setReadyForPlan(res.ready_for_plan);
         scrollToEnd();
@@ -72,16 +130,27 @@ export default function ChatScreen() {
   );
 
   const handleSend = useCallback(() => {
+    if (!aiAllowed) {
+      setError('AI sohbeti rızan kapalı. Ayarlar’dan tercihini değiştirebilirsin.');
+      return;
+    }
     const text = input.trim();
     if (!text || sending) return;
-    const nextMessages: ChatMessage[] = [...messages, { role: 'user', content: text }];
+    const nextMessages: ChatMessage[] = [
+      ...messages,
+      { id: generateMessageId(), role: 'user', content: text },
+    ];
     setMessages(nextMessages);
     setInput('');
     scrollToEnd();
     void doSend(nextMessages);
-  }, [doSend, input, messages, scrollToEnd, sending]);
+  }, [aiAllowed, doSend, input, messages, scrollToEnd, sending]);
 
   const handleGeneratePlan = useCallback(async () => {
+    if (!aiAllowed) {
+      setError('Plan oluşturmak için AI sohbeti rızası gerekli.');
+      return;
+    }
     setGeneratingPlan(true);
     setError(null);
     setLastAction('generate');
@@ -93,7 +162,7 @@ export default function ChatScreen() {
     } finally {
       setGeneratingPlan(false);
     }
-  }, [collected, router]);
+  }, [aiAllowed, collected, router]);
 
   const handleRetry = useCallback(() => {
     if (lastAction === 'generate') {
@@ -116,10 +185,15 @@ export default function ChatScreen() {
           pointerEvents="none"
         />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+          {loadingHistory ? (
+            <ThemedView style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.textSecondary} />
+            </ThemedView>
+          ) : (
           <FlatList
             ref={listRef}
             data={messages}
-            keyExtractor={(_, i) => String(i)}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             onContentSizeChange={scrollToEnd}
             renderItem={({ item }) => <MessageBubble message={item} />}
@@ -157,30 +231,23 @@ export default function ChatScreen() {
               </ThemedView>
             }
           />
+          )}
 
-          <ThemedView type="backgroundElement" style={styles.inputRow}>
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              placeholder="Mesajını yaz…"
-              placeholderTextColor={theme.textSecondary}
-              style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
-              multiline
-              editable={!sending}
-              onSubmitEditing={handleSend}
-            />
+          {!aiAllowed && (
             <Pressable
-              onPress={handleSend}
-              disabled={sending || !input.trim()}
-              style={({ pressed }) => [
-                styles.sendButton,
-                { opacity: sending || !input.trim() ? 0.4 : pressed ? 0.7 : 1 },
-              ]}>
+              onPress={() => router.push('/settings')}
+              style={[styles.consentBanner, { borderColor: theme.border }]}>
               <ThemedText type="smallBold" themeColor="tint">
-                Gönder
+                AI sohbeti kapalı · Ayarlar’dan tercihini değiştirebilirsin
               </ThemedText>
             </Pressable>
-          </ThemedView>
+          )}
+          <ChatComposer
+            value={input}
+            onChangeText={setInput}
+            onSubmit={handleSend}
+            disabled={sending || !aiAllowed}
+          />
         </SafeAreaView>
       </ThemedView>
     </KeyboardAvoidingView>
@@ -195,7 +262,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       style={[
         styles.bubble,
         isUser ? styles.bubbleUser : styles.bubbleAssistant,
-        { backgroundColor: isUser ? theme.tint : theme.backgroundElement },
+        {
+          backgroundColor: isUser ? theme.tint : theme.backgroundElement,
+          borderColor: isUser ? theme.tint : theme.border,
+        },
       ]}>
       <ThemedText style={isUser ? { color: theme.background } : undefined}>
         {message.content}
@@ -210,7 +280,12 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.08,
+    opacity: Texture.backgroundOpacity,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listContent: {
     paddingHorizontal: Spacing.three,
@@ -222,10 +297,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   bubble: {
-    borderRadius: Spacing.three,
+    borderRadius: Radii.large,
+    borderWidth: Texture.cardBorderWidth,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     maxWidth: '85%',
+    ...(Shadows.subtle ?? {}),
   },
   bubbleUser: {
     alignSelf: 'flex-end',
@@ -246,41 +323,19 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   ctaButton: {
-    borderRadius: Spacing.four,
+    borderRadius: Radii.pill,
     paddingVertical: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B3327',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 2,
+    ...(Shadows.soft ?? {}),
   },
   pressed: {
     opacity: 0.8,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: Spacing.two,
+  consentBanner: {
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    paddingBottom: BottomTabInset > 0 ? Spacing.two : Spacing.three,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-    alignSelf: 'center',
-    borderTopLeftRadius: Spacing.four,
-    borderTopRightRadius: Spacing.four,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    maxHeight: 120,
-    paddingVertical: Spacing.two,
-  },
-  sendButton: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    alignItems: 'center',
   },
 });

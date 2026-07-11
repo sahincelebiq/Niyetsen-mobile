@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -14,7 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BottomTabInset, MaxContentWidth, Radii, Shadows, Spacing, Texture,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getCurrentPlan, Plan, PlanDay } from '@/lib/api';
 
@@ -68,14 +71,21 @@ export default function PlanScreen() {
   });
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
-      }>
-      <ThemedView style={styles.container}>
+    <ThemedView style={styles.scrollView}>
+      <Image
+        source={require('@/assets/images/chat-mystic-bg.png')}
+        style={styles.backgroundImage}
+        contentFit="cover"
+        pointerEvents="none"
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+        }>
+        <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
           <ThemedText type="subtitle">Planım</ThemedText>
         </ThemedView>
@@ -119,12 +129,14 @@ export default function PlanScreen() {
             ))}
           </ThemedView>
         )}
-      </ThemedView>
-    </ScrollView>
+        </ThemedView>
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 function DaySection({ day }: { day: PlanDay }) {
+  const theme = useTheme();
   return (
     <ThemedView style={styles.daySection}>
       <ThemedText type="smallBold">
@@ -133,7 +145,10 @@ function DaySection({ day }: { day: PlanDay }) {
       </ThemedText>
       <ThemedView style={styles.taskList}>
         {day.tasks.map((task) => (
-          <ThemedView key={task.id} type="backgroundElement" style={styles.taskCard}>
+          <ThemedView
+            key={task.id}
+            type="backgroundElement"
+            style={[styles.taskCard, { borderColor: theme.border }]}>
             {!!task.image_url && (
               <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
             )}
@@ -143,6 +158,15 @@ function DaySection({ day }: { day: PlanDay }) {
                 <ThemedText type="small" themeColor="textSecondary">
                   En küçük halka: {task.tiny_version}
                 </ThemedText>
+              )}
+              {!!task.image_attribution && (
+                <Pressable
+                  disabled={!task.image_attribution_url}
+                  onPress={() => void Linking.openURL(task.image_attribution_url)}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {task.image_attribution}
+                  </ThemedText>
+                </Pressable>
               )}
               <ThemedView style={styles.tagRow}>
                 {task.categories.map((c) => (
@@ -164,6 +188,10 @@ function DaySection({ day }: { day: PlanDay }) {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: Texture.backgroundOpacity * 0.7,
   },
   contentContainer: {
     flexDirection: 'row',
@@ -197,14 +225,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.five,
   },
   ctaButton: {
-    borderRadius: Spacing.four,
+    borderRadius: Radii.pill,
     paddingVertical: Spacing.three,
     paddingHorizontal: Spacing.five,
-    shadowColor: '#3B3327',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 2,
+    ...(Shadows.soft ?? {}),
   },
   pressed: {
     opacity: 0.8,
@@ -221,13 +245,10 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   taskCard: {
-    borderRadius: Spacing.three,
+    borderRadius: Radii.large,
+    borderWidth: Texture.cardBorderWidth,
     overflow: 'hidden',
-    shadowColor: '#3B3327',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 1,
+    ...(Shadows.subtle ?? {}),
   },
   taskImage: {
     width: '100%',
