@@ -21,6 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { updateConsent, updateProfile } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 import { useProfile } from '@/providers/profile-provider';
 
 const STEP_TITLES = [
@@ -91,6 +92,7 @@ export function OnboardingScreen() {
         marketing_communications: { accepted: consents.marketing },
       });
       await refresh();
+      void trackEvent('onboarding_complete');
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Profil kaydedilemedi.');
     } finally {

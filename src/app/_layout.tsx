@@ -23,6 +23,7 @@ import AppTabs from '@/components/app-tabs';
 import { AuthScreen } from '@/components/auth-screen';
 import { ConsentGate } from '@/components/consent-gate';
 import { OnboardingScreen } from '@/components/onboarding-screen';
+import { SubscriptionGate } from '@/components/subscription-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,8 +31,10 @@ import {
   addNotificationResponseListener,
   openLastNotificationResponse,
 } from '@/lib/push-notifications';
+import { trackEvent } from '@/lib/analytics';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { ProfileProvider, useProfile } from '@/providers/profile-provider';
+import { SubscriptionProvider } from '@/providers/subscription-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -107,8 +110,12 @@ function ProfileGate() {
   }
   return profile?.onboarding_complete ? (
     <ConsentGate>
-      <NotificationRouter />
-      <AppTabs />
+      <SubscriptionProvider>
+        <SubscriptionGate>
+          <NotificationRouter />
+          <AppTabs />
+        </SubscriptionGate>
+      </SubscriptionProvider>
     </ConsentGate>
   ) : (
     <OnboardingScreen />
@@ -119,6 +126,7 @@ function NotificationRouter() {
   const router = useRouter();
 
   useEffect(() => {
+    void trackEvent('app_open');
     void openLastNotificationResponse(router);
     const subscription = addNotificationResponseListener(router);
     return () => subscription?.remove();

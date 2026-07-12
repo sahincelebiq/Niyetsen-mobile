@@ -33,8 +33,10 @@ import {
   generatePlan,
   generateMessageId,
   getChatSession,
+  isPaywallError,
   sendChatMessage,
 } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -126,12 +128,16 @@ export default function ChatScreen() {
         setReadyForPlan(res.ready_for_plan);
         scrollToEnd();
       } catch (e) {
+        if (isPaywallError(e)) {
+          router.push('/paywall');
+          return;
+        }
         setError(e instanceof ApiError ? e.message : 'Beklenmeyen bir hata oluştu.');
       } finally {
         setSending(false);
       }
     },
-    [collected, scrollToEnd],
+    [collected, router, scrollToEnd],
   );
 
   const handleSend = useCallback(() => {
@@ -161,8 +167,13 @@ export default function ChatScreen() {
     setLastAction('generate');
     try {
       await generatePlan(collected, 7);
+      void trackEvent('first_plan_generated');
       router.push('/explore');
     } catch (e) {
+      if (isPaywallError(e)) {
+        router.push('/paywall');
+        return;
+      }
       setError(e instanceof ApiError ? e.message : 'Plan oluşturulamadı, tekrar dener misin?');
     } finally {
       setGeneratingPlan(false);

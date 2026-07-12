@@ -43,6 +43,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="bonus" hidden />
+      <NativeTabs.Trigger name="paywall" hidden />
     </NativeTabs>
   );
 }

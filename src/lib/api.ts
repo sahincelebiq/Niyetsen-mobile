@@ -24,10 +24,16 @@ function getBaseUrl(): string {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
+}
+
+export function isPaywallError(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 402 || error.code === 'paywall_required');
 }
 
 export function generateMessageId(): string {
@@ -64,13 +70,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     let detail = 'Şu an yıldızlara ulaşamıyorum, birazdan tekrar dener misin? ✨';
+    let code: string | undefined;
     try {
       const body = await res.json();
-      if (body?.detail) detail = body.detail;
+      if (body?.detail) {
+        if (typeof body.detail === 'string') {
+          detail = body.detail;
+        } else if (typeof body.detail === 'object') {
+          detail = body.detail.message ?? detail;
+          code = body.detail.code;
+        }
+      }
     } catch {
       // yanıt JSON değilse varsayılan mesaj kalır
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail, code);
   }
 
   if (res.status === 204) return undefined as T;
@@ -161,6 +175,16 @@ export type UserProfile = {
   irade_modu_active: boolean;
   kvkk_consent_at: string | null;
   onboarding_complete: boolean;
+};
+
+export type SubscriptionStatus = 'free' | 'trial' | 'active' | 'expired' | 'cancelled';
+
+export type SubscriptionInfo = {
+  status: SubscriptionStatus;
+  trial_started_at: string | null;
+  trial_days_remaining: number;
+  has_premium_access: boolean;
+  show_paywall: boolean;
 };
 
 export type ProfileUpdate = {
@@ -286,6 +310,10 @@ export function getChatSession(): Promise<ChatSession> {
 
 export function getProfile(): Promise<UserProfile> {
   return request<UserProfile>('/me/profile');
+}
+
+export function getSubscription(): Promise<SubscriptionInfo> {
+  return request<SubscriptionInfo>('/me/subscription');
 }
 
 export function updateProfile(profile: ProfileUpdate): Promise<UserProfile> {
