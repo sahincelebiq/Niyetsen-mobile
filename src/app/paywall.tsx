@@ -67,7 +67,7 @@ export default function PaywallScreen() {
           <ThemedView style={styles.hero}>
             <ThemedText type="title">Zincirin seni bekliyor</ThemedText>
             <ThemedText themeColor="textSecondary">
-              Planın hazır, ritmin başladı. 3 günlük denemen bitti — devam etmek için
+              Planın hazır, ritmin başladı. 7 günlük denemen bitti — devam etmek için
               aboneliğini seç. Verilerin silinmez; yalnızca erişim kilitlenir.
             </ThemedText>
             {status?.trial_days_remaining === 0 && status.status === 'trial' ? (

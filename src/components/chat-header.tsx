@@ -22,7 +22,7 @@ export function ChatHeader({
     trialDaysRemaining <= 7;
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.titleRow}>
         {onOpenHistory ? (
           <Pressable
@@ -59,7 +59,7 @@ export function ChatHeader({
           </ThemedText>
         </ThemedView>
       ) : null}
-    </ThemedView>
+    </View>
   );
 }
 

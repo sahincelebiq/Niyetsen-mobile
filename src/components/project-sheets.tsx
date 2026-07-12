@@ -22,18 +22,22 @@ import {
   PlanSummary,
   renameProject,
   startNewProject,
+  type SubscriptionInfo,
 } from '@/lib/api';
+import { needsPaidPlanForSecondProject } from '@/lib/project-access';
 
 type ChatHistorySheetProps = {
   visible: boolean;
   onClose: () => void;
   onProjectChanged: () => void;
+  subscriptionStatus?: SubscriptionInfo | null;
 };
 
 export function ChatHistorySheet({
   visible,
   onClose,
   onProjectChanged,
+  subscriptionStatus,
 }: ChatHistorySheetProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -72,7 +76,13 @@ export function ChatHistorySheet({
   }
 
   async function handleNewProject() {
+    if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
+      onClose();
+      router.push('/paywall');
+      return;
+    }
     setBusyId('new');
+    setError(null);
     try {
       await startNewProject();
       onProjectChanged();
@@ -83,7 +93,11 @@ export function ChatHistorySheet({
         router.push('/paywall');
         return;
       }
-      setError(e instanceof ApiError ? e.message : 'Yeni niyet başlatılamadı.');
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : 'Yeni niyet başlatılamadı. Birazdan tekrar dener misin?',
+      );
     } finally {
       setBusyId(null);
     }
@@ -158,9 +172,15 @@ type PlanPickerSheetProps = {
   visible: boolean;
   onClose: () => void;
   onPlanChanged: () => void;
+  subscriptionStatus?: SubscriptionInfo | null;
 };
 
-export function PlanPickerSheet({ visible, onClose, onPlanChanged }: PlanPickerSheetProps) {
+export function PlanPickerSheet({
+  visible,
+  onClose,
+  onPlanChanged,
+  subscriptionStatus,
+}: PlanPickerSheetProps) {
   const theme = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<PlanSummary[]>([]);
@@ -216,7 +236,13 @@ export function PlanPickerSheet({ visible, onClose, onPlanChanged }: PlanPickerS
   }
 
   async function handleNewPlan() {
+    if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
+      onClose();
+      router.push('/paywall');
+      return;
+    }
     setBusyId('new');
+    setError(null);
     try {
       await startNewProject();
       onPlanChanged();
@@ -228,7 +254,11 @@ export function PlanPickerSheet({ visible, onClose, onPlanChanged }: PlanPickerS
         router.push('/paywall');
         return;
       }
-      setError(e instanceof ApiError ? e.message : 'Yeni plan başlatılamadı.');
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : 'Yeni plan başlatılamadı. Birazdan tekrar dener misin?',
+      );
     } finally {
       setBusyId(null);
     }

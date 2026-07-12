@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,8 +12,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { AssistantMessage } from '@/components/assistant-message';
+import { ChatMessageBody } from '@/components/chat-message-body';
+import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
+import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
+import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
 import { ErrorBanner } from '@/components/error-banner';
-import { ChatComposer } from '@/components/chat-composer';
 import { ChatHeader } from '@/components/chat-header';
 import { ChatHistorySheet } from '@/components/project-sheets';
 import { useConsentPreferences } from '@/components/consent-gate';
@@ -26,7 +31,6 @@ import {
   Spacing,
   Texture,
 } from '@/constants/theme';
-import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -35,22 +39,39 @@ import {
   EMPTY_COLLECTED,
   generatePlan,
   generateMessageId,
+  getChatGreeting,
   getChatSession,
   getState,
   isPaywallError,
   sendChatMessage,
+  uploadChatAttachment,
 } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
 import { useSubscription } from '@/providers/subscription-provider';
 
-const WELCOME_MESSAGE: ChatMessage = {
+const FALLBACK_WELCOME: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
     'Merhaba 🌙 Ben Niyetsen. Bu yılı nasıl geçirmek istediğini birlikte konuşalım — ' +
     'hangi şehirdesin, neyle vakit geçirmeyi seviyorsun, haftada ne kadar zamanın var?',
 };
+
+async function loadWelcomeMessage(): Promise<ChatMessage> {
+  try {
+    const greeting = await getChatGreeting();
+    return { id: 'welcome', role: 'assistant', content: greeting.message };
+  } catch {
+    return FALLBACK_WELCOME;
+  }
+}
+
+function buildOutgoingText(text: string, attachment: PendingAttachment | null): string {
+  if (!attachment) return text;
+  const header = `[Ek dosya: ${attachment.filename}]\n${attachment.summary}`;
+  return text.trim() ? `${header}\n\n${text.trim()}` : header;
+}
 
 export default function ChatScreen() {
   const theme = useTheme();
@@ -60,35 +81,69 @@ export default function ChatScreen() {
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>([FALLBACK_WELCOME]);
   const [collected, setCollected] = useState<CollectedIntent>(EMPTY_COLLECTED);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [readyForPlan, setReadyForPlan] = useState(false);
+  const [planHasContent, setPlanHasContent] = useState(false);
+  const [activePlanName, setActivePlanName] = useState('Planım');
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<'send' | 'generate' | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const keyboardVisible = useKeyboardVisible();
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+  const [attaching, setAttaching] = useState(false);
 
-  const reloadSession = useCallback(async () => {
-    try {
-      const session = await getChatSession();
+  const scrollToEnd = useCallback(() => {
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }, []);
+
+  const applySession = useCallback(
+    async (session: Awaited<ReturnType<typeof getChatSession>>) => {
       if (session.messages.length > 0) {
         setMessages(session.messages);
       } else {
-        setMessages([WELCOME_MESSAGE]);
+        setMessages([await loadWelcomeMessage()]);
       }
       setCollected(session.collected);
       setReadyForPlan(session.ready_for_plan);
+      setPlanHasContent(session.plan_has_content);
+      setActivePlanName(session.active_plan_name || 'Planım');
       setInput('');
+      setPendingAttachment(null);
       setError(null);
+    },
+    [],
+  );
+
+  const reloadSession = useCallback(async () => {
+    try {
+      await applySession(await getChatSession());
     } catch {
-      setMessages([WELCOME_MESSAGE]);
+      setMessages([await loadWelcomeMessage()]);
     }
-  }, []);
+  }, [applySession]);
+
+  const handleProjectChanged = useCallback(async () => {
+    setLoadingHistory(true);
+    setMessages([]);
+    setCollected(EMPTY_COLLECTED);
+    setReadyForPlan(false);
+    setPlanHasContent(false);
+    setPendingAttachment(null);
+    setError(null);
+    try {
+      await applySession(await getChatSession());
+    } catch {
+      setMessages([await loadWelcomeMessage()]);
+    } finally {
+      setLoadingHistory(false);
+      scrollToEnd();
+    }
+  }, [applySession, scrollToEnd]);
 
   const refreshStreak = useCallback(async () => {
     try {
@@ -99,27 +154,14 @@ export default function ChatScreen() {
     }
   }, []);
 
-  const scrollToEnd = useCallback(() => {
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-  }, []);
-
-  // Faz 2: sohbet artık backend'de kalıcı — uygulama yeniden açılınca / yeni
-  // cihazda kaldığı yerden devam etsin (önceden sadece bu bileşenin local
-  // state'inde yaşıyordu, kapanınca kaybolurdu).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const session = await getChatSession();
-        if (!cancelled) {
-          if (session.messages.length > 0) {
-            setMessages(session.messages);
-          }
-          setCollected(session.collected);
-          setReadyForPlan(session.ready_for_plan);
-        }
+        if (!cancelled) await applySession(session);
       } catch {
-        // Geçmiş yüklenemezse sessizce karşılama mesajıyla devam et.
+        if (!cancelled) setMessages([await loadWelcomeMessage()]);
       } finally {
         if (!cancelled) setLoadingHistory(false);
       }
@@ -127,12 +169,7 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const keyboardOffset = Platform.select({
-    ios: keyboardVisible ? 0 : BottomTabInset + 12,
-    default: 0,
-  });
+  }, [applySession]);
 
   useEffect(() => {
     void refreshStreak();
@@ -170,6 +207,7 @@ export default function ChatScreen() {
         ]);
         setCollected(res.collected);
         setReadyForPlan(res.ready_for_plan);
+        setPendingAttachment(null);
         scrollToEnd();
         void refreshStreak();
       } catch (e) {
@@ -182,7 +220,7 @@ export default function ChatScreen() {
         setSending(false);
       }
     },
-    [collected, refreshStreak, router, scrollToEnd],
+    [collected, planHasContent, refreshStreak, router, scrollToEnd],
   );
 
   const handleSend = useCallback(() => {
@@ -190,8 +228,8 @@ export default function ChatScreen() {
       setError('AI sohbeti rızan kapalı. Ayarlar’dan tercihini değiştirebilirsin.');
       return;
     }
-    const text = input.trim();
-    if (!text || sending) return;
+    const text = buildOutgoingText(input, pendingAttachment);
+    if (!text.trim() || sending) return;
     const nextMessages: ChatMessage[] = [
       ...messages,
       { id: generateMessageId(), role: 'user', content: text },
@@ -200,7 +238,37 @@ export default function ChatScreen() {
     setInput('');
     scrollToEnd();
     void doSend(nextMessages);
-  }, [aiAllowed, doSend, input, messages, scrollToEnd, sending]);
+  }, [aiAllowed, doSend, input, messages, pendingAttachment, scrollToEnd, sending]);
+
+  const handleAttach = useCallback(async () => {
+    if (!aiAllowed || attaching) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: [
+          'image/png',
+          'image/jpeg',
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setAttaching(true);
+      setError(null);
+      const ingested = await uploadChatAttachment(
+        asset.uri,
+        asset.name ?? 'ek',
+        asset.mimeType ?? 'application/octet-stream',
+      );
+      setPendingAttachment(ingested);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Dosya okunamadı.');
+    } finally {
+      setAttaching(false);
+    }
+  }, [aiAllowed, attaching]);
 
   const handleGeneratePlan = useCallback(async () => {
     if (!aiAllowed) {
@@ -211,8 +279,11 @@ export default function ChatScreen() {
     setError(null);
     setLastAction('generate');
     try {
-      await generatePlan(collected, 7);
+      const days = collected.duration_days ?? 7;
+      await generatePlan(collected, days);
       void trackEvent('first_plan_generated');
+      setPlanHasContent(true);
+      setReadyForPlan(false);
       router.push('/explore');
     } catch (e) {
       if (isPaywallError(e)) {
@@ -233,75 +304,95 @@ export default function ChatScreen() {
     }
   }, [doSend, handleGeneratePlan, lastAction, messages]);
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.select({ ios: 'padding', default: undefined })}
-      keyboardVerticalOffset={keyboardOffset}>
-      <ThemedView style={styles.flex}>
-        <Image
-          source={require('@/assets/images/chat-mystic-bg.png')}
-          style={styles.backgroundImage}
-          contentFit="cover"
-          pointerEvents="none"
-        />
-        <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-          {loadingHistory ? (
-            <ThemedView style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.textSecondary} />
-            </ThemedView>
-          ) : (
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            onContentSizeChange={scrollToEnd}
-            ListHeaderComponent={
-              <ChatHeader
-                streakDays={streakDays}
-                trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
-                onOpenHistory={() => setHistoryOpen(true)}
-              />
-            }
-            renderItem={({ item }) => <MessageBubble message={item} />}
-            ListFooterComponent={
-              <ThemedView style={styles.footerGap}>
-                {sending && (
-                  <ThemedView style={styles.typingRow}>
-                    <ActivityIndicator size="small" color={theme.textSecondary} />
-                    <ThemedText type="small" themeColor="textSecondary">
-                      yazıyor…
-                    </ThemedText>
-                  </ThemedView>
-                )}
-                {error && (
-                  <ErrorBanner message={error} onRetry={handleRetry} retrying={sending || generatingPlan} />
-                )}
-                {readyForPlan && !error && (
-                  <Pressable
-                    onPress={handleGeneratePlan}
-                    disabled={generatingPlan}
-                    style={({ pressed }) => [
-                      styles.ctaButton,
-                      { backgroundColor: theme.tint },
-                      pressed && styles.pressed,
-                    ]}>
-                    {generatingPlan ? (
-                      <ActivityIndicator size="small" color={theme.background} />
-                    ) : (
-                      <ThemedText style={{ color: theme.background }} type="smallBold">
-                        Planını Oluştur ✨
-                      </ThemedText>
-                    )}
-                  </Pressable>
-                )}
-              </ThemedView>
-            }
-          />
-          )}
+  const showPlanCta = readyForPlan && !planHasContent && !error;
 
-          {!aiAllowed && (
+  return (
+    <ThemedView style={[styles.flex, { backgroundColor: theme.background }]}>
+      <Image
+        source={require('@/assets/images/chat-mystic-bg.png')}
+        style={styles.backgroundImage}
+        contentFit="cover"
+        pointerEvents="none"
+      />
+      <SafeAreaView
+        style={[styles.flex, { backgroundColor: theme.background }]}
+        edges={['top', 'left', 'right']}>
+        <ChatHeader
+          streakDays={streakDays}
+          trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
+          onOpenHistory={() => setHistoryOpen(true)}
+        />
+        {activePlanName !== 'Planım' ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
+            Aktif niyet: {activePlanName}
+          </ThemedText>
+        ) : null}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? BottomTabInset : 0}>
+          <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
+            {loadingHistory ? (
+              <ThemedView style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.textSecondary} />
+              </ThemedView>
+            ) : (
+              <FlatList
+                ref={listRef}
+                style={styles.list}
+                data={messages}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                renderItem={({ item }) =>
+                  item.role === 'user' ? (
+                    <UserBubble content={item.content} />
+                  ) : (
+                    <AssistantMessage content={item.content} />
+                  )
+                }
+                ListFooterComponent={
+                  <ThemedView style={styles.footerGap}>
+                    {sending ? <ChainThinkingIndicator /> : null}
+                    {error ? (
+                      <ErrorBanner
+                        message={error}
+                        onRetry={handleRetry}
+                        retrying={sending || generatingPlan}
+                      />
+                    ) : null}
+                    {showPlanCta ? (
+                      <Pressable
+                        onPress={handleGeneratePlan}
+                        disabled={generatingPlan}
+                        style={({ pressed }) => [
+                          styles.ctaButton,
+                          { backgroundColor: theme.tint },
+                          pressed && styles.pressed,
+                        ]}>
+                        {generatingPlan ? (
+                          <ActivityIndicator size="small" color={theme.background} />
+                        ) : (
+                          <ThemedText style={{ color: theme.background }} type="smallBold">
+                            Planını Oluştur ✨
+                          </ThemedText>
+                        )}
+                      </Pressable>
+                    ) : null}
+                    {planHasContent ? (
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
+                        Bu niyetin planı hazır. Yeni kapsamlı plan için ☰ menüden Yeni Niyet Başlat.
+                      </ThemedText>
+                    ) : null}
+                  </ThemedView>
+                }
+              />
+            )}
+          </ChatEdgeDrawer>
+
+          {!aiAllowed ? (
             <Pressable
               onPress={() => router.push('/settings')}
               style={[styles.consentBanner, { borderColor: theme.border }]}>
@@ -309,43 +400,41 @@ export default function ChatScreen() {
                 AI sohbeti kapalı · Ayarlar’dan tercihini değiştirebilirsin
               </ThemedText>
             </Pressable>
-          )}
+          ) : null}
           <ChatComposer
             value={input}
             onChangeText={setInput}
             onSubmit={handleSend}
             disabled={sending || !aiAllowed}
+            pendingAttachment={pendingAttachment}
+            onAttach={() => void handleAttach()}
+            onClearAttachment={() => setPendingAttachment(null)}
+            attaching={attaching}
           />
-          <ChatHistorySheet
-            visible={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-            onProjectChanged={() => {
-              setLoadingHistory(true);
-              void reloadSession().finally(() => setLoadingHistory(false));
-            }}
-          />
-        </SafeAreaView>
-      </ThemedView>
-    </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+        <ChatHistorySheet
+          visible={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          subscriptionStatus={subscriptionStatus}
+          onProjectChanged={() => void handleProjectChanged()}
+        />
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function UserBubble({ content }: { content: string }) {
   const theme = useTheme();
-  const isUser = message.role === 'user';
   return (
     <ThemedView
       style={[
-        styles.bubble,
-        isUser ? styles.bubbleUser : styles.bubbleAssistant,
+        styles.bubbleUser,
         {
-          backgroundColor: isUser ? theme.accentWarm : theme.background,
-          borderColor: isUser ? theme.accentWarm : theme.border,
+          backgroundColor: theme.accentWarm,
+          borderColor: theme.accentWarm,
         },
       ]}>
-      <ThemedText style={isUser ? { color: theme.background } : undefined}>
-        {message.content}
-      </ThemedText>
+      <ChatMessageBody content={content} color={theme.background} />
     </ThemedView>
   );
 }
@@ -363,40 +452,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  list: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   listContent: {
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.five,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
   },
-  bubble: {
+  bubbleUser: {
+    alignSelf: 'flex-end',
     borderRadius: Radii.large,
+    borderBottomRightRadius: Spacing.half,
     borderWidth: Texture.cardBorderWidth,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     maxWidth: '85%',
     ...(Shadows.subtle ?? {}),
   },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: Spacing.half,
-  },
-  bubbleAssistant: {
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: Spacing.half,
-  },
   footerGap: {
     gap: Spacing.three,
     marginTop: Spacing.two,
-  },
-  typingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    alignSelf: 'flex-start',
   },
   ctaButton: {
     borderRadius: Radii.pill,
@@ -413,5 +494,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     alignItems: 'center',
+  },
+  planHint: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.one,
+    textAlign: 'center',
   },
 });

@@ -126,6 +126,18 @@ export type ChatSession = {
   messages: ChatMessage[];
   collected: CollectedIntent;
   ready_for_plan: boolean;
+  plan_has_content: boolean;
+  active_plan_name: string;
+};
+
+export type ChatGreeting = {
+  message: string;
+};
+
+export type AttachmentIngest = {
+  filename: string;
+  summary: string;
+  mime_type: string;
 };
 
 export const CATEGORIES = [
@@ -332,6 +344,30 @@ export async function getCurrentPlan(): Promise<Plan | null> {
  */
 export function getChatSession(): Promise<ChatSession> {
   return request<ChatSession>('/chat/session');
+}
+
+/** Boş sohbet veya yeni niyet başlangıcında saat/isim bazlı karşılama metni. */
+export function getChatGreeting(): Promise<ChatGreeting> {
+  return request<ChatGreeting>('/chat/greeting');
+}
+
+export async function uploadChatAttachment(
+  uri: string,
+  filename: string,
+  mimeType: string,
+): Promise<AttachmentIngest> {
+  const body = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await fetch(uri).then((response) => response.blob());
+    body.append('file', blob, filename);
+  } else {
+    body.append('file', {
+      uri,
+      name: filename,
+      type: mimeType,
+    } as unknown as Blob);
+  }
+  return request<AttachmentIngest>('/chat/attachment', { method: 'POST', body });
 }
 
 export function listProjects(): Promise<PlanSummary[]> {

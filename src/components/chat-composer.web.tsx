@@ -50,7 +50,7 @@ export function ChatComposer({
         value={value}
         onChangeText={onChangeText}
         onKeyPress={handleKeyPress}
-        placeholder="Mesajını yaz…"
+        placeholder="Niyetini yaz…"
         placeholderTextColor={theme.textSecondary}
         style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
         multiline

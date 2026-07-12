@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -59,7 +60,12 @@ export default function RankScreen() {
           }
           contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <ThemedText type="title">Rütbem</ThemedText>
+            <View style={styles.headerTop}>
+              <ThemedText type="screenTitle">Rütbem</ThemedText>
+              {state && !loading ? (
+                <StreakPill streakDays={state.streak_len} />
+              ) : null}
+            </View>
             <ThemedText themeColor="textSecondary">
               Her tamamlanan halka, kimliğinin bir yönünü güçlendirir.
             </ThemedText>
@@ -148,6 +154,12 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   header: { gap: Spacing.one, paddingVertical: Spacing.two },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
   hero: {
     borderWidth: Texture.cardBorderWidth,
     borderRadius: Radii.large,

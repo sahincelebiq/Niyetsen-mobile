@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   Fraunces_500Medium,
   Fraunces_500Medium_Italic,
@@ -54,6 +55,7 @@ export default function TabLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <GestureHandlerRootView style={styles.root}>
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       {pathname.startsWith('/legal/') ? (
@@ -64,6 +66,7 @@ export default function TabLayout() {
         </AuthProvider>
       )}
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -136,6 +139,9 @@ function NotificationRouter() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loading: {
     flex: 1,
     alignItems: 'center',

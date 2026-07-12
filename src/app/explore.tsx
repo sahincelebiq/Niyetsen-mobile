@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -21,8 +22,10 @@ import {
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getCurrentPlan, listProjects, Plan, PlanDay } from '@/lib/api';
+import { useSubscription } from '@/providers/subscription-provider';
 
 export default function PlanScreen() {
+  const { status: subscriptionStatus } = useSubscription();
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
@@ -146,6 +149,7 @@ export default function PlanScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onPlanChanged={() => void load()}
+        subscriptionStatus={subscriptionStatus}
       />
     </ThemedView>
   );
@@ -166,7 +170,35 @@ function DaySection({ day }: { day: PlanDay }) {
             type="backgroundElement"
             style={[styles.taskCard, { borderColor: theme.border }]}>
             {!!task.image_url && (
-              <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+              <ThemedView style={styles.imageWrapper}>
+                <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+                {!!task.image_attribution && (
+                  <Pressable
+                    accessibilityLabel="Fotoğraf atfı"
+                    accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+                    hitSlop={8}
+                    onLongPress={() => {
+                      Alert.alert(
+                        'Fotoğraf atfı',
+                        task.image_attribution,
+                        task.image_attribution_url
+                          ? [
+                              { text: 'Kapat', style: 'cancel' },
+                              {
+                                text: 'Unsplash’ta aç',
+                                onPress: () => void Linking.openURL(task.image_attribution_url),
+                              },
+                            ]
+                          : [{ text: 'Kapat', style: 'cancel' }],
+                      );
+                    }}
+                    style={styles.attributionBadge}>
+                    <ThemedText type="smallBold" style={styles.attributionIcon}>
+                      ⓘ
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </ThemedView>
             )}
             <ThemedView style={styles.taskInfo}>
               <ThemedText type="default">{task.title}</ThemedText>
@@ -174,15 +206,6 @@ function DaySection({ day }: { day: PlanDay }) {
                 <ThemedText type="small" themeColor="textSecondary">
                   En küçük halka: {task.tiny_version}
                 </ThemedText>
-              )}
-              {!!task.image_attribution && (
-                <Pressable
-                  disabled={!task.image_attribution_url}
-                  onPress={() => void Linking.openURL(task.image_attribution_url)}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {task.image_attribution}
-                  </ThemedText>
-                </Pressable>
               )}
               <ThemedView style={styles.tagRow}>
                 {task.categories.map((c) => (
@@ -269,6 +292,25 @@ const styles = StyleSheet.create({
   taskImage: {
     width: '100%',
     aspectRatio: 16 / 9,
+  },
+  imageWrapper: {
+    position: 'relative',
+  },
+  attributionBadge: {
+    position: 'absolute',
+    right: Spacing.two,
+    bottom: Spacing.two,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  attributionIcon: {
+    color: '#fff',
+    fontSize: 14,
+    lineHeight: 16,
   },
   taskInfo: {
     padding: Spacing.three,

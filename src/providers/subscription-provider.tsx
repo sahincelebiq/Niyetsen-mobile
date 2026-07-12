@@ -2,7 +2,12 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from 'react';
 
-import { getSubscription, type SubscriptionInfo } from '@/lib/api';
+import {
+  ApiError,
+  DEFAULT_SUBSCRIPTION,
+  getSubscription,
+  type SubscriptionInfo,
+} from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 
 type SubscriptionContextValue = {
@@ -13,6 +18,12 @@ type SubscriptionContextValue = {
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
+
+function shouldUseFallback(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  // Eski Railway build'de /me/subscription yok → 404 Not Found
+  return error.status === 404 || error.status === 0 || error.status >= 500;
+}
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<SubscriptionInfo | null>(null);
@@ -29,6 +40,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         void trackEvent('paywall_shown', { status: next.status });
       }
     } catch (value) {
+      if (shouldUseFallback(value)) {
+        setStatus(DEFAULT_SUBSCRIPTION);
+        return;
+      }
       setError(
         value instanceof Error ? value.message : 'Abonelik durumu yüklenemedi.',
       );
