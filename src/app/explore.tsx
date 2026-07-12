@@ -13,13 +13,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { PlanPickerSheet } from '@/components/project-sheets';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset, MaxContentWidth, Radii, Shadows, Spacing, Texture,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError, getCurrentPlan, Plan, PlanDay } from '@/lib/api';
+import { ApiError, getCurrentPlan, listProjects, Plan, PlanDay } from '@/lib/api';
 
 export default function PlanScreen() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -31,6 +32,8 @@ export default function PlanScreen() {
   const router = useRouter();
 
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [planTitle, setPlanTitle] = useState('Planım');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +43,10 @@ export default function PlanScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const result = await getCurrentPlan();
+      const [result, projects] = await Promise.all([getCurrentPlan(), listProjects()]);
       setPlan(result);
+      const active = projects.find((item) => item.is_active);
+      setPlanTitle(active?.name ?? result?.name ?? 'Planım');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
     } finally {
@@ -86,9 +91,15 @@ export default function PlanScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
         }>
         <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Planım</ThemedText>
-        </ThemedView>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setPickerOpen(true)}
+          style={({ pressed }) => [styles.titleContainer, pressed && styles.pressed]}>
+          <ThemedText type="subtitle">{planTitle}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Plan değiştir
+          </ThemedText>
+        </Pressable>
 
         {loading && (
           <ThemedView style={styles.centerBlock}>
@@ -131,6 +142,11 @@ export default function PlanScreen() {
         )}
         </ThemedView>
       </ScrollView>
+      <PlanPickerSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPlanChanged={() => void load()}
+      />
     </ThemedView>
   );
 }

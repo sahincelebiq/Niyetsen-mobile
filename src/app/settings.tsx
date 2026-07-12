@@ -13,12 +13,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BirthDateField } from '@/components/birth-date-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAccount, updateProfile } from '@/lib/api';
+import {
+  birthDateDisplayFromIso,
+  birthDateIsoFromDisplay,
+} from '@/lib/birth-date';
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -48,7 +53,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     setName(profile?.name ?? '');
-    setBirthDate(profile?.birth_date ?? '');
+    setBirthDate(birthDateDisplayFromIso(profile?.birth_date));
     setNotifHour(String(profile?.notif_hour ?? 8));
     setIradeMode(profile?.irade_modu_active ?? false);
   }, [profile]);
@@ -76,9 +81,15 @@ export default function SettingsScreen() {
     setError(null);
     setMessage(null);
     try {
+      const isoBirthDate = birthDateIsoFromDisplay(birthDate);
+      if (!isoBirthDate) {
+        setError('Doğum tarihini gün.ay.yıl olarak gir (ör. 10.04.1995).');
+        setBusy(null);
+        return;
+      }
       await updateProfile({
         name: name.trim(),
-        birth_date: birthDate,
+        birth_date: isoBirthDate,
         timezone: profile.timezone,
         notif_hour: Number(notifHour),
         irade_modu_active: iradeMode,
@@ -180,12 +191,10 @@ export default function SettingsScreen() {
             style={[styles.card, { borderColor: theme.border }]}>
             <ThemedText type="subtitle">Profil</ThemedText>
             <Field label="İsim" value={name} onChangeText={setName} />
-            <Field
-              label="Doğum tarihi"
-              value={birthDate}
-              onChangeText={setBirthDate}
-              keyboardType="numbers-and-punctuation"
-            />
+            <View style={styles.field}>
+              <ThemedText type="smallBold">Doğum tarihi</ThemedText>
+              <BirthDateField value={birthDate} onChangeText={setBirthDate} />
+            </View>
             <Field
               label="Bildirim saati (0–23)"
               value={notifHour}

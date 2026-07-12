@@ -13,6 +13,8 @@ import { useRouter } from 'expo-router';
 
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatComposer } from '@/components/chat-composer';
+import { ChatHeader } from '@/components/chat-header';
+import { ChatHistorySheet } from '@/components/project-sheets';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -24,6 +26,7 @@ import {
   Spacing,
   Texture,
 } from '@/constants/theme';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -33,11 +36,13 @@ import {
   generatePlan,
   generateMessageId,
   getChatSession,
+  getState,
   isPaywallError,
   sendChatMessage,
 } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
+import { useSubscription } from '@/providers/subscription-provider';
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -51,6 +56,7 @@ export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { status: consentStatus } = useConsentPreferences();
+  const { status: subscriptionStatus } = useSubscription();
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -63,6 +69,35 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<'send' | 'generate' | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [streakDays, setStreakDays] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const keyboardVisible = useKeyboardVisible();
+
+  const reloadSession = useCallback(async () => {
+    try {
+      const session = await getChatSession();
+      if (session.messages.length > 0) {
+        setMessages(session.messages);
+      } else {
+        setMessages([WELCOME_MESSAGE]);
+      }
+      setCollected(session.collected);
+      setReadyForPlan(session.ready_for_plan);
+      setInput('');
+      setError(null);
+    } catch {
+      setMessages([WELCOME_MESSAGE]);
+    }
+  }, []);
+
+  const refreshStreak = useCallback(async () => {
+    try {
+      const state = await getState();
+      setStreakDays(state.streak_len);
+    } catch {
+      // Zincir bilgisi yüklenemezse sohbet akışı devam eder.
+    }
+  }, []);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -93,6 +128,15 @@ export default function ChatScreen() {
       cancelled = true;
     };
   }, []);
+
+  const keyboardOffset = Platform.select({
+    ios: keyboardVisible ? 0 : BottomTabInset + 12,
+    default: 0,
+  });
+
+  useEffect(() => {
+    void refreshStreak();
+  }, [refreshStreak]);
 
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {
@@ -127,6 +171,7 @@ export default function ChatScreen() {
         setCollected(res.collected);
         setReadyForPlan(res.ready_for_plan);
         scrollToEnd();
+        void refreshStreak();
       } catch (e) {
         if (isPaywallError(e)) {
           router.push('/paywall');
@@ -137,7 +182,7 @@ export default function ChatScreen() {
         setSending(false);
       }
     },
-    [collected, router, scrollToEnd],
+    [collected, refreshStreak, router, scrollToEnd],
   );
 
   const handleSend = useCallback(() => {
@@ -192,7 +237,7 @@ export default function ChatScreen() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.select({ ios: 'padding', default: undefined })}
-      keyboardVerticalOffset={Platform.select({ ios: BottomTabInset + 12, default: 0 })}>
+      keyboardVerticalOffset={keyboardOffset}>
       <ThemedView style={styles.flex}>
         <Image
           source={require('@/assets/images/chat-mystic-bg.png')}
@@ -212,6 +257,13 @@ export default function ChatScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             onContentSizeChange={scrollToEnd}
+            ListHeaderComponent={
+              <ChatHeader
+                streakDays={streakDays}
+                trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
+                onOpenHistory={() => setHistoryOpen(true)}
+              />
+            }
             renderItem={({ item }) => <MessageBubble message={item} />}
             ListFooterComponent={
               <ThemedView style={styles.footerGap}>
@@ -264,6 +316,14 @@ export default function ChatScreen() {
             onSubmit={handleSend}
             disabled={sending || !aiAllowed}
           />
+          <ChatHistorySheet
+            visible={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            onProjectChanged={() => {
+              setLoadingHistory(true);
+              void reloadSession().finally(() => setLoadingHistory(false));
+            }}
+          />
         </SafeAreaView>
       </ThemedView>
     </KeyboardAvoidingView>
@@ -279,8 +339,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         styles.bubble,
         isUser ? styles.bubbleUser : styles.bubbleAssistant,
         {
-          backgroundColor: isUser ? theme.tint : theme.backgroundElement,
-          borderColor: isUser ? theme.tint : theme.border,
+          backgroundColor: isUser ? theme.accentWarm : theme.background,
+          borderColor: isUser ? theme.accentWarm : theme.border,
         },
       ]}>
       <ThemedText style={isUser ? { color: theme.background } : undefined}>

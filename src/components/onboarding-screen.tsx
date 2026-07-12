@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BirthDateField } from '@/components/birth-date-field';
 import {
   ConsentChoices,
   ConsentChoicesValue,
@@ -21,6 +22,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { updateConsent, updateProfile } from '@/lib/api';
+import {
+  birthDateIsoFromDisplay,
+  isValidBirthDateDisplay,
+} from '@/lib/birth-date';
 import { trackEvent } from '@/lib/analytics';
 import { useProfile } from '@/providers/profile-provider';
 
@@ -51,8 +56,8 @@ export function OnboardingScreen() {
 
   function validateCurrent() {
     if (step === 0 && !name.trim()) return 'İsmini yazmalısın.';
-    if (step === 1 && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-      return 'Tarihi YYYY-AA-GG biçiminde yaz.';
+    if (step === 1 && !isValidBirthDateDisplay(birthDate)) {
+      return 'Tarihi gün.ay.yıl olarak yaz (ör. 10.04.1995).';
     }
     const hour = Number(notifHour);
     if (step === 2 && (!Number.isInteger(hour) || hour < 0 || hour > 23)) {
@@ -77,9 +82,15 @@ export function OnboardingScreen() {
     }
     setBusy(true);
     try {
+      const isoBirthDate = birthDateIsoFromDisplay(birthDate);
+      if (!isoBirthDate) {
+        setError('Geçerli bir doğum tarihi gir.');
+        setBusy(false);
+        return;
+      }
       await updateProfile({
         name: name.trim(),
-        birth_date: birthDate,
+        birth_date: isoBirthDate,
         timezone,
         notif_hour: Number(notifHour),
         kvkk_consent: true,
@@ -138,12 +149,7 @@ export function OnboardingScreen() {
                   <ThemedText themeColor="textSecondary">
                     Burcunu otomatik hesaplamak için kullanılır.
                   </ThemedText>
-                  <Field
-                    value={birthDate}
-                    onChangeText={setBirthDate}
-                    placeholder="1995-04-10"
-                    keyboardType="numbers-and-punctuation"
-                  />
+                  <BirthDateField value={birthDate} onChangeText={setBirthDate} />
                 </>
               )}
               {step === 2 && (

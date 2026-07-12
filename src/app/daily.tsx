@@ -30,7 +30,7 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
   excuseTask,
-  getCurrentPlan,
+  getDailyTasks,
   type ProofResult,
   type Task,
   uploadTaskProof,
@@ -44,12 +44,7 @@ import { useProfile } from '@/providers/profile-provider';
 
 type Outcome = { tone: 'success' | 'danger'; message: string };
 
-function localDateKey(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+type DailyTask = Task & { plan_name: string };
 
 export default function DailyTasksScreen() {
   const theme = useTheme();
@@ -58,7 +53,7 @@ export default function DailyTasksScreen() {
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -72,9 +67,8 @@ export default function DailyTasksScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const plan = await getCurrentPlan();
-      const today = localDateKey();
-      setTasks(plan?.days.flatMap((day) => day.tasks).filter((task) => task.date === today) ?? []);
+      const items = await getDailyTasks();
+      setTasks(items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Günlük görevler yüklenemedi.');
     } finally {
@@ -255,6 +249,9 @@ export default function DailyTasksScreen() {
                 style={[styles.card, { borderColor: theme.border }]}>
                 <View style={styles.cardHeader}>
                   <View style={styles.cardTitle}>
+                    <ThemedText type="smallBold" themeColor="accentWarm">
+                      {task.plan_name}
+                    </ThemedText>
                     <ThemedText type="subtitle">{task.title}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {task.duration_min} dk · {task.categories.join(' · ')}

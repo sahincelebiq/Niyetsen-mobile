@@ -164,6 +164,23 @@ export type Plan = {
   batch_generated_until: number;
   start_date: string;
   days: PlanDay[];
+  name?: string;
+  slot_no?: number;
+  is_active?: boolean;
+};
+
+export type PlanSummary = {
+  id: string;
+  name: string;
+  slot_no: number;
+  is_active: boolean;
+  has_content: boolean;
+};
+
+export type DailyTaskItem = {
+  plan_id: string;
+  plan_name: string;
+  task: Task;
 };
 
 export type UserProfile = {
@@ -185,6 +202,15 @@ export type SubscriptionInfo = {
   trial_days_remaining: number;
   has_premium_access: boolean;
   show_paywall: boolean;
+};
+
+/** Backend henüz deploy edilmediyse veya endpoint ulaşılamazsa güvenli varsayılan. */
+export const DEFAULT_SUBSCRIPTION: SubscriptionInfo = {
+  status: 'free',
+  trial_started_at: null,
+  trial_days_remaining: 7,
+  has_premium_access: true,
+  show_paywall: false,
 };
 
 export type ProfileUpdate = {
@@ -306,6 +332,31 @@ export async function getCurrentPlan(): Promise<Plan | null> {
  */
 export function getChatSession(): Promise<ChatSession> {
   return request<ChatSession>('/chat/session');
+}
+
+export function listProjects(): Promise<PlanSummary[]> {
+  return request<PlanSummary[]>('/projects');
+}
+
+export function startNewProject(): Promise<PlanSummary> {
+  return request<PlanSummary>('/projects/new', { method: 'POST' });
+}
+
+export function activateProject(planId: string): Promise<PlanSummary> {
+  return request<PlanSummary>(`/projects/${encodeURIComponent(planId)}/activate`, {
+    method: 'PUT',
+  });
+}
+
+export function renameProject(planId: string, name: string): Promise<PlanSummary> {
+  return request<PlanSummary>(`/projects/${encodeURIComponent(planId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function getDailyTasks(): Promise<DailyTaskItem[]> {
+  return request<DailyTaskItem[]>('/tasks/daily');
 }
 
 export function getProfile(): Promise<UserProfile> {
