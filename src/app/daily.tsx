@@ -1,16 +1,17 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
+  type ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,13 +24,11 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset,
   MaxContentWidth,
   Radii,
-  Shadows,
   Spacing,
-  Texture,
 } from '@/constants/theme';
+import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -65,6 +64,8 @@ export default function DailyTasksScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const screenInsets = useScreenInsets();
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -111,13 +112,16 @@ export default function DailyTasksScreen() {
     const permission = cameraPermission?.granted
       ? cameraPermission
       : await requestCameraPermission();
-    if (!permission.granted) {
+    if (!permission?.granted) {
       setOutcome(task.id, {
         tone: 'danger',
-        message: 'Kamera izni olmadan kanıt çekilemez. Görev ve mazeret seçenekleri kullanılabilir.',
+        message: permission?.canAskAgain === false
+          ? 'Kamera izni kapalı. Cihaz ayarlarından Niyetsen için kamerayı açabilirsin.'
+          : 'Kamera izni olmadan kanıt çekilemez. Görev ve mazeret seçenekleri kullanılabilir.',
       });
       return;
     }
+    setCameraError(null);
     setCameraReady(false);
     setCameraTask(task);
   }
@@ -137,7 +141,12 @@ export default function DailyTasksScreen() {
       setCameraTask(null);
       setOutcome(task.id, {
         tone: 'danger',
-        message: value instanceof Error ? value.message : 'Kanıt yüklenemedi.',
+        message:
+          value instanceof ApiError
+            ? value.message
+            : value instanceof Error
+              ? value.message
+              : 'Kanıt yüklenemedi.',
       });
     } finally {
       setBusy(null);
@@ -200,130 +209,117 @@ export default function DailyTasksScreen() {
     }
   }
 
+  const renderTask = useCallback<ListRenderItem<DailyTask>>(
+    ({ item: task }) => (
+      <TaskCard
+        task={task}
+        outcome={outcomes[task.id]}
+        busy={busy}
+        iradeActive={!!profile?.irade_modu_active}
+        onOpenCamera={() => void openCamera(task)}
+        onExcuse={() => confirmExcuse(task)}
+        onDeviceAction={(action) => void runDeviceAction(task, action)}
+      />
+    ),
+    [busy, outcomes, profile?.irade_modu_active],
+  );
+
+  const listHeader = (
+    <View style={styles.headerBlock}>
+      <ScreenHeader
+        title={Copy.daily.title}
+        subtitle={Copy.daily.subtitle}
+        trailing={
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push('/bonus' as Href)}
+            style={({ pressed }) => [
+              styles.bonusLink,
+              { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
+              Bonus
+            </ThemedText>
+          </Pressable>
+        }
+      />
+      {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
+      {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
+      {!loading && !error && tasks.length === 0 ? (
+        <SurfaceCard>
+          <ThemedText type="subtitle">{Copy.daily.emptyTitle}</ThemedText>
+          <ThemedText themeColor="textSecondary">{Copy.daily.emptyBody}</ThemedText>
+        </SurfaceCard>
+      ) : null}
+    </View>
+  );
+
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-        <ScrollView
+        <FlatList
+          data={tasks}
+          keyExtractor={(task) => task.id}
+          renderItem={renderTask}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: screenInsets.bottom },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
           }
-          contentContainerStyle={styles.content}>
-          <ScreenHeader
-            title={Copy.daily.title}
-            subtitle={Copy.daily.subtitle}
-            trailing={
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => router.push('/bonus' as Href)}
-                style={({ pressed }) => [
-                  styles.bonusLink,
-                  { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
-                ]}>
-                <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
-                  Bonus
-                </ThemedText>
-              </Pressable>
-            }
-          />
-
-          {error && <ErrorBanner message={error} onRetry={() => void load()} />}
-          {loading && <ActivityIndicator color={theme.tint} size="large" />}
-          {!loading && !error && tasks.length === 0 && (
-            <SurfaceCard>
-              <ThemedText type="subtitle">{Copy.daily.emptyTitle}</ThemedText>
-              <ThemedText themeColor="textSecondary">{Copy.daily.emptyBody}</ThemedText>
-            </SurfaceCard>
-          )}
-
-          {tasks.map((task) => {
-            const outcome = outcomes[task.id];
-            const pending = task.status === 'pending';
-            const willpowerTask = supportsWillpowerReminder(task);
-            return (
-              <SurfaceCard key={task.id} style={styles.cardGap}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardTitle}>
-                    <View style={styles.badgeRow}>
-                      <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
-                      <CategoryBadge label={task.plan_name} variant="points" />
-                    </View>
-                    <ThemedText type="subtitle" style={styles.taskTitle}>
-                      {task.title}
-                    </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {task.duration_min} dk
-                      {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
-                    </ThemedText>
-                  </View>
-                  <StatusPill status={task.status} />
-                </View>
-                {!!task.tiny_version && (
-                  <ThemedText themeColor="textSecondary">
-                    {Copy.daily.tinyPrefix}: {task.tiny_version}
-                  </ThemedText>
-                )}
-                {outcome && (
-                  <ThemedText themeColor={outcome.tone}>{outcome.message}</ThemedText>
-                )}
-                {pending && (
-                  <View style={styles.actions}>
-                    <TaskButton
-                      label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
-                      primary
-                      busy={busy === `proof:${task.id}`}
-                      onPress={() => void openCamera(task)}
-                    />
-                    <TaskButton
-                      label="Mazeret"
-                      busy={busy === `excuse:${task.id}`}
-                      onPress={() => confirmExcuse(task)}
-                    />
-                    {willpowerTask && profile?.irade_modu_active && (
-                      <TaskButton
-                        label="Hatırlat"
-                        busy={busy === `notification:${task.id}`}
-                        onPress={() => void runDeviceAction(task, 'notification')}
-                      />
-                    )}
-                    {willpowerTask && (
-                      <TaskButton
-                        label="Takvime Ekle"
-                        busy={busy === `calendar:${task.id}`}
-                        onPress={() => void runDeviceAction(task, 'calendar')}
-                      />
-                    )}
-                  </View>
-                )}
-              </SurfaceCard>
-            );
-          })}
-        </ScrollView>
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+        />
       </SafeAreaView>
 
       <Modal
         animationType="slide"
         visible={cameraTask !== null}
+        presentationStyle="fullScreen"
         onRequestClose={() => setCameraTask(null)}>
         <View style={styles.cameraShell}>
-          {cameraTask && (
+          {cameraTask ? (
             <CameraView
               ref={cameraRef}
-              style={StyleSheet.absoluteFill}
+              style={StyleSheet.absoluteFillObject}
               facing="back"
+              active={cameraTask !== null}
               onCameraReady={() => setCameraReady(true)}
+              onMountError={(event) => {
+                const message = event.message || 'Kamera başlatılamadı.';
+                setCameraError(message);
+                if (cameraTask) {
+                  setOutcome(cameraTask.id, {
+                    tone: 'danger',
+                    message: `Kamera açılamadı: ${message}`,
+                  });
+                }
+                setCameraTask(null);
+              }}
             />
-          )}
-          <SafeAreaView style={styles.cameraControls}>
+          ) : null}
+          <SafeAreaView style={styles.cameraOverlay} pointerEvents="box-none">
             <View style={styles.cameraTop}>
-              <Pressable onPress={() => setCameraTask(null)} style={styles.cameraTextButton}>
+              <Pressable
+                onPress={() => setCameraTask(null)}
+                style={styles.cameraTextButton}>
                 <ThemedText type="smallBold" style={styles.cameraText}>
                   Kapat
                 </ThemedText>
               </Pressable>
               <ThemedText type="smallBold" style={styles.cameraText}>
-                Fotoğraf yalnız şimdi çekilir
+                {cameraReady ? 'Fotoğraf yalnız şimdi çekilir' : 'Kamera hazırlanıyor…'}
               </ThemedText>
             </View>
+            {cameraError ? (
+              <ThemedText type="smallBold" style={styles.cameraText}>
+                {cameraError}
+              </ThemedText>
+            ) : null}
             <Pressable
               accessibilityLabel="Kanıt fotoğrafı çek"
               disabled={!cameraReady || busy !== null}
@@ -332,7 +328,9 @@ export default function DailyTasksScreen() {
                 styles.shutter,
                 (!cameraReady || pressed) && styles.dimmed,
               ]}>
-              {busy?.startsWith('proof:') && <ActivityIndicator color="#3B3327" />}
+              {busy?.startsWith('proof:') ? (
+                <ActivityIndicator color="#3B3327" />
+              ) : null}
             </Pressable>
           </SafeAreaView>
         </View>
@@ -340,6 +338,83 @@ export default function DailyTasksScreen() {
     </ThemedView>
   );
 }
+
+const TaskCard = memo(function TaskCard({
+  task,
+  outcome,
+  busy,
+  iradeActive,
+  onOpenCamera,
+  onExcuse,
+  onDeviceAction,
+}: {
+  task: DailyTask;
+  outcome?: Outcome;
+  busy: string | null;
+  iradeActive: boolean;
+  onOpenCamera: () => void;
+  onExcuse: () => void;
+  onDeviceAction: (action: 'notification' | 'calendar') => void;
+}) {
+  const pending = task.status === 'pending';
+  const willpowerTask = supportsWillpowerReminder(task);
+
+  return (
+    <SurfaceCard style={styles.cardGap}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTitle}>
+          <View style={styles.badgeRow}>
+            <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
+            <CategoryBadge label={task.plan_name} variant="points" />
+          </View>
+          <ThemedText type="subtitle" style={styles.taskTitle}>
+            {task.title}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {task.duration_min} dk
+            {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
+          </ThemedText>
+        </View>
+        <StatusPill status={task.status} />
+      </View>
+      {!!task.tiny_version && (
+        <ThemedText themeColor="textSecondary">
+          {Copy.daily.tinyPrefix}: {task.tiny_version}
+        </ThemedText>
+      )}
+      {outcome ? <ThemedText themeColor={outcome.tone}>{outcome.message}</ThemedText> : null}
+      {pending ? (
+        <View style={styles.actions}>
+          <TaskButton
+            label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
+            primary
+            busy={busy === `proof:${task.id}`}
+            onPress={onOpenCamera}
+          />
+          <TaskButton
+            label="Mazeret"
+            busy={busy === `excuse:${task.id}`}
+            onPress={onExcuse}
+          />
+          {willpowerTask && iradeActive ? (
+            <TaskButton
+              label="Hatırlat"
+              busy={busy === `notification:${task.id}`}
+              onPress={() => onDeviceAction('notification')}
+            />
+          ) : null}
+          {willpowerTask ? (
+            <TaskButton
+              label="Takvime Ekle"
+              busy={busy === `calendar:${task.id}`}
+              onPress={() => onDeviceAction('calendar')}
+            />
+          ) : null}
+        </View>
+      ) : null}
+    </SurfaceCard>
+  );
+});
 
 function StatusPill({ status }: { status: Task['status'] }) {
   const labels: Record<Task['status'], string> = {
@@ -393,21 +468,16 @@ function TaskButton({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: {
+  listContent: {
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.five,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     gap: Spacing.three,
   },
-  header: { gap: Spacing.one, paddingVertical: Spacing.two },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
+  headerBlock: {
+    gap: Spacing.three,
   },
   bonusLink: {
     minHeight: 40,
@@ -449,8 +519,8 @@ const styles = StyleSheet.create({
     flexBasis: '45%',
   },
   cameraShell: { flex: 1, backgroundColor: '#000' },
-  cameraControls: {
-    flex: 1,
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: Spacing.four,
