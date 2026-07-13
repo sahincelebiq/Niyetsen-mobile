@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Image } from 'expo-image';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
+  View,
+  type ListRenderItem,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
@@ -19,19 +20,19 @@ import { ChatComposer, type PendingAttachment } from '@/components/chat-composer
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatHeader } from '@/components/chat-header';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { ChatHistorySheet } from '@/components/project-sheets';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Copy } from '@/constants/copy';
 import {
-  BottomTabInset,
   MaxContentWidth,
   Radii,
   Shadows,
   Spacing,
-  Texture,
 } from '@/constants/theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -74,9 +75,27 @@ function buildOutgoingText(text: string, attachment: PendingAttachment | null): 
   return text.trim() ? `${header}\n\n${text.trim()}` : header;
 }
 
+const UserBubble = memo(function UserBubble({ content }: { content: string }) {
+  const theme = useTheme();
+  return (
+    <ThemedView
+      style={[
+        styles.bubbleUser,
+        {
+          backgroundColor: theme.accentWarm,
+          borderColor: theme.accentWarm,
+        },
+      ]}>
+      <ChatMessageBody content={content} color={theme.onAccent} />
+    </ThemedView>
+  );
+});
+
 export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
@@ -119,14 +138,6 @@ export default function ChatScreen() {
     },
     [],
   );
-
-  const reloadSession = useCallback(async () => {
-    try {
-      await applySession(await getChatSession());
-    } catch {
-      setMessages([await loadWelcomeMessage()]);
-    }
-  }, [applySession]);
 
   const handleProjectChanged = useCallback(async () => {
     setLoadingHistory(true);
@@ -176,6 +187,12 @@ export default function ChatScreen() {
     void refreshStreak();
   }, [refreshStreak]);
 
+  useEffect(() => {
+    if (keyboardHeight > 0) {
+      scrollToEnd();
+    }
+  }, [keyboardHeight, scrollToEnd]);
+
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {
       setSending(true);
@@ -221,7 +238,7 @@ export default function ChatScreen() {
         setSending(false);
       }
     },
-    [collected, planHasContent, refreshStreak, router, scrollToEnd],
+    [collected, refreshStreak, router, scrollToEnd],
   );
 
   const handleSend = useCallback(() => {
@@ -291,6 +308,12 @@ export default function ChatScreen() {
         router.push('/paywall');
         return;
       }
+      if (e instanceof ApiError && e.status === 409) {
+        setError(Copy.plan.alreadyExists);
+        setPlanHasContent(true);
+        setReadyForPlan(false);
+        return;
+      }
       setError(e instanceof ApiError ? e.message : 'Plan oluşturulamadı, tekrar dener misin?');
     } finally {
       setGeneratingPlan(false);
@@ -307,17 +330,57 @@ export default function ChatScreen() {
 
   const showPlanCta = readyForPlan && !planHasContent && !error;
 
+  const renderItem: ListRenderItem<ChatMessage> = useCallback(
+    ({ item }) =>
+      item.role === 'user' ? (
+        <UserBubble content={item.content} />
+      ) : (
+        <AssistantMessage content={item.content} />
+      ),
+    [],
+  );
+
+  const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
+
+  const listFooter = (
+    <ThemedView style={styles.footerGap}>
+      {sending ? <ChainThinkingIndicator /> : null}
+      {error ? (
+        <ErrorBanner
+          message={error}
+          onRetry={handleRetry}
+          retrying={sending || generatingPlan}
+        />
+      ) : null}
+      {showPlanCta ? (
+        <Pressable
+          onPress={() => void handleGeneratePlan()}
+          disabled={generatingPlan}
+          style={({ pressed }) => [
+            styles.ctaButton,
+            { backgroundColor: theme.accentWarm },
+            pressed && styles.pressed,
+          ]}>
+          {generatingPlan ? (
+            <ActivityIndicator size="small" color={theme.onAccent} />
+          ) : (
+            <ThemedText style={{ color: theme.onAccent }} type="smallBold">
+              {Copy.chat.planCta}
+            </ThemedText>
+          )}
+        </Pressable>
+      ) : null}
+      {planHasContent ? (
+        <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
+          {Copy.chat.planReadyHint}
+        </ThemedText>
+      ) : null}
+    </ThemedView>
+  );
+
   return (
-    <ThemedView style={[styles.flex, { backgroundColor: theme.background }]}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.backgroundImage}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <SafeAreaView
-        style={[styles.flex, { backgroundColor: theme.background }]}
-        edges={['top', 'left', 'right']}>
+    <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
         <ChatHeader
           streakDays={streakDays}
           trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
@@ -328,67 +391,29 @@ export default function ChatScreen() {
             Aktif niyet: {activePlanName}
           </ThemedText>
         ) : null}
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? BottomTabInset : 0}>
+        <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
           <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
             {loadingHistory ? (
-              <ThemedView style={styles.loadingContainer}>
+              <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={theme.textSecondary} />
-              </ThemedView>
+              </View>
             ) : (
               <FlatList
                 ref={listRef}
                 style={styles.list}
                 data={messages}
-                keyExtractor={(item) => item.id}
+                keyExtractor={keyExtractor}
+                renderItem={renderItem}
                 contentContainerStyle={styles.listContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="interactive"
-                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-                renderItem={({ item }) =>
-                  item.role === 'user' ? (
-                    <UserBubble content={item.content} />
-                  ) : (
-                    <AssistantMessage content={item.content} />
-                  )
-                }
-                ListFooterComponent={
-                  <ThemedView style={styles.footerGap}>
-                    {sending ? <ChainThinkingIndicator /> : null}
-                    {error ? (
-                      <ErrorBanner
-                        message={error}
-                        onRetry={handleRetry}
-                        retrying={sending || generatingPlan}
-                      />
-                    ) : null}
-                    {showPlanCta ? (
-                      <Pressable
-                        onPress={handleGeneratePlan}
-                        disabled={generatingPlan}
-                        style={({ pressed }) => [
-                          styles.ctaButton,
-                          { backgroundColor: theme.tint },
-                          pressed && styles.pressed,
-                        ]}>
-                        {generatingPlan ? (
-                          <ActivityIndicator size="small" color={theme.background} />
-                        ) : (
-                          <ThemedText style={{ color: theme.background }} type="smallBold">
-                            {Copy.chat.planCta}
-                          </ThemedText>
-                        )}
-                      </Pressable>
-                    ) : null}
-                    {planHasContent ? (
-                      <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
-                        {Copy.chat.planReadyHint}
-                      </ThemedText>
-                    ) : null}
-                  </ThemedView>
-                }
+                removeClippedSubviews={Platform.OS === 'android'}
+                maxToRenderPerBatch={12}
+                windowSize={9}
+                initialNumToRender={16}
+                onContentSizeChange={scrollToEnd}
+                onLayout={scrollToEnd}
+                ListFooterComponent={listFooter}
               />
             )}
           </ChatEdgeDrawer>
@@ -402,6 +427,34 @@ export default function ChatScreen() {
               </ThemedText>
             </Pressable>
           ) : null}
+          {!sending && aiAllowed && !input.trim() && !pendingAttachment ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.suggestionRow}
+              keyboardShouldPersistTaps="handled">
+              {Copy.chat.suggestions.map((label) => (
+                <Pressable
+                  key={label}
+                  onPress={() => {
+                    setInput(label);
+                    scrollToEnd();
+                  }}
+                  style={({ pressed }) => [
+                    styles.suggestionChip,
+                    {
+                      borderColor: theme.accentWarm,
+                      backgroundColor: theme.backgroundElement,
+                      opacity: pressed ? 0.75 : 1,
+                    },
+                  ]}>
+                  <ThemedText type="small" style={{ color: theme.accentWarm }}>
+                    {label}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
           <ChatComposer
             value={input}
             onChangeText={setInput}
@@ -412,7 +465,7 @@ export default function ChatScreen() {
             onClearAttachment={() => setPendingAttachment(null)}
             attaching={attaching}
           />
-        </KeyboardAvoidingView>
+        </KeyboardAwareView>
         <ChatHistorySheet
           visible={historyOpen}
           onClose={() => setHistoryOpen(false)}
@@ -420,23 +473,7 @@ export default function ChatScreen() {
           onProjectChanged={() => void handleProjectChanged()}
         />
       </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-function UserBubble({ content }: { content: string }) {
-  const theme = useTheme();
-  return (
-    <ThemedView
-      style={[
-        styles.bubbleUser,
-        {
-          backgroundColor: theme.accentWarm,
-          borderColor: theme.accentWarm,
-        },
-      ]}>
-      <ChatMessageBody content={content} color={theme.onAccent} />
-    </ThemedView>
+    </View>
   );
 }
 
@@ -444,9 +481,19 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: Texture.backgroundOpacity,
+  suggestionRow: {
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.one,
+    maxWidth: MaxContentWidth,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  suggestionChip: {
+    borderWidth: 1,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   loadingContainer: {
     flex: 1,
@@ -455,12 +502,13 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-    backgroundColor: 'transparent',
   },
   listContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: Spacing.five,
+    paddingBottom: Spacing.two,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',
