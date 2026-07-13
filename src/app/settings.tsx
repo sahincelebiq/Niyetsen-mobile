@@ -1,23 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Link, type Href } from 'expo-router';
+import { Link, type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
-import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Copy } from '@/constants/copy';
+import { ScreenScaffold } from '@/components/screen-scaffold';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAccount, updateProfile } from '@/lib/api';
 import {
@@ -32,11 +37,15 @@ import {
 } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import { useProfile } from '@/providers/profile-provider';
+import { useSubscription } from '@/providers/subscription-provider';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const auth = useAuth();
   const { profile, refresh } = useProfile();
+  const { status: subscriptionStatus } = useSubscription();
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [name, setName] = useState(profile?.name ?? '');
   const [birthDate, setBirthDate] = useState(profile?.birth_date ?? '');
@@ -173,23 +182,30 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: BottomTabInset + Spacing.four },
-          ]}>
-          <View style={styles.header}>
-            <ThemedText type="title">Ayarlar</ThemedText>
-            <ThemedText themeColor="textSecondary">
-              Profilin, bildirim saatin ve hesabın.
-            </ThemedText>
-          </View>
+      <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
+        <ScreenScaffold scrollable>
+        <ScreenHeader title={Copy.profile.title} subtitle={Copy.profile.subtitle} />
 
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="subtitle">Profil</ThemedText>
+        <SurfaceCard>
+          <View style={styles.profileRow}>
+            <View style={[styles.avatar, { backgroundColor: theme.accentWarm }]}>
+              <ThemedText type="subtitle" style={{ color: theme.onAccent }}>
+                {(name.trim()[0] || 'S').toUpperCase()}
+              </ThemedText>
+            </View>
+            <View style={styles.profileMeta}>
+              <ThemedText type="subtitle">{name.trim() || 'Sen'}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {subscriptionStatus?.status === 'active' ? 'Abonelik aktif' : 'Deneme / ücretsiz'}
+              </ThemedText>
+            </View>
+          </View>
+        </SurfaceCard>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="subtitle">Hesap</ThemedText>
             <Field label="İsim" value={name} onChangeText={setName} />
             <View style={styles.field}>
               <ThemedText type="smallBold">Doğum tarihi</ThemedText>
@@ -213,6 +229,27 @@ export default function SettingsScreen() {
               busy={busy === 'save'}
               onPress={() => void save()}
             />
+          </ThemedView>
+
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.card, { borderColor: theme.border }]}>
+            <ThemedText type="subtitle">Abonelik</ThemedText>
+            <ThemedText themeColor="textSecondary">
+              {subscriptionStatus?.status === 'active'
+                ? 'Premium aktif — zincirine kesintisiz devam edebilirsin.'
+                : subscriptionStatus?.status === 'trial'
+                  ? `Deneme süresi — ${subscriptionStatus.trial_days_remaining} gün kaldı.`
+                  : subscriptionStatus?.show_paywall
+                    ? 'Deneme bitti — devam etmek için abonelik gerekli.'
+                    : 'Durum yükleniyor veya ücretsiz erişim.'}
+            </ThemedText>
+            {subscriptionStatus?.show_paywall ? (
+              <ActionButton
+                label="Aboneliği Gör"
+                onPress={() => router.push('/paywall' as Href)}
+              />
+            ) : null}
           </ThemedView>
 
           <ThemedView
@@ -326,8 +363,8 @@ export default function SettingsScreen() {
               onPress={confirmDelete}
             />
           </ThemedView>
-        </ScrollView>
-      </SafeAreaView>
+        </ScreenScaffold>
+      </KeyboardAwareView>
     </ThemedView>
   );
 }
@@ -423,7 +460,8 @@ function ActionButton({
   danger?: boolean;
 }) {
   const theme = useTheme();
-  const color = danger ? theme.danger : theme.tint;
+  const color = danger ? theme.danger : theme.accentWarm;
+  const labelColor = danger ? theme.background : theme.onAccent;
   return (
     <Pressable
       disabled={busy}
@@ -433,9 +471,9 @@ function ActionButton({
         { backgroundColor: color, opacity: pressed || busy ? 0.7 : 1 },
       ]}>
       {busy ? (
-        <ActivityIndicator color={theme.background} />
+        <ActivityIndicator color={labelColor} />
       ) : (
-        <ThemedText type="smallBold" style={{ color: theme.background }}>
+        <ThemedText type="smallBold" style={{ color: labelColor }}>
           {label}
         </ThemedText>
       )}
@@ -458,6 +496,22 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     padding: Spacing.four,
     gap: Spacing.three,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileMeta: {
+    flex: 1,
+    gap: Spacing.half,
   },
   field: { gap: Spacing.one },
   toggleRow: {

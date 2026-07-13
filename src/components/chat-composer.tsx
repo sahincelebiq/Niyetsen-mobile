@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +7,7 @@ import {
   BottomTabInset, Fonts, MaxContentWidth, Radii, Shadows, Spacing,
 } from '@/constants/theme';
 import { Copy } from '@/constants/copy';
-import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 
 export type PendingAttachment = {
@@ -40,29 +39,30 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const keyboardVisible = useKeyboardVisible();
+  const keyboardHeight = useKeyboardHeight();
+  const keyboardOpen = keyboardHeight > 0;
   const canSend = !disabled && (!!value.trim() || !!pendingAttachment);
-  const bottomPadding = keyboardVisible
-    ? Spacing.two
+  const bottomPadding = keyboardOpen
+    ? Math.max(insets.bottom, Spacing.two)
     : insets.bottom + BottomTabInset + Spacing.two;
+
   return (
     <ThemedView
-      type="backgroundElement"
       style={[
         styles.dock,
         {
           paddingBottom: bottomPadding,
           borderTopColor: theme.border,
-          backgroundColor: theme.backgroundElement,
+          backgroundColor: theme.background,
         },
       ]}>
-      <View
-        style={[
-          styles.inputRow,
-          { borderTopColor: theme.border },
-        ]}>
+      <View style={styles.inputRow}>
         {pendingAttachment ? (
-          <View style={[styles.attachmentChip, { borderColor: theme.border, backgroundColor: theme.backgroundSelected }]}>
+          <View
+            style={[
+              styles.attachmentChip,
+              { borderColor: theme.border, backgroundColor: theme.backgroundElement },
+            ]}>
             <ThemedText type="small" numberOfLines={1} style={styles.attachmentName}>
               📎 {pendingAttachment.filename}
             </ThemedText>
@@ -73,49 +73,49 @@ export function ChatComposer({
             </Pressable>
           </View>
         ) : null}
-      <View
-        style={[
-          styles.inputShell,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
-        ]}>
-        {onAttach ? (
+        <View
+          style={[
+            styles.inputShell,
+            { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+          ]}>
+          {onAttach ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dosya ekle"
+              onPress={onAttach}
+              disabled={disabled || attaching}
+              style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}>
+              <ThemedText style={styles.attachGlyph}>{attaching ? '…' : '＋'}</ThemedText>
+            </Pressable>
+          ) : null}
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={Copy.chat.inputPlaceholder}
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
+            multiline
+            editable={!disabled}
+            returnKeyType="send"
+            submitBehavior="submit"
+            onSubmitEditing={onSubmit}
+          />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dosya ekle"
-            onPress={onAttach}
-            disabled={disabled || attaching}
-            style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}>
-            <ThemedText style={styles.attachGlyph}>{attaching ? '…' : '＋'}</ThemedText>
+            accessibilityLabel="Mesajı gönder"
+            onPress={onSubmit}
+            disabled={!canSend}
+            style={({ pressed }) => [
+              styles.sendCircle,
+              { backgroundColor: theme.accentWarm },
+              !canSend && styles.sendDisabled,
+              pressed && canSend && styles.pressed,
+              Shadows.clay ?? {},
+            ]}>
+            <ThemedText style={[styles.sendGlyph, { color: theme.onAccent }]}>↑</ThemedText>
           </Pressable>
-        ) : null}
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={Copy.chat.inputPlaceholder}
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
-          multiline
-          editable={!disabled}
-          returnKeyType="send"
-          submitBehavior="submit"
-          onSubmitEditing={onSubmit}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Mesajı gönder"
-          onPress={onSubmit}
-          disabled={!canSend}
-          style={({ pressed }) => [
-            styles.sendCircle,
-            { backgroundColor: theme.accentWarm },
-            !canSend && styles.sendDisabled,
-            pressed && canSend && styles.pressed,
-            Shadows.clay ?? {},
-          ]}>
-          <ThemedText style={[styles.sendGlyph, { color: theme.onAccent }]}>↑</ThemedText>
-        </Pressable>
+        </View>
       </View>
-    </View>
     </ThemedView>
   );
 }
@@ -124,7 +124,6 @@ const styles = StyleSheet.create({
   dock: {
     width: '100%',
     borderTopWidth: StyleSheet.hairlineWidth,
-    ...(Shadows.soft ?? {}),
   },
   inputRow: {
     paddingHorizontal: Spacing.three,
