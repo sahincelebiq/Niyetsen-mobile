@@ -12,6 +12,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Copy } from '@/constants/copy';
 
 export default function AppTabs() {
   return (
@@ -29,7 +30,7 @@ export default function AppTabs() {
             <TabButton>Planım</TabButton>
           </TabTrigger>
           <TabTrigger name="rank" href="/rank" asChild>
-            <TabButton>Rütbe</TabButton>
+            <TabButton>Zincir</TabButton>
           </TabTrigger>
           <TabTrigger name="mystic" href="/mystic" asChild>
             <TabButton>Mistik</TabButton>
@@ -49,7 +50,7 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
       <ThemedView
         type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.tabButtonView}>
-        <ThemedText type="smallBold" themeColor={isFocused ? 'tint' : 'textSecondary'}>
+        <ThemedText type="smallBold" themeColor={isFocused ? 'accentWarm' : 'textSecondary'}>
           {children}
         </ThemedText>
       </ThemedView>
@@ -61,8 +62,11 @@ export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" themeColor="tint" style={styles.brandText}>
+        <ThemedText type="smallBold" themeColor="accentWarm" style={styles.brandText}>
           Niyetsen
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
+          {Copy.brand.tagline}
         </ThemedText>
 
         {props.children}
@@ -92,7 +96,12 @@ const styles = StyleSheet.create({
   },
   brandText: {
     fontFamily: Fonts.serif,
+  },
+  tagline: {
     marginRight: 'auto',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    fontSize: 11,
   },
   pressed: {
     opacity: 0.7,

@@ -14,7 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
+import { CategoryBadge } from '@/components/ui/category-badge';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -204,38 +208,31 @@ export default function DailyTasksScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
           }
           contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.headerRow}>
-              <ThemedText type="title">Bugün</ThemedText>
+          <ScreenHeader
+            title={Copy.daily.title}
+            subtitle={Copy.daily.subtitle}
+            trailing={
               <Pressable
                 accessibilityRole="link"
                 onPress={() => router.push('/bonus' as Href)}
                 style={({ pressed }) => [
                   styles.bonusLink,
-                  { backgroundColor: theme.backgroundSelected, opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
                 ]}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  Bonus Görev
+                <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
+                  Bonus
                 </ThemedText>
               </Pressable>
-            </View>
-            <ThemedText themeColor="textSecondary">
-              Bir görev, bugünün halkasını kapatmaya yeter.
-            </ThemedText>
-          </View>
+            }
+          />
 
           {error && <ErrorBanner message={error} onRetry={() => void load()} />}
           {loading && <ActivityIndicator color={theme.tint} size="large" />}
           {!loading && !error && tasks.length === 0 && (
-            <ThemedView
-              type="backgroundElement"
-              style={[styles.empty, { borderColor: theme.border }]}>
-              <ThemedText type="subtitle">Bugün sakin bir gün</ThemedText>
-              <ThemedText themeColor="textSecondary">
-                Bugüne atanmış görev görünmüyor. Planım sekmesinden gelecek halkalarına göz
-                atabilirsin.
-              </ThemedText>
-            </ThemedView>
+            <SurfaceCard>
+              <ThemedText type="subtitle">{Copy.daily.emptyTitle}</ThemedText>
+              <ThemedText themeColor="textSecondary">{Copy.daily.emptyBody}</ThemedText>
+            </SurfaceCard>
           )}
 
           {tasks.map((task) => {
@@ -243,25 +240,26 @@ export default function DailyTasksScreen() {
             const pending = task.status === 'pending';
             const willpowerTask = supportsWillpowerReminder(task);
             return (
-              <ThemedView
-                key={task.id}
-                type="backgroundElement"
-                style={[styles.card, { borderColor: theme.border }]}>
+              <SurfaceCard key={task.id} style={styles.cardGap}>
                 <View style={styles.cardHeader}>
                   <View style={styles.cardTitle}>
-                    <ThemedText type="smallBold" themeColor="accentWarm">
-                      {task.plan_name}
+                    <View style={styles.badgeRow}>
+                      <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
+                      <CategoryBadge label={task.plan_name} variant="points" />
+                    </View>
+                    <ThemedText type="subtitle" style={styles.taskTitle}>
+                      {task.title}
                     </ThemedText>
-                    <ThemedText type="subtitle">{task.title}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
-                      {task.duration_min} dk · {task.categories.join(' · ')}
+                      {task.duration_min} dk
+                      {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
                     </ThemedText>
                   </View>
                   <StatusPill status={task.status} />
                 </View>
                 {!!task.tiny_version && (
                   <ThemedText themeColor="textSecondary">
-                    En küçük halka: {task.tiny_version}
+                    {Copy.daily.tinyPrefix}: {task.tiny_version}
                   </ThemedText>
                 )}
                 {outcome && (
@@ -270,7 +268,7 @@ export default function DailyTasksScreen() {
                 {pending && (
                   <View style={styles.actions}>
                     <TaskButton
-                      label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : 'Kanıt Çek'}
+                      label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
                       primary
                       busy={busy === `proof:${task.id}`}
                       onPress={() => void openCamera(task)}
@@ -296,7 +294,7 @@ export default function DailyTasksScreen() {
                     )}
                   </View>
                 )}
-              </ThemedView>
+              </SurfaceCard>
             );
           })}
         </ScrollView>
@@ -376,16 +374,16 @@ function TaskButton({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: primary ? theme.tint : theme.backgroundSelected,
+          backgroundColor: primary ? theme.accentWarm : theme.surfaceMuted,
           opacity: pressed || busy ? 0.65 : 1,
         },
       ]}>
       {busy ? (
-        <ActivityIndicator color={primary ? theme.background : theme.text} />
+        <ActivityIndicator color={primary ? theme.onAccent : theme.text} />
       ) : (
         <ThemedText
           type="smallBold"
-          style={primary ? { color: theme.background } : undefined}>
+          style={primary ? { color: theme.onAccent } : { color: theme.text }}>
           {label}
         </ThemedText>
       )}
@@ -418,18 +416,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  empty: {
-    borderWidth: Texture.cardBorderWidth,
-    borderRadius: Radii.large,
-    padding: Spacing.four,
-    gap: Spacing.two,
-  },
-  card: {
-    borderWidth: Texture.cardBorderWidth,
-    borderRadius: Radii.large,
-    padding: Spacing.four,
+  cardGap: {
     gap: Spacing.three,
-    ...(Shadows.subtle ?? {}),
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  taskTitle: {
+    marginTop: Spacing.one,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -445,10 +441,12 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   button: {
     minHeight: 44,
-    borderRadius: Radii.pill,
+    borderRadius: 12,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
+    flexGrow: 1,
+    flexBasis: '45%',
   },
   cameraShell: { flex: 1, backgroundColor: '#000' },
   cameraControls: {

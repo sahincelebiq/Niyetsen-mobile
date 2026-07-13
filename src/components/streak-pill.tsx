@@ -22,8 +22,8 @@ export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
         compact && styles.pillCompact,
         { borderColor: theme.border },
       ]}>
-      <View style={[styles.dot, { backgroundColor: theme.accentWarm }]} />
-      <ThemedText type="smallBold" themeColor="tint">
+      <View style={[styles.dot, { backgroundColor: theme.tint }]} />
+      <ThemedText type="smallBold" style={{ color: theme.text }}>
         {label}
       </ThemedText>
     </ThemedView>

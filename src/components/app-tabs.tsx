@@ -11,7 +11,10 @@ export default function AppTabs() {
     <NativeTabs
       backgroundColor={colors.background}
       indicatorColor={colors.backgroundSelected}
-      labelStyle={{ selected: { color: colors.tint } }}>
+      labelStyle={{
+        default: { color: colors.tabInactive },
+        selected: { color: colors.accentWarm },
+      }}>
       <NativeTabs.Trigger name="index">
         <Label>Sohbet</Label>
         <Icon sf="bubble.left.and.bubble.right.fill" />
@@ -28,8 +31,8 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="rank">
-        <Label>Rütbe</Label>
-        <Icon sf="chart.bar.fill" />
+        <Label>Zincir</Label>
+        <Icon sf="link" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="mystic">

@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset, Fonts, MaxContentWidth, Radii, Shadows, Spacing,
 } from '@/constants/theme';
+import { Copy } from '@/constants/copy';
 import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -75,7 +76,7 @@ export function ChatComposer({
       <View
         style={[
           styles.inputShell,
-          { backgroundColor: theme.background, borderColor: theme.border },
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
         ]}>
         {onAttach ? (
           <Pressable
@@ -90,7 +91,7 @@ export function ChatComposer({
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder="Niyetini yaz…"
+          placeholder={Copy.chat.inputPlaceholder}
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
           multiline
@@ -109,8 +110,9 @@ export function ChatComposer({
             { backgroundColor: theme.accentWarm },
             !canSend && styles.sendDisabled,
             pressed && canSend && styles.pressed,
+            Shadows.clay ?? {},
           ]}>
-          <ThemedText style={styles.sendGlyph}>↑</ThemedText>
+          <ThemedText style={[styles.sendGlyph, { color: theme.onAccent }]}>↑</ThemedText>
         </Pressable>
       </View>
     </View>
@@ -185,7 +187,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   sendGlyph: {
-    color: '#FBF7EF',
     fontSize: 20,
     lineHeight: 22,
     fontFamily: Fonts.sansBold,

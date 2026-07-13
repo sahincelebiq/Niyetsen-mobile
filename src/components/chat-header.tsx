@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Copy } from '@/constants/copy';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 
 type ChatHeaderProps = {
   streakDays: number;
@@ -36,20 +37,20 @@ export function ChatHeader({
           <View style={styles.historySpacer} />
         )}
         <View style={styles.titles}>
-          <ThemedText type="screenTitle">Niyet Rehberi</ThemedText>
+          <ThemedText type="screenTitle">{Copy.chat.title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Potansiyelini ortaya çıkart
+            {Copy.chat.subtitle}
           </ThemedText>
         </View>
         <StreakPill streakDays={streakDays} compact />
       </View>
       {streakDays > 0 ? (
         <ThemedText type="small" themeColor="textSecondary">
-          {streakDays} gündür zincirini koruyorsun — her halka seni güçlendirir.
+          {Copy.chat.streakActive(streakDays)}
         </ThemedText>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
-          Bugün atacağın küçük bir adım, yarının zincirini başlatır.
+          {Copy.chat.streakNew}
         </ThemedText>
       )}
       {showTrial ? (
@@ -67,6 +68,7 @@ const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
     paddingBottom: Spacing.three,
+    paddingHorizontal: Spacing.three,
   },
   titleRow: {
     flexDirection: 'row',

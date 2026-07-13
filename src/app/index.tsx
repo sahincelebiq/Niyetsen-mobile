@@ -23,6 +23,7 @@ import { ChatHistorySheet } from '@/components/project-sheets';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Copy } from '@/constants/copy';
 import {
   BottomTabInset,
   MaxContentWidth,
@@ -376,14 +377,14 @@ export default function ChatScreen() {
                           <ActivityIndicator size="small" color={theme.background} />
                         ) : (
                           <ThemedText style={{ color: theme.background }} type="smallBold">
-                            Planını Oluştur ✨
+                            {Copy.chat.planCta}
                           </ThemedText>
                         )}
                       </Pressable>
                     ) : null}
                     {planHasContent ? (
                       <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
-                        Bu niyetin planı hazır. Yeni kapsamlı plan için ☰ menüden Yeni Niyet Başlat.
+                        {Copy.chat.planReadyHint}
                       </ThemedText>
                     ) : null}
                   </ThemedView>
@@ -434,7 +435,7 @@ function UserBubble({ content }: { content: string }) {
           borderColor: theme.accentWarm,
         },
       ]}>
-      <ChatMessageBody content={content} color={theme.background} />
+      <ChatMessageBody content={content} color={theme.onAccent} />
     </ThemedView>
   );
 }
@@ -467,12 +468,12 @@ const styles = StyleSheet.create({
   },
   bubbleUser: {
     alignSelf: 'flex-end',
-    borderRadius: Radii.large,
-    borderBottomRightRadius: Spacing.half,
-    borderWidth: Texture.cardBorderWidth,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    maxWidth: '85%',
+    borderRadius: Radii.bubble,
+    borderBottomRightRadius: 6,
+    borderWidth: 0,
+    paddingVertical: 11,
+    paddingHorizontal: 15,
+    maxWidth: '80%',
     ...(Shadows.subtle ?? {}),
   },
   footerGap: {

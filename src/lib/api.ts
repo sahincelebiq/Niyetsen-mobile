@@ -6,6 +6,7 @@
  * Expo'da AsyncStorage/SecureStore kullan.
  */
 import { supabase } from '@/lib/supabase';
+import { ApiTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
 
 const CONFIGURED_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
@@ -51,21 +52,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(401, 'Oturumun sona erdi. Lütfen yeniden giriş yap.');
   }
   let res: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ApiTimeoutMs);
   try {
     const isMultipart = typeof FormData !== 'undefined' && init?.body instanceof FormData;
     res = await fetch(`${getBaseUrl()}${path}`, {
       ...init,
+      signal: controller.signal,
       headers: {
         ...(!isMultipart && { 'Content-Type': 'application/json' }),
         Authorization: `Bearer ${accessToken}`,
         ...(init?.headers ?? {}),
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(
+        0,
+        'Sunucu yanıt vermedi. Biraz bekleyip tekrar dene — bağlantın yavaş olabilir.',
+      );
+    }
     throw new ApiError(
       0,
       'Sunucuya ulaşılamıyor. Backend çalışıyor mu ve EXPO_PUBLIC_API_URL doğru mu kontrol et.',
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {

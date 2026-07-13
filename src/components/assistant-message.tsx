@@ -2,13 +2,15 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { ChatMessageBody } from '@/components/chat-message-body';
-import { Spacing } from '@/constants/theme';
+import { Radii, Shadows, Spacing, Texture } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 type AssistantMessageProps = {
   content: string;
 };
 
 export function AssistantMessage({ content }: AssistantMessageProps) {
+  const theme = useTheme();
   return (
     <View style={styles.row}>
       <Image
@@ -16,7 +18,17 @@ export function AssistantMessage({ content }: AssistantMessageProps) {
         style={styles.avatar}
         contentFit="contain"
       />
-      <ChatMessageBody content={content} style={styles.text} />
+      <View
+        style={[
+          styles.bubble,
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: theme.border,
+          },
+          Shadows.subtle ?? {},
+        ]}>
+        <ChatMessageBody content={content} style={styles.text} />
+      </View>
     </View>
   );
 }
@@ -35,8 +47,17 @@ const styles = StyleSheet.create({
     height: 28,
     marginTop: 2,
   },
-  text: {
+  bubble: {
     flex: 1,
+    borderWidth: Texture.cardBorderWidth,
+    borderRadius: Radii.bubble,
+    borderBottomLeftRadius: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 15,
+    maxWidth: '82%',
+  },
+  text: {
     lineHeight: 22,
+    fontSize: 14.5,
   },
 });

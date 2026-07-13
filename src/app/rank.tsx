@@ -9,8 +9,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
 import { StreakPill } from '@/components/streak-pill';
+import { CategoryBadge } from '@/components/ui/category-badge';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -19,7 +24,6 @@ import {
   Radii,
   Shadows,
   Spacing,
-  Texture,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, CATEGORIES, getState, type StateResponse } from '@/lib/api';
@@ -59,71 +63,83 @@ export default function RankScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
           }
           contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.headerTop}>
-              <ThemedText type="screenTitle">Rütbem</ThemedText>
-              {state && !loading ? (
-                <StreakPill streakDays={state.streak_len} />
-              ) : null}
-            </View>
-            <ThemedText themeColor="textSecondary">
-              Her tamamlanan halka, kimliğinin bir yönünü güçlendirir.
-            </ThemedText>
-          </View>
+          <ScreenHeader
+            title={Copy.chain.title}
+            subtitle={Copy.chain.subtitle}
+            trailing={
+              state && !loading ? <StreakPill streakDays={state.streak_len} /> : undefined
+            }
+          />
 
           {error && <ErrorBanner message={error} onRetry={() => void load()} />}
-          {loading && <ActivityIndicator color={theme.tint} size="large" />}
+          {loading && <ActivityIndicator color={theme.accentWarm} size="large" />}
 
           {state && !loading && (
             <>
-              <ThemedView
-                type="backgroundElement"
-                style={[styles.hero, { borderColor: theme.border }]}>
+              <View style={[styles.hero, { backgroundColor: theme.accentWarm }, Shadows.soft ?? {}]}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent, opacity: 0.85 }}>
+                  {Copy.chain.heroLabel.toUpperCase()}
+                </ThemedText>
+                <View style={styles.heroNumbers}>
+                  <ThemedText type="title" style={{ color: theme.onAccent, fontSize: 62, lineHeight: 56 }}>
+                    {state.streak_len}
+                  </ThemedText>
+                  <ThemedText style={{ color: theme.onAccent, fontSize: 22, opacity: 0.9 }}>
+                    gün
+                  </ThemedText>
+                </View>
+                <ThemedText style={{ color: theme.onAccent, opacity: 0.85, lineHeight: 20 }}>
+                  {Copy.chain.heroHint}
+                </ThemedText>
+              </View>
+
+              <SurfaceCard>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  GENEL RÜTBE
+                  {Copy.chain.overallRank}
                 </ThemedText>
                 <ThemedText type="title" style={styles.centerText}>
                   {state.overall_rank}
                 </ThemedText>
                 <View style={styles.streakRow}>
-                  <Metric value={`${state.streak_len}`} label="gün zincir" />
                   <Metric value={`${state.best_streak}`} label="en iyi" />
                   <Metric value={`${state.freeze_tokens}`} label="koruma jetonu" />
                 </View>
-              </ThemedView>
+              </SurfaceCard>
 
               <View style={styles.sectionHeader}>
-                <ThemedText type="subtitle">Altı yönün</ThemedText>
+                <ThemedText type="subtitle">{Copy.chain.categories}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Puan tabanı sıfırdır.
+                  {Copy.chain.pointsFloor}
                 </ThemedText>
               </View>
-              <View style={styles.grid}>
+              <SurfaceCard style={styles.categoryList}>
                 {CATEGORIES.map((category) => (
-                  <ThemedView
-                    key={category}
-                    type="backgroundElement"
-                    style={[styles.categoryCard, { borderColor: theme.border }]}>
-                    <ThemedText type="subtitle">{category}</ThemedText>
-                    <ThemedText type="smallBold" themeColor="accentWarm">
-                      {state.ranks[category]}
-                    </ThemedText>
-                    <ThemedText type="title">{state.points[category]}</ThemedText>
+                  <View key={category} style={styles.categoryRow}>
+                    <View style={styles.categoryTop}>
+                      <ThemedText>{category}</ThemedText>
+                      <CategoryBadge label={state.ranks[category]} />
+                    </View>
+                    <ProgressBar progress={Math.min(state.points[category] / 1000, 1)} />
                     <ThemedText type="small" themeColor="textSecondary">
-                      puan
+                      {state.points[category]} puan
                     </ThemedText>
-                  </ThemedView>
+                  </View>
                 ))}
-              </View>
+              </SurfaceCard>
 
-              <ThemedView
-                type="backgroundElement"
-                style={[styles.note, { borderColor: theme.border }]}>
-                <ThemedText type="smallBold">Oyun durumu</ThemedText>
+              <SurfaceCard style={styles.totalRow}>
+                <ThemedText>{Copy.chain.totalPoints}</ThemedText>
+                <ThemedText type="title" style={{ color: theme.accentWarm }}>
+                  {CATEGORIES.reduce((sum, cat) => sum + state.points[cat], 0).toLocaleString('tr-TR')}
+                </ThemedText>
+              </SurfaceCard>
+
+              <SurfaceCard>
+                <ThemedText type="smallBold">{Copy.chain.gameState}</ThemedText>
                 <ThemedText themeColor="textSecondary">
                   {state.excuse_count} mazeret · {state.silent_miss_streak} ardışık sessiz kaçırma
                 </ThemedText>
-              </ThemedView>
+              </SurfaceCard>
             </>
           )}
         </ScrollView>
@@ -154,19 +170,16 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   header: { gap: Spacing.one, paddingVertical: Spacing.two },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
   hero: {
-    borderWidth: Texture.cardBorderWidth,
     borderRadius: Radii.large,
     padding: Spacing.four,
-    alignItems: 'center',
     gap: Spacing.two,
-    ...(Shadows.soft ?? {}),
+    overflow: 'hidden',
+  },
+  heroNumbers: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
   },
   centerText: { textAlign: 'center' },
   streakRow: {
@@ -184,20 +197,21 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     marginTop: Spacing.two,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  categoryCard: {
-    flexGrow: 1,
-    flexBasis: 220,
-    borderWidth: Texture.cardBorderWidth,
-    borderRadius: Radii.large,
-    padding: Spacing.four,
-    gap: Spacing.one,
-    ...(Shadows.subtle ?? {}),
+  categoryList: {
+    gap: Spacing.four,
   },
-  note: {
-    borderWidth: Texture.cardBorderWidth,
-    borderRadius: Radii.medium,
-    padding: Spacing.three,
+  categoryRow: {
     gap: Spacing.one,
+  },
+  categoryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });
