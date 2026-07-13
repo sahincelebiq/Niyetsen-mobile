@@ -5,7 +5,6 @@ import {
   FlatList,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
   type ListRenderItem,
@@ -18,6 +17,8 @@ import { ChatMessageBody } from '@/components/chat-message-body';
 import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
 import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
+import { ChatQuickReplies } from '@/components/chat-quick-replies';
+import { ChatSystemNotice } from '@/components/chat-system-notice';
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatHeader } from '@/components/chat-header';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
@@ -342,8 +343,11 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
+  const showQuickReplies =
+    !sending && aiAllowed && !input.trim() && !pendingAttachment && !planHasContent;
+
   const listFooter = (
-    <ThemedView style={styles.footerGap}>
+    <View style={styles.footerGap}>
       {sending ? <ChainThinkingIndicator /> : null}
       {error ? (
         <ErrorBanner
@@ -370,12 +374,7 @@ export default function ChatScreen() {
           )}
         </Pressable>
       ) : null}
-      {planHasContent ? (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
-          {Copy.chat.planReadyHint}
-        </ThemedText>
-      ) : null}
-    </ThemedView>
+    </View>
   );
 
   return (
@@ -392,79 +391,66 @@ export default function ChatScreen() {
           </ThemedText>
         ) : null}
         <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
-          <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
-            {loadingHistory ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={theme.textSecondary} />
-              </View>
-            ) : (
-              <FlatList
-                ref={listRef}
-                style={styles.list}
-                data={messages}
-                keyExtractor={keyExtractor}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                removeClippedSubviews={Platform.OS === 'android'}
-                maxToRenderPerBatch={12}
-                windowSize={9}
-                initialNumToRender={16}
-                onContentSizeChange={scrollToEnd}
-                onLayout={scrollToEnd}
-                ListFooterComponent={listFooter}
-              />
-            )}
-          </ChatEdgeDrawer>
+          <View style={styles.chatColumn}>
+            <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
+              {loadingHistory ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={theme.textSecondary} />
+                </View>
+              ) : (
+                <FlatList
+                  ref={listRef}
+                  style={styles.list}
+                  data={messages}
+                  keyExtractor={keyExtractor}
+                  renderItem={renderItem}
+                  contentContainerStyle={styles.listContent}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="interactive"
+                  removeClippedSubviews={Platform.OS === 'android'}
+                  maxToRenderPerBatch={12}
+                  windowSize={9}
+                  initialNumToRender={16}
+                  onContentSizeChange={scrollToEnd}
+                  onLayout={scrollToEnd}
+                  ListFooterComponent={listFooter}
+                />
+              )}
+            </ChatEdgeDrawer>
 
-          {!aiAllowed ? (
-            <Pressable
-              onPress={() => router.push('/settings')}
-              style={[styles.consentBanner, { borderColor: theme.border }]}>
-              <ThemedText type="smallBold" themeColor="tint">
-                AI sohbeti kapalı · Ayarlar’dan tercihini değiştirebilirsin
-              </ThemedText>
-            </Pressable>
-          ) : null}
-          {!sending && aiAllowed && !input.trim() && !pendingAttachment ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.suggestionRow}
-              keyboardShouldPersistTaps="handled">
-              {Copy.chat.suggestions.map((label) => (
-                <Pressable
-                  key={label}
-                  onPress={() => {
-                    setInput(label);
-                    scrollToEnd();
-                  }}
-                  style={({ pressed }) => [
-                    styles.suggestionChip,
-                    {
-                      borderColor: theme.accentWarm,
-                      backgroundColor: theme.backgroundElement,
-                      opacity: pressed ? 0.75 : 1,
-                    },
-                  ]}>
-                  <ThemedText type="small" style={{ color: theme.accentWarm }}>
-                    {label}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
-          <ChatComposer
-            value={input}
-            onChangeText={setInput}
-            onSubmit={handleSend}
-            disabled={sending || !aiAllowed}
-            pendingAttachment={pendingAttachment}
-            onAttach={() => void handleAttach()}
-            onClearAttachment={() => setPendingAttachment(null)}
-            attaching={attaching}
-          />
+            {planHasContent ? <ChatSystemNotice message={Copy.chat.planReadyHint} /> : null}
+
+            {showQuickReplies ? (
+              <ChatQuickReplies
+                suggestions={Copy.chat.suggestions}
+                onSelect={(label) => {
+                  setInput(label);
+                  scrollToEnd();
+                }}
+              />
+            ) : null}
+
+            {!aiAllowed ? (
+              <Pressable
+                onPress={() => router.push('/settings')}
+                style={[styles.consentBanner, { borderColor: theme.border }]}>
+                <ThemedText type="smallBold" themeColor="tint">
+                  AI sohbeti kapalı · Ayarlar’dan tercihini değiştirebilirsin
+                </ThemedText>
+              </Pressable>
+            ) : null}
+
+            <ChatComposer
+              value={input}
+              onChangeText={setInput}
+              onSubmit={handleSend}
+              disabled={sending || !aiAllowed}
+              pendingAttachment={pendingAttachment}
+              onAttach={() => void handleAttach()}
+              onClearAttachment={() => setPendingAttachment(null)}
+              attaching={attaching}
+            />
+          </View>
         </KeyboardAwareView>
         <ChatHistorySheet
           visible={historyOpen}
@@ -481,19 +467,8 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  suggestionRow: {
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.one,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  suggestionChip: {
-    borderWidth: 1,
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+  chatColumn: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -508,7 +483,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: Spacing.two,
+    paddingBottom: Spacing.three,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',
