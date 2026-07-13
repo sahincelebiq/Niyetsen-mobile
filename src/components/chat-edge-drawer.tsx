@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 type ChatEdgeDrawerProps = {
   children: ReactNode;
@@ -8,40 +9,47 @@ type ChatEdgeDrawerProps = {
   enabled?: boolean;
 };
 
+const EDGE_WIDTH = 72;
+const OPEN_DISTANCE = 40;
+
 /** Sol kenardan sağa kaydırınca niyet geçmişi panelini açar. */
 export function ChatEdgeDrawer({ children, onOpen, enabled = true }: ChatEdgeDrawerProps) {
   const pan = Gesture.Pan()
     .enabled(enabled)
-    .activeOffsetX(24)
-    .failOffsetY([-20, 20])
+    .manualActivation(true)
+    .onTouchesDown((event, state) => {
+      const touch = event.allTouches[0];
+      const startX = touch?.absoluteX ?? touch?.x ?? Number.POSITIVE_INFINITY;
+      if (startX <= EDGE_WIDTH) {
+        state.activate();
+      } else {
+        state.fail();
+      }
+    })
+    .activeOffsetX(10)
+    .failOffsetY([-32, 32])
     .onEnd((event) => {
-      if (event.translationX > 72 && event.velocityX > 0) {
-        onOpen();
+      const shouldOpen =
+        event.translationX > OPEN_DISTANCE ||
+        (event.translationX > 20 && event.velocityX > 120);
+      if (shouldOpen) {
+        runOnJS(onOpen)();
       }
     });
 
+  if (!enabled) {
+    return <View style={styles.container}>{children}</View>;
+  }
+
   return (
-    <View style={styles.container}>
-      {enabled ? (
-        <GestureDetector gesture={pan}>
-          <View style={styles.edgeZone} />
-        </GestureDetector>
-      ) : null}
-      {children}
-    </View>
+    <GestureDetector gesture={pan}>
+      <View style={styles.container}>{children}</View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  edgeZone: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    zIndex: 2,
   },
 });
