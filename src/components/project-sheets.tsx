@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -25,6 +30,8 @@ import {
   type SubscriptionInfo,
 } from '@/lib/api';
 import { needsPaidPlanForSecondProject } from '@/lib/project-access';
+
+const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.86, 340);
 
 type ChatHistorySheetProps = {
   visible: boolean;
@@ -41,6 +48,7 @@ export function ChatHistorySheet({
 }: ChatHistorySheetProps) {
   const theme = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [projects, setProjects] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -64,6 +72,7 @@ export function ChatHistorySheet({
 
   async function handleActivate(planId: string) {
     setBusyId(planId);
+    setError(null);
     try {
       await activateProject(planId);
       onProjectChanged();
@@ -78,7 +87,14 @@ export function ChatHistorySheet({
   async function handleNewProject() {
     if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
       onClose();
-      router.push('/paywall');
+      Alert.alert(
+        'İkinci plan için abonelik',
+        'İlk planın hazır. Yeni bir niyet başlatmak için aboneliğini aktifleştirmen gerekiyor.',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Aboneliğe git', onPress: () => router.push('/paywall') },
+        ],
+      );
       return;
     }
     setBusyId('new');
@@ -104,17 +120,53 @@ export function ChatHistorySheet({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={() => {}}>
-          <ThemedText type="subtitle">Niyetlerim</ThemedText>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={onClose}>
+      <View style={styles.overlayRoot}>
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          exiting={FadeOut.duration(160)}
+          style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Paneli kapat" />
+        </Animated.View>
+
+        <Animated.View
+          entering={SlideInLeft.duration(260)}
+          exiting={SlideOutLeft.duration(220)}
+          style={[
+            styles.drawer,
+            {
+              width: DRAWER_WIDTH,
+              backgroundColor: theme.backgroundElement,
+              borderColor: theme.border,
+              paddingTop: insets.top + Spacing.three,
+              paddingBottom: insets.bottom + Spacing.three,
+            },
+          ]}>
+          <View style={styles.drawerHeader}>
+            <ThemedText type="subtitle">Niyetlerim</ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Paneli kapat"
+              onPress={onClose}
+              hitSlop={12}
+              style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                ✕
+              </ThemedText>
+            </Pressable>
+          </View>
           <ThemedText type="small" themeColor="textSecondary">
             Geçmiş sohbetlerine dön veya yeni bir niyet başlat.
           </ThemedText>
+
           {loading ? (
             <ActivityIndicator color={theme.tint} style={styles.loader} />
           ) : (
-            <ScrollView contentContainerStyle={styles.list}>
+            <ScrollView
+              style={styles.listScroll}
+              contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
               {projects.map((project) => (
                 <Pressable
                   key={project.id}
@@ -126,8 +178,8 @@ export function ChatHistorySheet({
                       borderColor: theme.border,
                       backgroundColor: project.is_active
                         ? theme.backgroundSelected
-                        : theme.backgroundElement,
-                      opacity: pressed ? 0.8 : 1,
+                        : theme.background,
+                      opacity: pressed ? 0.82 : 1,
                     },
                   ]}>
                   <View style={styles.rowText}>
@@ -137,33 +189,39 @@ export function ChatHistorySheet({
                       {project.is_active ? ' · Aktif' : ''}
                     </ThemedText>
                   </View>
-                  {busyId === project.id && <ActivityIndicator color={theme.tint} />}
+                  {busyId === project.id ? <ActivityIndicator color={theme.tint} /> : null}
                 </Pressable>
               ))}
             </ScrollView>
           )}
+
           {error ? (
             <ThemedText type="small" themeColor="danger">
               {error}
             </ThemedText>
           ) : null}
+
           <Pressable
             disabled={busyId !== null}
-            onPress={() => void handleNewProject()}
+            onPress={() => {
+              void handleNewProject();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Yeni niyet başlat"
             style={({ pressed }) => [
               styles.newButton,
-              { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+              { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
             ]}>
             {busyId === 'new' ? (
-              <ActivityIndicator color={theme.background} />
+              <ActivityIndicator color={theme.onAccent} />
             ) : (
-              <ThemedText type="smallBold" style={{ color: theme.background }}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
                 Yeni Niyet Başlat
               </ThemedText>
             )}
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -183,6 +241,7 @@ export function PlanPickerSheet({
 }: PlanPickerSheetProps) {
   const theme = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [projects, setProjects] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -266,8 +325,18 @@ export function PlanPickerSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: theme.background }]} onPress={() => {}}>
+      <KeyboardAvoidingView
+        style={styles.sheetRoot}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityLabel="Paneli kapat" />
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: theme.backgroundElement,
+              paddingBottom: insets.bottom + Spacing.three,
+            },
+          ]}>
           <ThemedText type="subtitle">Planlarım</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Planlarını görüntüle, isimlendir veya yeni bir niyet başlat.
@@ -275,13 +344,13 @@ export function PlanPickerSheet({
           {loading ? (
             <ActivityIndicator color={theme.tint} style={styles.loader} />
           ) : (
-            <ScrollView contentContainerStyle={styles.list}>
+            <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
               {projects
                 .filter((project) => project.has_content)
                 .map((project) => (
-                  <ThemedView
+                  <View
                     key={project.id}
-                    style={[styles.row, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+                    style={[styles.row, { borderColor: theme.border, backgroundColor: theme.background }]}>
                     {editingId === project.id ? (
                       <TextInput
                         value={draftName}
@@ -324,7 +393,7 @@ export function PlanPickerSheet({
                         {editingId === project.id ? 'Kaydet' : 'İsimlendir'}
                       </ThemedText>
                     </Pressable>
-                  </ThemedView>
+                  </View>
                 ))}
             </ScrollView>
           )}
@@ -341,24 +410,57 @@ export function PlanPickerSheet({
               { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
             ]}>
             {busyId === 'new' ? (
-              <ActivityIndicator color={theme.background} />
+              <ActivityIndicator color={theme.onAccent} />
             ) : (
-              <ThemedText type="smallBold" style={{ color: theme.background }}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
                 Yeni Plan Ekle
               </ThemedText>
             )}
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlayRoot: {
+    flex: 1,
+    flexDirection: 'row',
+  },
   backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(44, 36, 28, 0.42)',
+  },
+  drawer: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.three,
+    maxWidth: MaxContentWidth,
+    shadowColor: '#2C241C',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetRoot: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(44, 36, 28, 0.42)',
   },
   sheet: {
     borderTopLeftRadius: Radii.large,
@@ -373,8 +475,12 @@ const styles = StyleSheet.create({
   loader: {
     marginVertical: Spacing.four,
   },
+  listScroll: {
+    flex: 1,
+  },
   list: {
     gap: Spacing.two,
+    paddingBottom: Spacing.two,
   },
   row: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -402,5 +508,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
