@@ -13,16 +13,22 @@ export function supportsWillpowerReminder(task: Task): boolean {
   return task.categories.some((category) => category === 'İrade' || category === 'Disiplin');
 }
 
-function taskStart(task: Task, hour: number): Date {
+function taskStart(task: Task, hour: number, minute = 0): Date {
   const date = task.date ?? new Date().toISOString().slice(0, 10);
-  const start = new Date(`${date}T${String(hour).padStart(2, '0')}:00:00`);
+  const start = new Date(
+    `${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`,
+  );
   if (Number.isNaN(start.getTime())) throw new Error('Görev tarihi geçersiz.');
+  if (start.getTime() <= Date.now()) {
+    return new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  }
   return start;
 }
 
 export async function scheduleTaskNotification(
   task: Task,
   hour: number,
+  minute = 0,
 ): Promise<DeviceActionResult> {
   if (Platform.OS === 'web') {
     return { ok: false, message: 'Yerel görev bildirimleri web sürümünde desteklenmiyor.' };
@@ -48,7 +54,7 @@ export async function scheduleTaskNotification(
     });
   }
 
-  let triggerDate = taskStart(task, hour);
+  let triggerDate = taskStart(task, hour, minute);
   if (triggerDate.getTime() <= Date.now()) {
     triggerDate = new Date(Date.now() + 60_000);
   }
@@ -70,6 +76,7 @@ export async function scheduleTaskNotification(
 export async function addTaskToCalendar(
   task: Task,
   hour: number,
+  minute = 0,
 ): Promise<DeviceActionResult> {
   if (Platform.OS === 'web') {
     return { ok: false, message: 'Takvime ekleme web sürümünde desteklenmiyor.' };
@@ -93,7 +100,7 @@ export async function addTaskToCalendar(
     return { ok: false, message: 'Yazılabilir bir cihaz takvimi bulunamadı.' };
   }
 
-  const startDate = taskStart(task, hour);
+  const startDate = taskStart(task, hour, minute);
   const endDate = new Date(startDate.getTime() + Math.max(task.duration_min, 5) * 60_000);
   await Calendar.createEventAsync(target.id, {
     title: task.title,

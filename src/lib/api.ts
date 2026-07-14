@@ -8,6 +8,7 @@
 import { supabase } from '@/lib/supabase';
 import { ApiTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 
 const CONFIGURED_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
 
@@ -19,6 +20,10 @@ function getBaseUrl(): string {
   }
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  // Android emulator: host machine is 10.0.2.2 (physical device needs LAN IP in .env).
+  if (Platform.OS === 'android' && !Device.isDevice) {
+    return 'http://10.0.2.2:8000';
   }
   return 'http://localhost:8000';
 }
@@ -100,6 +105,9 @@ async function request<T>(
       }
     } catch {
       // yanıt JSON değilse varsayılan mesaj kalır
+    }
+    if (res.status === 429) {
+      detail = 'Çok hızlı denedin — bir dakika bekleyip tekrar dene.';
     }
     throw new ApiError(res.status, detail, code);
   }
@@ -218,6 +226,7 @@ export type UserProfile = {
   zodiac_sign: string | null;
   timezone: string;
   notif_hour: number;
+  notif_minute: number;
   irade_modu_active: boolean;
   kvkk_consent_at: string | null;
   onboarding_complete: boolean;
@@ -247,6 +256,7 @@ export type ProfileUpdate = {
   birth_date: string;
   timezone: string;
   notif_hour: number;
+  notif_minute: number;
   kvkk_consent?: boolean;
   irade_modu_active?: boolean;
 };

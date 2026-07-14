@@ -89,7 +89,7 @@ export function ChatHistorySheet({
       onClose();
       Alert.alert(
         'İkinci plan için abonelik',
-        'İlk planın hazır. Yeni bir niyet başlatmak için aboneliğini aktifleştirmen gerekiyor.',
+        'İlk planın hazır. Deneme süresinde bile yalnızca 1 plan açılır; yeni niyet için mağaza aboneliği gerekir (CANLI YA DEVAM APP sonrası).',
         [
           { text: 'Vazgeç', style: 'cancel' },
           { text: 'Aboneliğe git', onPress: () => router.push('/paywall') },

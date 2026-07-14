@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
+import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
@@ -49,7 +50,7 @@ export default function SettingsScreen() {
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [name, setName] = useState(profile?.name ?? '');
   const [birthDate, setBirthDate] = useState(profile?.birth_date ?? '');
-  const [notifHour, setNotifHour] = useState(String(profile?.notif_hour ?? 8));
+  const [notifTime, setNotifTime] = useState<TimeOfDayValue>({ hour: 8, minute: 0 });
   const [iradeMode, setIradeMode] = useState(profile?.irade_modu_active ?? false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -63,7 +64,10 @@ export default function SettingsScreen() {
   useEffect(() => {
     setName(profile?.name ?? '');
     setBirthDate(birthDateDisplayFromIso(profile?.birth_date));
-    setNotifHour(String(profile?.notif_hour ?? 8));
+    setNotifTime({
+      hour: profile?.notif_hour ?? 8,
+      minute: profile?.notif_minute ?? 0,
+    });
     setIradeMode(profile?.irade_modu_active ?? false);
   }, [profile]);
 
@@ -100,7 +104,8 @@ export default function SettingsScreen() {
         name: name.trim(),
         birth_date: isoBirthDate,
         timezone: profile.timezone,
-        notif_hour: Number(notifHour),
+        notif_hour: notifTime.hour,
+        notif_minute: notifTime.minute,
         irade_modu_active: iradeMode,
       });
       await refresh();
@@ -211,11 +216,10 @@ export default function SettingsScreen() {
               <ThemedText type="smallBold">Doğum tarihi</ThemedText>
               <BirthDateField value={birthDate} onChangeText={setBirthDate} />
             </View>
-            <Field
-              label="Bildirim saati (0–23)"
-              value={notifHour}
-              onChangeText={setNotifHour}
-              keyboardType="number-pad"
+            <TimeOfDayField
+              label="Bildirim saati"
+              value={notifTime}
+              onChange={setNotifTime}
             />
             {profile?.zodiac_sign && (
               <ThemedText themeColor="textSecondary">

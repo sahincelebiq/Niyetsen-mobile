@@ -1,10 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Image } from 'expo-image';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -127,7 +129,7 @@ export default function DailyTasksScreen() {
     setCameraTask(task);
 
     if (profile?.irade_modu_active && supportsWillpowerReminder(task)) {
-      void scheduleTaskNotification(task, profile.notif_hour ?? 8).then((result) => {
+      void scheduleTaskNotification(task, profile.notif_hour ?? 8, profile.notif_minute ?? 0).then((result) => {
         if (result.ok) {
           setOutcome(task.id, { tone: 'success', message: result.message });
         }
@@ -161,14 +163,18 @@ export default function DailyTasksScreen() {
       await load(true);
     } catch (value) {
       setCameraTask(null);
+      let message =
+        value instanceof ApiError
+          ? value.message
+          : value instanceof Error
+            ? value.message
+            : 'Kanıt yüklenemedi.';
+      if (value instanceof ApiError && value.status === 409) {
+        message = 'Önceki fotoğraf hâlâ işleniyor. Birkaç saniye bekle, sonra yeni kare dene.';
+      }
       setOutcome(task.id, {
         tone: 'danger',
-        message:
-          value instanceof ApiError
-            ? value.message
-            : value instanceof Error
-              ? value.message
-              : 'Kanıt yüklenemedi.',
+        message,
       });
     } finally {
       setBusy(null);
@@ -218,8 +224,8 @@ export default function DailyTasksScreen() {
     try {
       const result =
         action === 'notification'
-          ? await scheduleTaskNotification(task, profile?.notif_hour ?? 8)
-          : await addTaskToCalendar(task, profile?.notif_hour ?? 8);
+          ? await scheduleTaskNotification(task, profile?.notif_hour ?? 8, profile?.notif_minute ?? 0)
+          : await addTaskToCalendar(task, profile?.notif_hour ?? 8, profile?.notif_minute ?? 0);
       setOutcome(task.id, { tone: result.ok ? 'success' : 'danger', message: result.message });
     } catch (value) {
       setOutcome(task.id, {
@@ -382,7 +388,39 @@ const TaskCard = memo(function TaskCard({
   const willpowerTask = supportsWillpowerReminder(task);
 
   return (
-    <SurfaceCard style={styles.cardGap}>
+    <SurfaceCard style={styles.cardGap} elevated={!!task.image_url}>
+      {!!task.image_url && (
+        <ThemedView style={styles.imageWrapper}>
+          <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+          {!!task.image_attribution && (
+            <Pressable
+              accessibilityLabel="Fotoğraf atfı"
+              accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+              hitSlop={8}
+              onLongPress={() => {
+                Alert.alert(
+                  'Fotoğraf atfı',
+                  task.image_attribution,
+                  task.image_attribution_url
+                    ? [
+                        { text: 'Kapat', style: 'cancel' },
+                        {
+                          text: 'Unsplash’ta aç',
+                          onPress: () => void Linking.openURL(task.image_attribution_url),
+                        },
+                      ]
+                    : [{ text: 'Kapat', style: 'cancel' }],
+                );
+              }}
+              style={styles.attributionBadge}>
+              <ThemedText type="smallBold" style={styles.attributionIcon}>
+                ⓘ
+              </ThemedText>
+            </Pressable>
+          )}
+        </ThemedView>
+      )}
+      <ThemedView style={styles.cardBody}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitle}>
           <View style={styles.badgeRow}>
@@ -434,6 +472,7 @@ const TaskCard = memo(function TaskCard({
           ) : null}
         </View>
       ) : null}
+      </ThemedView>
     </SurfaceCard>
   );
 });
@@ -510,6 +549,35 @@ const styles = StyleSheet.create({
   },
   cardGap: {
     gap: Spacing.three,
+    overflow: 'hidden',
+    padding: 0,
+  },
+  cardBody: {
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  imageWrapper: {
+    position: 'relative',
+  },
+  taskImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  attributionBadge: {
+    position: 'absolute',
+    right: Spacing.two,
+    bottom: Spacing.two,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  attributionIcon: {
+    color: '#fff',
+    fontSize: 14,
+    lineHeight: 16,
   },
   badgeRow: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
+import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
 import {
   ConsentChoices,
   ConsentChoicesValue,
@@ -42,7 +43,7 @@ export function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [notifHour, setNotifHour] = useState('8');
+  const [notifTime, setNotifTime] = useState<TimeOfDayValue>({ hour: 8, minute: 0 });
   const [consents, setConsents] = useState<ConsentChoicesValue>(EMPTY_CONSENT_CHOICES);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +60,8 @@ export function OnboardingScreen() {
     if (step === 1 && !isValidBirthDateDisplay(birthDate)) {
       return 'Tarihi gün.ay.yıl olarak yaz (ör. 10.04.1995).';
     }
-    const hour = Number(notifHour);
-    if (step === 2 && (!Number.isInteger(hour) || hour < 0 || hour > 23)) {
-      return 'Bildirim saati 0–23 arasında olmalı.';
+    if (step === 2 && notifTime.hour === undefined) {
+      return 'Bildirim saati seçmelisin.';
     }
     if (step === 3 && !consents.privacy) {
       return 'Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.';
@@ -92,7 +92,8 @@ export function OnboardingScreen() {
         name: name.trim(),
         birth_date: isoBirthDate,
         timezone,
-        notif_hour: Number(notifHour),
+        notif_hour: notifTime.hour,
+        notif_minute: notifTime.minute,
         kvkk_consent: true,
       });
       await updateConsent({
@@ -157,11 +158,10 @@ export function OnboardingScreen() {
                   <ThemedText themeColor="textSecondary">
                     Günlük görev hatırlatıcını hangi saatte almak istersin?
                   </ThemedText>
-                  <Field
-                    value={notifHour}
-                    onChangeText={setNotifHour}
-                    placeholder="8"
-                    keyboardType="number-pad"
+                  <TimeOfDayField
+                    label="Bildirim saati"
+                    value={notifTime}
+                    onChange={setNotifTime}
                   />
                 </>
               )}

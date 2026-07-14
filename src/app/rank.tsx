@@ -73,18 +73,18 @@ export default function RankScreen() {
         {state && !loading && (
           <>
               <View style={[styles.hero, { backgroundColor: theme.accentWarm }, Shadows.soft ?? {}]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent, opacity: 0.85 }}>
+                <ThemedText type="smallBold" style={styles.heroLabel}>
                   {Copy.chain.heroLabel.toUpperCase()}
                 </ThemedText>
                 <View style={styles.heroNumbers}>
-                  <ThemedText type="title" style={{ color: theme.onAccent, fontSize: 62, lineHeight: 56 }}>
+                  <ThemedText style={[styles.heroCount, { color: theme.onAccent }]}>
                     {state.streak_len}
                   </ThemedText>
-                  <ThemedText style={{ color: theme.onAccent, fontSize: 22, opacity: 0.9 }}>
+                  <ThemedText style={[styles.heroUnit, { color: theme.onAccent }]}>
                     gün
                   </ThemedText>
                 </View>
-                <ThemedText style={{ color: theme.onAccent, opacity: 0.85, lineHeight: 20 }}>
+                <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
                   {Copy.chain.heroHint}
                 </ThemedText>
               </View>
@@ -146,7 +146,9 @@ export default function RankScreen() {
 function Metric({ value, label }: { value: string; label: string }) {
   return (
     <View style={styles.metric}>
-      <ThemedText type="subtitle">{value}</ThemedText>
+      <ThemedText type="default" style={styles.metricValue}>
+        {value}
+      </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
@@ -161,11 +163,33 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
     overflow: 'hidden',
+    minHeight: 132,
+  },
+  heroLabel: {
+    color: 'rgba(252, 244, 234, 0.85)',
+    letterSpacing: 0.8,
   },
   heroNumbers: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
     gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  heroCount: {
+    fontSize: 44,
+    lineHeight: 48,
+    fontFamily: 'Fraunces_600SemiBold',
+  },
+  heroUnit: {
+    fontSize: 18,
+    lineHeight: 28,
+    opacity: 0.92,
+    paddingBottom: 4,
+  },
+  heroHint: {
+    opacity: 0.88,
+    lineHeight: 20,
+    marginTop: Spacing.one,
   },
   centerText: { textAlign: 'center' },
   streakRow: {
@@ -175,7 +199,12 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     marginTop: Spacing.two,
   },
-  metric: { flex: 1, alignItems: 'center' },
+  metric: { flex: 1, alignItems: 'center', gap: 2 },
+  metricValue: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontFamily: 'Fraunces_600SemiBold',
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

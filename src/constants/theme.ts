@@ -144,7 +144,7 @@ export const Texture = {
 } as const;
 
 /** Native tab bar + home indicator payı; içerik bunun üstünde biter. */
-export const BottomTabInset = Platform.select({ ios: 96, android: 88, default: 84 }) ?? 84;
+export const BottomTabInset = Platform.select({ ios: 78, android: 72, default: 68 }) ?? 68;
 export const TabBarBackground = '#FBF6EF';
 export const MaxContentWidth = 800;
 export const ApiTimeoutMs = 20_000;

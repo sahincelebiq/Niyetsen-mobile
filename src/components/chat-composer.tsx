@@ -44,7 +44,7 @@ export function ChatComposer({
   const canSend = !disabled && (!!value.trim() || !!pendingAttachment);
   const bottomPadding = keyboardOpen
     ? Math.max(insets.bottom, Spacing.two)
-    : insets.bottom + BottomTabInset + Spacing.two;
+    : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
     <ThemedView

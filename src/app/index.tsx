@@ -18,7 +18,6 @@ import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
 import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
 import { ChatQuickReplies } from '@/components/chat-quick-replies';
-import { ChatSystemNotice } from '@/components/chat-system-notice';
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatHeader } from '@/components/chat-header';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
@@ -417,8 +416,6 @@ export default function ChatScreen() {
                 />
               )}
             </ChatEdgeDrawer>
-
-            {planHasContent ? <ChatSystemNotice message={Copy.chat.planReadyHint} /> : null}
 
             {showQuickReplies ? (
               <ChatQuickReplies
