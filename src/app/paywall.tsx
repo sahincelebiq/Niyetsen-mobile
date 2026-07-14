@@ -1,10 +1,11 @@
 import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Copy } from '@/constants/copy';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -12,11 +13,11 @@ import {
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
-import { purchasePlan, restorePurchases } from '@/lib/purchases';
+import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases';
 import { useSubscription } from '@/providers/subscription-provider';
 
-const MONTHLY_PRICE = '450 TL / ay';
-const YEARLY_PRICE = '3.600 TL / yıl';
+const FALLBACK_MONTHLY = '450 TL / ay';
+const FALLBACK_YEARLY = '3.600 TL / yıl';
 const YEARLY_EQUIV = 'Ayda ~300 TL';
 
 export default function PaywallScreen() {
@@ -25,6 +26,15 @@ export default function PaywallScreen() {
   const { status, refresh } = useSubscription();
   const [busy, setBusy] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [monthlyPrice, setMonthlyPrice] = useState(FALLBACK_MONTHLY);
+  const [yearlyPrice, setYearlyPrice] = useState(FALLBACK_YEARLY);
+
+  useEffect(() => {
+    void getStorePrices().then((prices) => {
+      if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
+      if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
+    });
+  }, []);
 
   async function handlePurchase(plan: 'monthly' | 'yearly') {
     setBusy(plan);
@@ -65,14 +75,13 @@ export default function PaywallScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
           <ThemedView style={styles.hero}>
-            <ThemedText type="title">Zincirin seni bekliyor</ThemedText>
+            <ThemedText type="title">{Copy.paywall.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
-              Planın hazır, ritmin başladı. 7 günlük denemen bitti — devam etmek için
-              aboneliğini seç. Verilerin silinmez; yalnızca erişim kilitlenir.
+              {Copy.paywall.body}
             </ThemedText>
             {status?.trial_days_remaining === 0 && status.status === 'trial' ? (
               <ThemedText type="smallBold" themeColor="accentWarm">
-                Deneme süren doldu.
+                {Copy.paywall.trialEnded}
               </ThemedText>
             ) : null}
           </ThemedView>
@@ -80,7 +89,7 @@ export default function PaywallScreen() {
           <ThemedView
             style={[styles.card, { borderColor: theme.border }, Shadows.soft ?? {}]}>
             <ThemedText type="subtitle">Aylık</ThemedText>
-            <ThemedText type="title">{MONTHLY_PRICE}</ThemedText>
+            <ThemedText type="title">{monthlyPrice}</ThemedText>
             <ThemedText themeColor="textSecondary">
               Esnek devam — istediğin zaman iptal edebilirsin.
             </ThemedText>
@@ -89,13 +98,13 @@ export default function PaywallScreen() {
               onPress={() => void handlePurchase('monthly')}
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: theme.tint },
+                { backgroundColor: theme.accentWarm },
                 pressed && styles.pressed,
               ]}>
               {busy === 'monthly' ? (
-                <ActivityIndicator color={theme.background} />
+                <ActivityIndicator color={theme.onAccent} />
               ) : (
-                <ThemedText style={{ color: theme.background }} type="smallBold">
+                <ThemedText style={{ color: theme.onAccent }} type="smallBold">
                   Aylık devam et
                 </ThemedText>
               )}
@@ -103,22 +112,22 @@ export default function PaywallScreen() {
           </ThemedView>
 
           <ThemedView
-            style={[styles.card, { borderColor: theme.tint }, Shadows.soft ?? {}]}>
-            <ThemedText type="subtitle">Yıllık · önerilen</ThemedText>
-            <ThemedText type="title">{YEARLY_PRICE}</ThemedText>
+            style={[styles.card, styles.recommended, { borderColor: theme.accentWarm }, Shadows.soft ?? {}]}>
+            <ThemedText type="subtitle" themeColor="accentWarm">Yıllık · önerilen</ThemedText>
+            <ThemedText type="title">{yearlyPrice}</ThemedText>
             <ThemedText themeColor="textSecondary">{YEARLY_EQUIV}</ThemedText>
             <Pressable
               disabled={busy !== null}
               onPress={() => void handlePurchase('yearly')}
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: theme.tint },
+                { backgroundColor: theme.accentWarm },
                 pressed && styles.pressed,
               ]}>
               {busy === 'yearly' ? (
-                <ActivityIndicator color={theme.background} />
+                <ActivityIndicator color={theme.onAccent} />
               ) : (
-                <ThemedText style={{ color: theme.background }} type="smallBold">
+                <ThemedText style={{ color: theme.onAccent }} type="smallBold">
                   Yıllık devam et
                 </ThemedText>
               )}
@@ -151,8 +160,7 @@ export default function PaywallScreen() {
           </ThemedView>
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.renewal}>
-            Abonelik, seçtiğin dönemin sonunda otomatik yenilenir. İptal App Store /
-            Google Play hesap ayarlarından yapılır. Yalnız mağaza içi satın alma (IAP).
+            {Copy.paywall.renewalNote}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>
@@ -176,6 +184,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.large,
     padding: Spacing.four,
     gap: Spacing.two,
+  },
+  recommended: {
+    borderWidth: 2,
   },
   button: {
     minHeight: 48,

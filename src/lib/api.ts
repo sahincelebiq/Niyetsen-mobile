@@ -510,3 +510,14 @@ export function completeBonus(
 export function deleteAccount(): Promise<void> {
   return request<void>('/me', { method: 'DELETE' });
 }
+
+export async function pingHealth(): Promise<boolean> {
+  try {
+    const base = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+    if (!base) return false;
+    const res = await fetch(`${base}/health`, { method: 'GET' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

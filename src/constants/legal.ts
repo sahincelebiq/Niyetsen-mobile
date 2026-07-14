@@ -83,15 +83,18 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentId, LegalDocument> = {
           'Apple ve Google: yalnız kullanıcı ilgili giriş yöntemini seçerse kimlik doğrulama. Sağlayıcı Niyetsen’e hesap tanımlayıcılarını ve izin verilen temel hesap bilgisini iletebilir.',
           'Unsplash: plan görevlerinde görsel sağlama ve fotoğrafçı atfı. Görsel cihazdan yüklenirken Unsplash, IP adresi ve standart istek bilgilerini alabilir; Niyetsen sohbet metnini Unsplash’a göndermez.',
           'Yetkili kurumlar: yalnız hukuken geçerli bir yükümlülük veya talep bulunması halinde gerekli kapsamda aktarım yapılabilir.',
+          'RevenueCat: abonelik durumu ve mağaza satın alma olayları (ödeme kartı bilgisi Niyetsen tarafından toplanmaz).',
+          'PostHog: ürün analitiği — yalnız anahtar yapılandırıldığında kullanım eventleri.',
+          'Sentry: hata izleme — yalnız DSN yapılandırıldığında çökme kayıtları.',
         ],
         paragraphs: [
-          'Gemini, Supabase, Apple, Google ve Unsplash hizmetlerinin altyapısı yurt dışında bulunabilir. Bu nedenle kullanım, KVKK’nın yurt dışına aktarım kuralları bakımından ayrıca değerlendirilir. Bu metin, henüz kurulmamış sözleşme veya uygun güvence mekanizmalarının kurulmuş olduğunu iddia etmez.',
+          'Gemini, Supabase, Apple, Google, Unsplash, RevenueCat, PostHog ve Sentry hizmetlerinin altyapısı yurt dışında bulunabilir. Bu nedenle kullanım, KVKK’nın yurt dışına aktarım kuralları bakımından ayrıca değerlendirilir. Pinterest entegrasyonu v2 kapsamında henüz aktif değildir.',
         ],
       },
       {
-        title: '5. Henüz aktif olmayan sağlayıcılar',
+        title: '5. Opsiyonel ve koşullu sağlayıcılar',
         paragraphs: [
-          'RevenueCat (abonelik), PostHog (analitik), Sentry (hata izleme) ve Pinterest entegrasyonları şu anda aktif değildir. Bu sağlayıcılar etkinleştirilirse ilgili veri akışları başlamadan önce politika güncellenecek ve gerektiğinde yeni tercih veya rıza alınacaktır. Niyetsen şu anda kart bilgisi toplamaz ve pazarlama analitiği çalıştırmaz.',
+          'PostHog ve Sentry yalnız ilgili anahtar/DSN yapılandırıldığında devreye girer; yapılandırılmadığında veri gönderilmez. RevenueCat abonelik yönetimi mağaza derlemelerinde kullanılır. Pazarlama iletişimi varsayılan olarak kapalıdır.',
         ],
       },
       {
@@ -160,7 +163,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentId, LegalDocument> = {
       {
         title: '5. Aktarım yapılan taraflar',
         paragraphs: [
-          'Amaçla sınırlı olarak Google Gemini, Supabase, kullanıcı tarafından seçilen Apple/Google giriş sağlayıcısı, görsellerin sunumu için Unsplash ve hukuken yetkili kurumlar alıcı olabilir. Ayrıntılar Gizlilik Politikası’nın “Güncel hizmet sağlayıcılar ve aktarımlar” bölümündedir. RevenueCat, PostHog, Sentry ve Pinterest şu anda aktif değildir.',
+          'Amaçla sınırlı olarak Google Gemini, Supabase, kullanıcı tarafından seçilen Apple/Google giriş sağlayıcısı, görsellerin sunumu için Unsplash, abonelik için RevenueCat, yapılandırıldığında PostHog ve Sentry ile hukuken yetkili kurumlar alıcı olabilir. Ayrıntılar Gizlilik Politikası’nın “Güncel hizmet sağlayıcılar ve aktarımlar” bölümündedir.',
         ],
       },
       {
@@ -265,7 +268,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocumentId, LegalDocument> = {
       {
         title: '6. Ücretli hizmetler',
         paragraphs: [
-          'Ücretli abonelik ve RevenueCat entegrasyonu şu anda aktif değildir. Etkinleştirilirse fiyat, yenileme, iptal ve satın alımı geri yükleme koşulları satın alma öncesinde ayrıca gösterilecek; ödemeler Apple App Store veya Google Play üzerinden yürütülecektir.',
+          'Ücretli abonelik RevenueCat ve Apple App Store / Google Play üzerinden yürütülür. Fiyat, yenileme, iptal ve geri yükleme koşulları satın alma öncesinde paywall ekranında gösterilir; ödeme bilgisi Niyetsen tarafından doğrudan toplanmaz.',
         ],
       },
       {

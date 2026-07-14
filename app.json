@@ -7,12 +7,14 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "niyetsen",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.niyetsen.app"
     },
     "android": {
+      "package": "com.niyetsen.app",
       "adaptiveIcon": {
         "backgroundColor": "#FBF7EF",
         "foregroundImage": "./assets/images/niyetsen-chain.png",
@@ -22,7 +24,8 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.WRITE_CALENDAR",
+        "com.android.vending.BILLING"
       ]
     },
     "web": {
@@ -31,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {

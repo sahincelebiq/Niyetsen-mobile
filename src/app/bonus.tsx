@@ -205,12 +205,12 @@ function BonusButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: theme.tint, opacity: pressed || busy ? 0.7 : 1 },
+        { backgroundColor: theme.accentWarm, opacity: pressed || busy ? 0.7 : 1 },
       ]}>
       {busy ? (
-        <ActivityIndicator color={theme.background} />
+        <ActivityIndicator color={theme.onAccent} />
       ) : (
-        <ThemedText type="smallBold" style={{ color: theme.background }}>
+        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
           {label}
         </ThemedText>
       )}

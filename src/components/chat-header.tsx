@@ -2,9 +2,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Copy } from '@/constants/copy';
-import { Fonts, Radii, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 
 type ChatHeaderProps = {
   streakDays: number;
@@ -30,6 +29,7 @@ export function ChatHeader({
             accessibilityRole="button"
             accessibilityLabel="Geçmiş sohbetler"
             onPress={onOpenHistory}
+            hitSlop={10}
             style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}>
             <ThemedText style={styles.historyGlyph}>☰</ThemedText>
           </Pressable>
@@ -44,21 +44,12 @@ export function ChatHeader({
         </View>
         <StreakPill streakDays={streakDays} compact />
       </View>
-      {streakDays > 0 ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          {Copy.chat.streakActive(streakDays)}
-        </ThemedText>
-      ) : (
-        <ThemedText type="small" themeColor="textSecondary">
-          {Copy.chat.streakNew}
-        </ThemedText>
-      )}
       {showTrial ? (
-        <ThemedView type="backgroundElement" style={styles.trialChip}>
+        <View style={styles.trialChip}>
           <ThemedText type="smallBold" themeColor="accentWarm">
             Deneme: {trialDaysRemaining} gün kaldı
           </ThemedText>
-        </ThemedView>
+        </View>
       ) : null}
     </View>
   );
@@ -67,7 +58,7 @@ export function ChatHeader({
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
   titleRow: {
@@ -77,19 +68,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   historyButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   historySpacer: {
-    width: 36,
+    width: 40,
   },
   historyGlyph: {
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 22,
+    lineHeight: 24,
     fontFamily: Fonts.sansBold,
   },
   titles: {

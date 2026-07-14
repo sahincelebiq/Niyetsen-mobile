@@ -155,13 +155,13 @@ export function ConsentGate({ children }: PropsWithChildren) {
               onPress={() => void save()}
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: theme.tint },
+                { backgroundColor: theme.accentWarm },
                 (pressed || saving) && styles.pressed,
               ]}>
               {saving ? (
-                <ActivityIndicator color={theme.background} />
+                <ActivityIndicator color={theme.onAccent} />
               ) : (
-                <ThemedText type="smallBold" style={{ color: theme.background }}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
                   Tercihlerimi Kaydet
                 </ThemedText>
               )}

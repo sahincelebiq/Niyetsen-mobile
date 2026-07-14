@@ -11,13 +11,12 @@ import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
+import { BottomTabInset, Fonts, MaxContentWidth, Spacing, TabBarBackground } from '@/constants/theme';
 
 export default function AppTabs() {
   return (
     <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+      <TabSlot style={{ height: '100%', paddingBottom: BottomTabInset }} />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
@@ -32,11 +31,8 @@ export default function AppTabs() {
           <TabTrigger name="rank" href="/rank" asChild>
             <TabButton>Zincir</TabButton>
           </TabTrigger>
-          <TabTrigger name="mystic" href="/mystic" asChild>
-            <TabButton>Mistik</TabButton>
-          </TabTrigger>
           <TabTrigger name="settings" href="/settings" asChild>
-            <TabButton>Ayarlar</TabButton>
+            <TabButton>Profil</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -61,14 +57,9 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" themeColor="accentWarm" style={styles.brandText}>
-          Niyetsen
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
-          {Copy.brand.tagline}
-        </ThemedText>
-
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.innerContainer, { backgroundColor: TabBarBackground }]}>
         {props.children}
       </ThemedView>
     </View>
@@ -78,30 +69,29 @@ export function CustomTabList(props: TabListProps) {
 const styles = StyleSheet.create({
   tabListContainer: {
     position: 'absolute',
+    bottom: 0,
     width: '100%',
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
   innerContainer: {
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
     borderRadius: Spacing.five,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
     flexGrow: 1,
     gap: Spacing.one,
     maxWidth: MaxContentWidth,
-  },
-  brandText: {
-    fontFamily: Fonts.serif,
-  },
-  tagline: {
-    marginRight: 'auto',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    fontSize: 11,
+    shadowColor: '#4A3B2C',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
   },
   pressed: {
     opacity: 0.7,

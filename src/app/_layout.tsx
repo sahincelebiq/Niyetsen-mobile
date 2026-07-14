@@ -33,6 +33,8 @@ import {
   openLastNotificationResponse,
 } from '@/lib/push-notifications';
 import { trackEvent } from '@/lib/analytics';
+import { pingHealth } from '@/lib/api';
+import { initSentry } from '@/lib/sentry';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { ProfileProvider, useProfile } from '@/providers/profile-provider';
 import { SubscriptionProvider } from '@/providers/subscription-provider';
@@ -129,7 +131,9 @@ function NotificationRouter() {
   const router = useRouter();
 
   useEffect(() => {
+    initSentry();
     void trackEvent('app_open');
+    void pingHealth();
     void openLastNotificationResponse(router);
     const subscription = addNotificationResponseListener(router);
     return () => subscription?.remove();

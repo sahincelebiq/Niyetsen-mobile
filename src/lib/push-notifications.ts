@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import type { Href, Router } from 'expo-router';
 import { Platform } from 'react-native';
 
+import { trackEvent } from '@/lib/analytics';
 import {
   registerPushToken,
   unregisterPushToken,
@@ -154,6 +155,7 @@ export async function disablePushNotifications(userId: string): Promise<PushStat
 
 export function openNotificationUrl(router: Router, value: unknown): boolean {
   if (typeof value !== 'string' || !ALLOWED_NOTIFICATION_URLS.has(value)) return false;
+  void trackEvent('notification_opened', { url: value });
   router.push(value as Href);
   return true;
 }

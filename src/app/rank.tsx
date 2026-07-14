@@ -3,14 +3,13 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
+import { ScreenScaffold } from '@/components/screen-scaffold';
 import { StreakPill } from '@/components/streak-pill';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -19,7 +18,6 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset,
   MaxContentWidth,
   Radii,
   Shadows,
@@ -57,25 +55,23 @@ export default function RankScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-        <ScrollView
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+      <ScreenScaffold
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+        }>
+        <ScreenHeader
+          title={Copy.chain.title}
+          subtitle={Copy.chain.subtitle}
+          trailing={
+            state && !loading ? <StreakPill streakDays={state.streak_len} /> : undefined
           }
-          contentContainerStyle={styles.content}>
-          <ScreenHeader
-            title={Copy.chain.title}
-            subtitle={Copy.chain.subtitle}
-            trailing={
-              state && !loading ? <StreakPill streakDays={state.streak_len} /> : undefined
-            }
-          />
+        />
 
-          {error && <ErrorBanner message={error} onRetry={() => void load()} />}
-          {loading && <ActivityIndicator color={theme.accentWarm} size="large" />}
+        {error && <ErrorBanner message={error} onRetry={() => void load()} />}
+        {loading && <ActivityIndicator color={theme.accentWarm} size="large" />}
 
-          {state && !loading && (
-            <>
+        {state && !loading && (
+          <>
               <View style={[styles.hero, { backgroundColor: theme.accentWarm }, Shadows.soft ?? {}]}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent, opacity: 0.85 }}>
                   {Copy.chain.heroLabel.toUpperCase()}
@@ -141,9 +137,8 @@ export default function RankScreen() {
                 </ThemedText>
               </SurfaceCard>
             </>
-          )}
-        </ScrollView>
-      </SafeAreaView>
+        )}
+      </ScreenScaffold>
     </ThemedView>
   );
 }
@@ -161,15 +156,6 @@ function Metric({ value, label }: { value: string; label: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.five,
-    gap: Spacing.three,
-  },
-  header: { gap: Spacing.one, paddingVertical: Spacing.two },
   hero: {
     borderRadius: Radii.large,
     padding: Spacing.four,

@@ -254,17 +254,17 @@ function AuthButton({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: primary ? theme.tint : theme.background,
-          borderColor: primary ? theme.tint : theme.border,
+          backgroundColor: primary ? theme.accentWarm : theme.background,
+          borderColor: primary ? theme.accentWarm : theme.border,
           opacity: pressed || busy ? 0.7 : 1,
         },
       ]}>
       {busy ? (
-        <ActivityIndicator color={primary ? theme.background : theme.tint} />
+        <ActivityIndicator color={primary ? theme.onAccent : theme.tint} />
       ) : (
         <ThemedText
           type="smallBold"
-          style={{ color: primary ? theme.background : theme.text }}>
+          style={{ color: primary ? theme.onAccent : theme.text }}>
           {label}
         </ThemedText>
       )}

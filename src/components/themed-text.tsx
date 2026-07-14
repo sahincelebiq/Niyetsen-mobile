@@ -10,6 +10,9 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const linkPrimaryStyle = type === 'linkPrimary'
+    ? { color: theme.tint, fontFamily: Fonts.sansSemiBold, lineHeight: 30, fontSize: 14 }
+    : null;
 
   return (
     <Text
@@ -22,7 +25,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'smallBold' && styles.smallBold,
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
+        linkPrimaryStyle,
         type === 'code' && styles.code,
         style,
       ]}
@@ -68,12 +71,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansMedium,
     lineHeight: 30,
     fontSize: 14,
-  },
-  linkPrimary: {
-    fontFamily: Fonts.sansSemiBold,
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#7C9473',
   },
   code: {
     fontFamily: Fonts.mono,

@@ -5,37 +5,32 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
+  View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
 import { PlanPickerSheet } from '@/components/project-sheets';
+import { ScreenScaffold } from '@/components/screen-scaffold';
+import { CategoryBadge } from '@/components/ui/category-badge';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import {
-  BottomTabInset, MaxContentWidth, Radii, Shadows, Spacing, Texture,
-} from '@/constants/theme';
+import { MaxContentWidth, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getCurrentPlan, listProjects, Plan, PlanDay } from '@/lib/api';
 import { useSubscription } from '@/providers/subscription-provider';
 
 export default function PlanScreen() {
   const { status: subscriptionStatus } = useSubscription();
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
   const theme = useTheme();
   const router = useRouter();
 
   const [plan, setPlan] = useState<Plan | null>(null);
-  const [planTitle, setPlanTitle] = useState('Planım');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,10 +41,8 @@ export default function PlanScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const [result, projects] = await Promise.all([getCurrentPlan(), listProjects()]);
+      const [result] = await Promise.all([getCurrentPlan(), listProjects()]);
       setPlan(result);
-      const active = projects.find((item) => item.is_active);
-      setPlanTitle(active?.name ?? result?.name ?? 'Planım');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
     } finally {
@@ -65,75 +58,65 @@ export default function PlanScreen() {
     }, []),
   );
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const contentIntent =
+    plan?.days[0]?.theme ||
+    'Bu yıl bahane üretmeyen, sözünü tutan biri olmak istiyorum.';
 
   return (
-    <ThemedView style={styles.scrollView}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.backgroundImage}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <ScrollView
-        style={styles.scrollView}
-        contentInset={insets}
-        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+    <ThemedView style={styles.flex}>
+      <ScreenScaffold
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
         }>
-        <ThemedView style={styles.container}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setPickerOpen(true)}
-          style={({ pressed }) => [styles.titleContainer, pressed && styles.pressed]}>
-          <ThemedText type="subtitle">{planTitle}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Plan değiştir
-          </ThemedText>
-        </Pressable>
+        <ScreenHeader
+          title={Copy.plan.title}
+          subtitle={Copy.plan.subtitle}
+          trailing={
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPickerOpen(true)}
+              style={({ pressed }) => [styles.switchPlan, pressed && styles.pressed]}>
+              <ThemedText type="smallBold" themeColor="accentWarm">
+                {Copy.plan.switchPlan}
+              </ThemedText>
+            </Pressable>
+          }
+        />
+
+        {plan && !loading ? (
+          <View style={[styles.intentHero, { backgroundColor: theme.tint }]}>
+            <ThemedText type="smallBold" style={styles.intentLabel}>
+              BU AYIN BÜYÜK NİYETİ
+            </ThemedText>
+            <ThemedText style={styles.intentText}>{contentIntent}</ThemedText>
+          </View>
+        ) : null}
 
         {loading && (
           <ThemedView style={styles.centerBlock}>
-            <ActivityIndicator size="large" color={theme.textSecondary} />
+            <ActivityIndicator size="large" color={theme.accentWarm} />
           </ThemedView>
         )}
 
-        {!loading && error && (
-          <ThemedView style={styles.bannerWrapper}>
-            <ErrorBanner message={error} onRetry={() => void load()} retrying={refreshing} />
-          </ThemedView>
-        )}
+        {!loading && error && <ErrorBanner message={error} onRetry={() => void load()} retrying={refreshing} />}
 
         {!loading && !error && !plan && (
-          <ThemedView style={styles.emptyState}>
+          <SurfaceCard elevated style={styles.emptyState}>
             <ThemedText style={styles.centerText} themeColor="textSecondary">
-              Henüz bir planın yok. Sohbete başlayıp bu yılki niyetini anlat, sana özel görselli
-              planını birlikte çıkaralım. 🌙
+              {Copy.plan.emptyBody}
             </ThemedText>
             <Pressable
               onPress={() => router.push('/')}
               style={({ pressed }) => [
                 styles.ctaButton,
-                { backgroundColor: theme.tint },
+                { backgroundColor: theme.accentWarm },
                 pressed && styles.pressed,
               ]}>
-              <ThemedText type="smallBold" style={{ color: theme.background }}>
-                Sohbete Başla
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                {Copy.plan.startChat}
               </ThemedText>
             </Pressable>
-          </ThemedView>
+          </SurfaceCard>
         )}
 
         {!loading && !error && plan && (
@@ -143,8 +126,7 @@ export default function PlanScreen() {
             ))}
           </ThemedView>
         )}
-        </ThemedView>
-      </ScrollView>
+      </ScreenScaffold>
       <PlanPickerSheet
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -156,7 +138,6 @@ export default function PlanScreen() {
 }
 
 function DaySection({ day }: { day: PlanDay }) {
-  const theme = useTheme();
   return (
     <ThemedView style={styles.daySection}>
       <ThemedText type="smallBold">
@@ -165,10 +146,7 @@ function DaySection({ day }: { day: PlanDay }) {
       </ThemedText>
       <ThemedView style={styles.taskList}>
         {day.tasks.map((task) => (
-          <ThemedView
-            key={task.id}
-            type="backgroundElement"
-            style={[styles.taskCard, { borderColor: theme.border }]}>
+          <SurfaceCard key={task.id} elevated style={styles.taskCard}>
             {!!task.image_url && (
               <ThemedView style={styles.imageWrapper}>
                 <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
@@ -204,20 +182,16 @@ function DaySection({ day }: { day: PlanDay }) {
               <ThemedText type="default">{task.title}</ThemedText>
               {!!task.tiny_version && (
                 <ThemedText type="small" themeColor="textSecondary">
-                  En küçük halka: {task.tiny_version}
+                  {Copy.daily.tinyPrefix}: {task.tiny_version}
                 </ThemedText>
               )}
               <ThemedView style={styles.tagRow}>
                 {task.categories.map((c) => (
-                  <ThemedView key={c} type="backgroundSelected" style={styles.tag}>
-                    <ThemedText type="small" themeColor="accentWarm">
-                      {c}
-                    </ThemedText>
-                  </ThemedView>
+                  <CategoryBadge key={c} label={c} />
                 ))}
               </ThemedView>
             </ThemedView>
-          </ThemedView>
+          </SurfaceCard>
         ))}
       </ThemedView>
     </ThemedView>
@@ -225,27 +199,25 @@ function DaySection({ day }: { day: PlanDay }) {
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
+  flex: { flex: 1 },
+  intentHero: {
+    borderRadius: Radii.large,
+    padding: Spacing.four,
+    gap: Spacing.two,
   },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: Texture.backgroundOpacity * 0.7,
+  intentLabel: {
+    color: 'rgba(252, 244, 234, 0.8)',
+    letterSpacing: 1.1,
   },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  intentText: {
+    color: '#FCF4EA',
+    fontSize: 22,
+    lineHeight: 30,
+    fontFamily: 'Fraunces_600SemiBold',
   },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-    width: '100%',
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
+  switchPlan: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
   },
   centerText: {
     textAlign: 'center',
@@ -255,12 +227,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   bannerWrapper: {
-    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
   emptyState: {
-    gap: Spacing.four,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
+    gap: Spacing.four,
     paddingVertical: Spacing.five,
   },
   ctaButton: {
@@ -274,7 +245,6 @@ const styles = StyleSheet.create({
   },
   daysWrapper: {
     gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.five,
   },
   daySection: {
@@ -284,10 +254,8 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   taskCard: {
-    borderRadius: Radii.large,
-    borderWidth: Texture.cardBorderWidth,
+    padding: 0,
     overflow: 'hidden',
-    ...(Shadows.subtle ?? {}),
   },
   taskImage: {
     width: '100%',
@@ -321,10 +289,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.one,
     marginTop: Spacing.one,
-  },
-  tag: {
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
   },
 });

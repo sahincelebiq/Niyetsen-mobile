@@ -30,6 +30,7 @@ import {
 } from '@/constants/theme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useTheme } from '@/hooks/use-theme';
+import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
   excuseTask,
@@ -124,6 +125,14 @@ export default function DailyTasksScreen() {
     setCameraError(null);
     setCameraReady(false);
     setCameraTask(task);
+
+    if (profile?.irade_modu_active && supportsWillpowerReminder(task)) {
+      void scheduleTaskNotification(task, profile.notif_hour ?? 8).then((result) => {
+        if (result.ok) {
+          setOutcome(task.id, { tone: 'success', message: result.message });
+        }
+      });
+    }
   }
 
   async function captureAndUpload() {
@@ -139,6 +148,15 @@ export default function DailyTasksScreen() {
       if (!picture?.uri) throw new Error('Fotoğraf oluşturulamadı.');
       setCameraTask(null);
       const result = await uploadTaskProof(task.id, picture.uri);
+      void trackEvent('proof_uploaded', {
+        task_id: task.id,
+        approved: result.approved,
+        confidence: result.confidence,
+        attempt_no: result.attempt_no,
+      });
+      if (result.approved) {
+        void trackEvent('task_completed', { task_id: task.id, via: 'proof' });
+      }
       showProofOutcome(task, result);
       await load(true);
     } catch (value) {

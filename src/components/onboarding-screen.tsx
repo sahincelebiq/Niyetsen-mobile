@@ -182,14 +182,14 @@ export function OnboardingScreen() {
                   onPress={() => void next()}
                   style={[
                     styles.nextButton,
-                    { backgroundColor: theme.tint, opacity: busy ? 0.7 : 1 },
+                    { backgroundColor: theme.accentWarm, opacity: busy ? 0.7 : 1 },
                   ]}>
                   {busy ? (
-                    <ActivityIndicator color={theme.background} />
+                    <ActivityIndicator color={theme.onAccent} />
                   ) : (
                     <ThemedText
                       type="smallBold"
-                      style={{ color: theme.background }}>
+                      style={{ color: theme.onAccent }}>
                       {step === STEP_TITLES.length - 1 ? 'Niyetini Yazmaya Başla' : 'Devam'}
                     </ThemedText>
                   )}

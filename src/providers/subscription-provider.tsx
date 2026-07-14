@@ -1,5 +1,5 @@
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 
 import {
@@ -19,33 +19,44 @@ type SubscriptionContextValue = {
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
-function shouldUseFallback(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return false;
-  // Eski Railway build'de /me/subscription yok → 404 Not Found
-  return error.status === 404 || error.status === 0 || error.status >= 500;
+function shouldUseLegacyFallback(error: unknown): boolean {
+  // Eski Railway build'de /me/subscription yok → 404
+  return error instanceof ApiError && error.status === 404;
 }
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const previousStatus = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const next = await getSubscription();
+      const prior = previousStatus.current;
+      if (
+        prior
+        && prior !== next.status
+        && (next.status === 'cancelled' || next.status === 'expired')
+      ) {
+        void trackEvent('subscription_cancelled', { status: next.status });
+      }
+      previousStatus.current = next.status;
       setStatus(next);
       if (next.show_paywall) {
         void trackEvent('paywall_shown', { status: next.status });
       }
     } catch (value) {
-      if (shouldUseFallback(value)) {
+      if (shouldUseLegacyFallback(value)) {
         setStatus(DEFAULT_SUBSCRIPTION);
         return;
       }
       setError(
-        value instanceof Error ? value.message : 'Abonelik durumu yüklenemedi.',
+        value instanceof ApiError
+          ? value.message
+          : 'Abonelik durumu yüklenemedi.',
       );
     } finally {
       setLoading(false);

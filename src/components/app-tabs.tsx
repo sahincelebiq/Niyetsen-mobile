@@ -1,19 +1,21 @@
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { Colors, TabBarBackground } from '@/constants/theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = Colors.light;
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
+      backgroundColor={TabBarBackground}
       indicatorColor={colors.backgroundSelected}
       labelStyle={{
         default: { color: colors.tabInactive },
         selected: { color: colors.accentWarm },
+      }}
+      iconColor={{
+        default: colors.tabInactive,
+        selected: colors.accentWarm,
       }}>
       <NativeTabs.Trigger name="index">
         <Label>Sohbet</Label>
@@ -35,18 +37,17 @@ export default function AppTabs() {
         <Icon sf="link" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="mystic">
-        <Label>Mistik</Label>
-        <Icon sf="sparkles" />
-      </NativeTabs.Trigger>
-
       <NativeTabs.Trigger name="settings">
-        <Label>Ayarlar</Label>
-        <Icon sf="gearshape.fill" />
+        <Label>Profil</Label>
+        <Icon sf="person.crop.circle.fill" />
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="mystic" hidden />
       <NativeTabs.Trigger name="bonus" hidden />
       <NativeTabs.Trigger name="paywall" hidden />
+      <NativeTabs.Trigger name="astroloji" hidden />
+      <NativeTabs.Trigger name="tarot" hidden />
+      <NativeTabs.Trigger name="fal" hidden />
     </NativeTabs>
   );
 }

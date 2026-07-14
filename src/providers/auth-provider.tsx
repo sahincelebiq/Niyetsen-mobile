@@ -14,6 +14,7 @@ import {
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -92,6 +93,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (userId) {
+      void configurePurchases(userId);
+      return;
+    }
+    void logOutPurchases();
+  }, [session?.user?.id]);
+
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -143,6 +153,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
+    await logOutPurchases();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }, []);
