@@ -143,6 +143,10 @@ export const Texture = {
   cardBorderWidth: 1,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 84, android: 80 }) ?? 0;
+/** Native tab bar + home indicator payı; içerik bunun üstünde biter. */
+export const BottomTabInset = Platform.select({ ios: 96, android: 88, default: 84 }) ?? 84;
+export const TabBarBackground = '#FBF6EF';
 export const MaxContentWidth = 800;
 export const ApiTimeoutMs = 20_000;
+/** Kanıt yükleme + Gemini Vision; backend GEMINI_PROOF_TIMEOUT_SEC ile uyumlu. */
+export const ProofTimeoutMs = 90_000;

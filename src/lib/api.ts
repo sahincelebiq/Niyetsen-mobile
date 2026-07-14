@@ -6,7 +6,7 @@
  * Expo'da AsyncStorage/SecureStore kullan.
  */
 import { supabase } from '@/lib/supabase';
-import { ApiTimeoutMs } from '@/constants/theme';
+import { ApiTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
 
 const CONFIGURED_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
@@ -45,7 +45,11 @@ export function generateMessageId(): string {
   });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { timeoutMs?: number },
+): Promise<T> {
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
   if (!accessToken) {
@@ -53,7 +57,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   let res: Response;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), ApiTimeoutMs);
+  const timeoutMs = options?.timeoutMs ?? ApiTimeoutMs;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const isMultipart = typeof FormData !== 'undefined' && init?.body instanceof FormData;
     res = await fetch(`${getBaseUrl()}${path}`, {
@@ -439,6 +444,7 @@ export async function uploadTaskProof(
   hasLocation = false,
 ): Promise<ProofResult> {
   const body = new FormData();
+  const captureId = generateMessageId();
   const fileName = `proof-${taskId}-${Date.now()}.jpg`;
   if (Platform.OS === 'web') {
     const photoBlob = await fetch(photoUri).then((response) => response.blob());
@@ -454,7 +460,10 @@ export async function uploadTaskProof(
   return request<ProofResult>(`/task/${encodeURIComponent(taskId)}/proof`, {
     method: 'POST',
     body,
-  });
+    headers: {
+      'X-Idempotency-Key': captureId,
+    },
+  }, { timeoutMs: ProofTimeoutMs });
 }
 
 export function excuseTask(taskId: string): Promise<ExcuseResponse> {

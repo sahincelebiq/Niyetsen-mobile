@@ -131,7 +131,11 @@ export default function DailyTasksScreen() {
     const task = cameraTask;
     setBusy(`proof:${task.id}`);
     try {
-      const picture = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      const picture = await cameraRef.current.takePictureAsync({
+        quality: 0.7,
+        imageType: 'jpg',
+        skipProcessing: false,
+      });
       if (!picture?.uri) throw new Error('Fotoğraf oluşturulamadı.');
       setCameraTask(null);
       const result = await uploadTaskProof(task.id, picture.uri);
