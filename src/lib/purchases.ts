@@ -123,6 +123,12 @@ export async function getStorePrices(): Promise<StorePrices> {
   }
 }
 
+export function subscribeToPurchaseUpdates(onUpdate: () => void): () => void {
+  if (Platform.OS === 'web' || !getApiKey()) return () => {};
+  Purchases.addCustomerInfoUpdateListener(onUpdate);
+  return () => {};
+}
+
 export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> {
   if (!purchasesAvailable()) {
     return {

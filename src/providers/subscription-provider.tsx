@@ -9,6 +9,7 @@ import {
   type SubscriptionInfo,
 } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import { subscribeToPurchaseUpdates } from '@/lib/purchases';
 
 type SubscriptionContextValue = {
   status: SubscriptionInfo | null;
@@ -65,6 +66,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToPurchaseUpdates(() => {
+      void refresh();
+    });
+    return unsubscribe;
   }, [refresh]);
 
   const value = useMemo(

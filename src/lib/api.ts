@@ -420,6 +420,39 @@ export function getSubscription(): Promise<SubscriptionInfo> {
   return request<SubscriptionInfo>('/me/subscription');
 }
 
+/** Satın alma sonrası RevenueCat REST ile backend senkronu (webhook yedek). */
+export function syncSubscription(): Promise<SubscriptionInfo> {
+  return request<SubscriptionInfo>('/me/subscription/sync', { method: 'POST' });
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Webhook gecikmesinde premium erişimi bekler (KAPI 5). */
+export async function waitForPremiumAccess(
+  maxWaitMs = 20_000,
+): Promise<SubscriptionInfo> {
+  const deadline = Date.now() + maxWaitMs;
+  let last: SubscriptionInfo | null = null;
+  while (Date.now() < deadline) {
+    try {
+      last = await syncSubscription();
+    } catch {
+      try {
+        last = await getSubscription();
+      } catch {
+        // yeniden dene
+      }
+    }
+    if (last?.has_premium_access && !last.show_paywall) return last;
+    await sleep(1500);
+  }
+  throw new ApiError(
+    402,
+    'Abonelik henüz aktifleşmedi. Birkaç saniye sonra Geri Yükle veya tekrar dene.',
+    'paywall_required',
+  );
+}
+
 export function updateProfile(profile: ProfileUpdate): Promise<UserProfile> {
   return request<UserProfile>('/me/profile', {
     method: 'PUT',

@@ -13,6 +13,7 @@ import {
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
+import { waitForPremiumAccess } from '@/lib/api';
 import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases';
 import { useSubscription } from '@/providers/subscription-provider';
 
@@ -30,6 +31,7 @@ export default function PaywallScreen() {
   const [yearlyPrice, setYearlyPrice] = useState(FALLBACK_YEARLY);
 
   useEffect(() => {
+    void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
     void getStorePrices().then((prices) => {
       if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
       if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
@@ -42,6 +44,16 @@ export default function PaywallScreen() {
     const result = await purchasePlan(plan);
     if (result.ok) {
       void trackEvent('subscription_started', { plan });
+      try {
+        await waitForPremiumAccess();
+      } catch {
+        setMessage(
+          'Satın alma tamamlandı. Abonelik birkaç saniye içinde açılacak — Geri Yükle ile de deneyebilirsin.',
+        );
+        setBusy(null);
+        await refresh();
+        return;
+      }
       await refresh();
       router.replace('/' as Href);
       return;
@@ -55,6 +67,14 @@ export default function PaywallScreen() {
     setMessage(null);
     const result = await restorePurchases();
     if (result.ok) {
+      try {
+        await waitForPremiumAccess();
+      } catch {
+        setMessage('Geri yükleme tamamlandı; senkron birkaç saniye sürebilir.');
+        setBusy(null);
+        await refresh();
+        return;
+      }
       await refresh();
       router.replace('/' as Href);
       return;
