@@ -57,8 +57,8 @@ export default function MysticHubScreen() {
               Mistik Keşif
             </ThemedText>
             <ThemedText style={[styles.center, { color: colors.textSecondary }]}>
-              Yaşam planın merkezde kalırken, sembolik rehberlik alanları v2’de
-              yolculuğuna eklenecek.
+              Gizli kapıyı buldun ☾ Yaşam planın merkezde kalırken, sembolik
+              rehberlik alanları burada seni bekliyor.
             </ThemedText>
           </View>
 
@@ -95,6 +95,21 @@ export default function MysticHubScreen() {
           <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
             Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
           </ThemedText>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as Href))}
+            style={({ pressed }) => [
+              styles.backButton,
+              {
+                backgroundColor: colors.tint,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.background }}>
+              Uygulamaya Dön
+            </ThemedText>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -127,4 +142,13 @@ const styles = StyleSheet.create({
   },
   symbol: { fontSize: 38, lineHeight: 46 },
   disclaimer: { textAlign: 'center', paddingHorizontal: Spacing.three },
+  backButton: {
+    alignSelf: 'center',
+    minHeight: 48,
+    minWidth: 200,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+  },
 });

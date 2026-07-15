@@ -399,6 +399,11 @@ export default function ChatScreen() {
           streakDays={streakDays}
           trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
           onOpenHistory={() => setHistoryOpen(true)}
+          onSecretGesture={() => {
+            // Gizli geçiş: başlığa uzun basmak mistik bölümü açar.
+            void trackEvent('mystic_secret_entry', { source: 'chat_header' });
+            router.push('/mystic');
+          }}
         />
         {activePlanName !== 'Planım' ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>

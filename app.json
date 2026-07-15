@@ -16,9 +16,9 @@
     "android": {
       "package": "com.niyetsen.app",
       "adaptiveIcon": {
-        "backgroundColor": "#FBF7EF",
-        "foregroundImage": "./assets/images/niyetsen-chain.png",
-        "monochromeImage": "./assets/images/niyetsen-chain.png"
+        "backgroundColor": "#DA9B7C",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -40,7 +40,7 @@
         {
           "backgroundColor": "#FBF7EF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120
         }
       ],
       "expo-font",

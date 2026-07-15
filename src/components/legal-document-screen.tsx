@@ -12,6 +12,7 @@ import {
 } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { openLegalDocument } from '@/lib/legal-links';
 
 const LEGAL_LINKS = [
   { id: 'privacy', href: '/legal/privacy' as const },
@@ -43,9 +44,21 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
                 ← Geri
               </ThemedText>
             </Pressable>
-            <ThemedText type="small" themeColor="textSecondary">
-              Sürüm {document.version}
-            </ThemedText>
+            <View style={styles.topActions}>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Bu dokümanı web'de aç"
+                hitSlop={8}
+                onPress={() => void openLegalDocument(documentId)}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <ThemedText type="smallBold" themeColor="tint">
+                  {'Web’de aç ↗'}
+                </ThemedText>
+              </Pressable>
+              <ThemedText type="small" themeColor="textSecondary">
+                Sürüm {document.version}
+              </ThemedText>
+            </View>
           </View>
 
           <View style={styles.header}>
@@ -118,6 +131,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.three,
   },
   backButton: {

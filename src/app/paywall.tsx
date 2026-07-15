@@ -14,6 +14,7 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
+import { openLegalDocument } from '@/lib/legal-links';
 import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases';
 import { useSubscription } from '@/providers/subscription-provider';
 
@@ -170,11 +171,11 @@ export default function PaywallScreen() {
           </Pressable>
 
           <ThemedView style={styles.legalRow}>
-            <Pressable onPress={() => router.push('/legal/terms' as Href)}>
+            <Pressable hitSlop={8} onPress={() => void openLegalDocument('terms')}>
               <ThemedText type="linkPrimary">Kullanım Koşulları</ThemedText>
             </Pressable>
             <ThemedText themeColor="textSecondary">·</ThemedText>
-            <Pressable onPress={() => router.push('/legal/privacy' as Href)}>
+            <Pressable hitSlop={8} onPress={() => void openLegalDocument('privacy')}>
               <ThemedText type="linkPrimary">Gizlilik Politikası</ThemedText>
             </Pressable>
           </ThemedView>

@@ -1,8 +1,8 @@
-import { Link, type Href } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { LEGAL_VERSIONS } from '@/constants/legal';
+import { LEGAL_VERSIONS, type LegalDocumentId } from '@/constants/legal';
+import { openLegalDocument } from '@/lib/legal-links';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -37,8 +37,8 @@ export function ConsentChoices({
         required
       />
       <View style={styles.links}>
-        <LegalLink href="/legal/privacy" label="Gizlilik Politikası" />
-        <LegalLink href="/legal/kvkk" label="KVKK Aydınlatma" />
+        <LegalLink documentId="privacy" label="Gizlilik Politikası" />
+        <LegalLink documentId="kvkk" label="KVKK Aydınlatma" />
       </View>
 
       <ConsentRow
@@ -63,8 +63,8 @@ export function ConsentChoices({
       />
 
       <View style={styles.links}>
-        <LegalLink href="/legal/consent" label="Açık Rıza Metni" />
-        <LegalLink href="/legal/terms" label="Kullanım Koşulları" />
+        <LegalLink documentId="consent" label="Açık Rıza Metni" />
+        <LegalLink documentId="terms" label="Kullanım Koşulları" />
       </View>
       <ThemedText type="small" themeColor="textSecondary">
         Metin sürümü: {LEGAL_VERSIONS.privacyPolicy}
@@ -116,18 +116,23 @@ function ConsentRow({
 }
 
 function LegalLink({
-  href,
+  documentId,
   label,
 }: {
-  href: '/legal/privacy' | '/legal/kvkk' | '/legal/consent' | '/legal/terms';
+  documentId: LegalDocumentId;
   label: string;
 }) {
   return (
-    <Link href={href as Href}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${label} sayfasını aç`}
+      hitSlop={8}
+      onPress={() => void openLegalDocument(documentId)}
+      style={({ pressed }) => pressed && styles.pressed}>
       <ThemedText type="smallBold" themeColor="tint">
         {label}
       </ThemedText>
-    </Link>
+    </Pressable>
   );
 }
 

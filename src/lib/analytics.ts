@@ -20,7 +20,8 @@ export type AnalyticsEvent =
   | 'paywall_shown'
   | 'subscription_started'
   | 'subscription_cancelled'
-  | 'notification_opened';
+  | 'notification_opened'
+  | 'mystic_secret_entry';
 
 let distinctId: string | null = null;
 

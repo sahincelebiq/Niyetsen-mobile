@@ -3,64 +3,62 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 
+/**
+ * "Düşünüyor…" göstergesi — tek logo, tek zaman ekseni.
+ * Üç ayrı zincir yerine yeni sonsuzluk logosu tek `progress` değeriyle
+ * nefes alır (scale + opacity) ve hafifçe salınır (rotate); tüm kanallar
+ * aynı paylaşılan değerden türediği için animasyon tam senkron çalışır.
+ */
 export function ChainThinkingIndicator() {
-  const linkA = useSharedValue(1);
-  const linkB = useSharedValue(0.45);
-  const linkC = useSharedValue(0.45);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    const pulse = (duration: number) =>
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.35, { duration, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        false,
-      );
-    linkA.value = pulse(700);
-    const t1 = setTimeout(() => {
-      linkB.value = pulse(700);
-    }, 180);
-    const t2 = setTimeout(() => {
-      linkC.value = pulse(700);
-    }, 360);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [linkA, linkB, linkC]);
+    progress.value = withRepeat(
+      withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, [progress]);
 
-  const styleA = useAnimatedStyle(() => ({ opacity: linkA.value, transform: [{ scale: 0.9 + linkA.value * 0.1 }] }));
-  const styleB = useAnimatedStyle(() => ({ opacity: linkB.value, transform: [{ scale: 0.9 + linkB.value * 0.1 }] }));
-  const styleC = useAnimatedStyle(() => ({ opacity: linkC.value, transform: [{ scale: 0.9 + linkC.value * 0.1 }] }));
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 1], [0.55, 1]),
+    transform: [
+      { scale: interpolate(progress.value, [0, 1], [0.88, 1.06]) },
+      { rotate: `${interpolate(progress.value, [0, 1], [-6, 6])}deg` },
+    ],
+  }));
+
+  const dotsStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 1], [0.4, 1]),
+  }));
 
   return (
     <View style={styles.row}>
-      <View style={styles.chainRow}>
-        <Animated.View style={styleA}>
-          <Image source={require('@/assets/images/niyetsen-chain.png')} style={styles.link} contentFit="contain" />
-        </Animated.View>
-        <Animated.View style={styleB}>
-          <Image source={require('@/assets/images/niyetsen-chain.png')} style={styles.link} contentFit="contain" />
-        </Animated.View>
-        <Animated.View style={styleC}>
-          <Image source={require('@/assets/images/niyetsen-chain.png')} style={styles.link} contentFit="contain" />
-        </Animated.View>
-      </View>
+      <Animated.View style={[styles.logoWrap, logoStyle]}>
+        <Image
+          source={require('@/assets/images/niyetsen-logo.png')}
+          style={styles.logo}
+          contentFit="contain"
+        />
+      </Animated.View>
       <ThemedText type="small" themeColor="textSecondary">
-        düşünüyor…
+        düşünüyor
       </ThemedText>
+      <Animated.View style={dotsStyle}>
+        <ThemedText type="small" themeColor="textSecondary">
+          …
+        </ThemedText>
+      </Animated.View>
     </View>
   );
 }
@@ -73,13 +71,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: Spacing.one,
   },
-  chainRow: {
-    flexDirection: 'row',
+  logoWrap: {
+    width: 22,
+    height: 22,
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
   },
-  link: {
-    width: 16,
-    height: 16,
+  logo: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
   },
 });

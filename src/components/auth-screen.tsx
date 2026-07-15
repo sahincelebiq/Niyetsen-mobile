@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Image } from 'expo-image';
-import { Link, type Href } from 'expo-router';
+
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { openLegalDocument } from '@/lib/legal-links';
 import { useAuth } from '@/providers/auth-provider';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -73,7 +74,7 @@ export function AuthScreen() {
             keyboardShouldPersistTaps="handled">
             <View style={styles.hero}>
               <Image
-                source={require('@/assets/images/niyetsen-chain.png')}
+                source={require('@/assets/images/niyetsen-logo.png')}
                 style={styles.logo}
                 contentFit="contain"
               />
@@ -206,26 +207,38 @@ export function AuthScreen() {
             </ThemedView>
 
             <View style={styles.legalLinks}>
-              <Link href={'/legal/privacy' as Href}>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void openLegalDocument('privacy')}>
                 <ThemedText type="smallBold" themeColor="tint">
                   Gizlilik
                 </ThemedText>
-              </Link>
-              <Link href={'/legal/kvkk' as Href}>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void openLegalDocument('kvkk')}>
                 <ThemedText type="smallBold" themeColor="tint">
                   KVKK
                 </ThemedText>
-              </Link>
-              <Link href={'/legal/consent' as Href}>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void openLegalDocument('consent')}>
                 <ThemedText type="smallBold" themeColor="tint">
                   Açık Rıza
                 </ThemedText>
-              </Link>
-              <Link href={'/legal/terms' as Href}>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void openLegalDocument('terms')}>
                 <ThemedText type="smallBold" themeColor="tint">
                   Kullanım Koşulları
                 </ThemedText>
-              </Link>
+              </Pressable>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -284,7 +297,7 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   hero: { alignItems: 'center', gap: Spacing.one },
-  logo: { width: 84, height: 84, marginBottom: Spacing.one },
+  logo: { width: 84, height: 84, borderRadius: 22, marginBottom: Spacing.one },
   center: { textAlign: 'center' },
   card: {
     borderWidth: 1,

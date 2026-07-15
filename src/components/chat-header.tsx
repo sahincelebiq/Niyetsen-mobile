@@ -9,12 +9,18 @@ type ChatHeaderProps = {
   streakDays: number;
   trialDaysRemaining?: number | null;
   onOpenHistory?: () => void;
+  /**
+   * Gizli mistik bölüm girişi: başlığa uzun basınca tetiklenir.
+   * Görünür hiçbir UI öğesi eklemez; keşfedilebilir bir "easter egg" kapısıdır.
+   */
+  onSecretGesture?: () => void;
 };
 
 export function ChatHeader({
   streakDays,
   trialDaysRemaining,
   onOpenHistory,
+  onSecretGesture,
 }: ChatHeaderProps) {
   const showTrial =
     typeof trialDaysRemaining === 'number' &&
@@ -36,12 +42,16 @@ export function ChatHeader({
         ) : (
           <View style={styles.historySpacer} />
         )}
-        <View style={styles.titles}>
+        <Pressable
+          style={styles.titles}
+          accessibilityRole="header"
+          delayLongPress={700}
+          onLongPress={onSecretGesture}>
           <ThemedText type="screenTitle">{Copy.chat.title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {Copy.chat.subtitle}
           </ThemedText>
-        </View>
+        </Pressable>
         <StreakPill streakDays={streakDays} compact />
       </View>
       {showTrial ? (
