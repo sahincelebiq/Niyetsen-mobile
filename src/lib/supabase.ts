@@ -3,9 +3,17 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { createClient, processLock } from '@supabase/supabase-js';
 
+import { assertNoServiceKeyEnv, assertPublishableSupabaseKey } from '@/lib/supabase-keys';
+
+assertNoServiceKeyEnv();
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabasePublishableKey =
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
+
+if (supabasePublishableKey) {
+  assertPublishableSupabaseKey(supabasePublishableKey);
+}
 
 if (!supabaseUrl || !supabasePublishableKey) {
   console.warn(

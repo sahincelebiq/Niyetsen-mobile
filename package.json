@@ -53,6 +53,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "verify-env": "node scripts/verify-env.mjs",
     "build:dev:ios": "eas build --profile development --platform ios",
     "build:dev:android": "eas build --profile development --platform android",
     "build:preview:ios": "eas build --profile preview --platform ios",

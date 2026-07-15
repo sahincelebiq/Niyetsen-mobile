@@ -400,7 +400,10 @@ const TaskCard = memo(function TaskCard({
                     ? [
                         { text: 'Kapat', style: 'cancel' },
                         {
-                          text: 'Unsplash’ta aç',
+                          text:
+                            task.image_source === 'gemini_nano_banana'
+                              ? 'Kaynağı aç'
+                              : 'Unsplash’ta aç',
                           onPress: () => void Linking.openURL(task.image_attribution_url),
                         },
                       ]
