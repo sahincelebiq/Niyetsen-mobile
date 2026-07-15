@@ -12,11 +12,18 @@ import * as Device from 'expo-device';
 
 const CONFIGURED_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
 
+// Prod (Railway) API — public URL, sır değildir. EXPO_PUBLIC_API_URL unutulursa
+// release build localhost'a düşüp tamamen ölü kalıyordu; artık prod URL'e düşer.
+const PRODUCTION_BASE_URL = 'https://api-production-86f1.up.railway.app';
+
 function getBaseUrl(): string {
   // An explicit URL must win on every platform. In particular, Expo web may be
   // served from localhost while intentionally talking to the Railway API.
   if (CONFIGURED_BASE_URL) {
     return CONFIGURED_BASE_URL;
+  }
+  if (!__DEV__) {
+    return PRODUCTION_BASE_URL;
   }
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}:8000`;

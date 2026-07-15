@@ -126,7 +126,11 @@ export async function getStorePrices(): Promise<StorePrices> {
 export function subscribeToPurchaseUpdates(onUpdate: () => void): () => void {
   if (Platform.OS === 'web' || !getApiKey()) return () => {};
   Purchases.addCustomerInfoUpdateListener(onUpdate);
-  return () => {};
+  // Dinleyici gerçekten kaldırılmalı — no-op dönmek her remount'ta yeni
+  // listener biriktiriyor ve unmount sonrası setState'e yol açıyordu.
+  return () => {
+    Purchases.removeCustomerInfoUpdateListener(onUpdate);
+  };
 }
 
 export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> {

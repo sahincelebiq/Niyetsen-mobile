@@ -94,8 +94,11 @@ export default function BonusScreen() {
         await AsyncStorage.setItem(key, completionId);
       }
       const result = await completeBonus(offer.id, completionId);
-      if (result.awarded !== BONUS_POINTS) {
-        throw new Error('Beklenmeyen bonus puanı döndü; rütbe durumunu yenile.');
+      // Backend başarı döndürdüyse tamamlandı say — puan miktarını sunucu
+      // belirler. (Eski katı `awarded !== 10` kontrolü, sunucu puanı değişirse
+      // görevi tamamlanmış olmasına rağmen hata gösteriyordu.)
+      if (typeof result.awarded !== 'number' || result.awarded < 0) {
+        throw new Error('Beklenmeyen bonus yanıtı; rütbe durumunu yenile.');
       }
       setCompleted(true);
       setOffer({ ...offer, status: 'completed' });

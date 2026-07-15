@@ -32,12 +32,26 @@ export default function PaywallScreen() {
   const [yearlyPrice, setYearlyPrice] = useState(FALLBACK_YEARLY);
 
   useEffect(() => {
+    let mounted = true;
     void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
     void getStorePrices().then((prices) => {
+      if (!mounted) return; // unmount sonrası setState engellenir
       if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
       if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
     });
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  // Render sırasında navigate etmek expo-router'da "navigate before mounting"
+  // hatası atabiliyor; yönlendirme effect'e taşındı.
+  const shouldRedirectHome = Boolean(status?.has_premium_access && !status.show_paywall);
+  useEffect(() => {
+    if (shouldRedirectHome) {
+      router.replace('/' as Href);
+    }
+  }, [shouldRedirectHome, router]);
 
   async function handlePurchase(plan: 'monthly' | 'yearly') {
     setBusy(plan);
@@ -84,8 +98,7 @@ export default function PaywallScreen() {
     setBusy(null);
   }
 
-  if (status?.has_premium_access && !status.show_paywall) {
-    router.replace('/' as Href);
+  if (shouldRedirectHome) {
     return null;
   }
 

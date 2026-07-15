@@ -244,7 +244,11 @@ export default function DailyTasksScreen() {
         onDeviceAction={(action) => void runDeviceAction(task, action)}
       />
     ),
-    [busy, outcomes, profile?.irade_modu_active],
+    // consentStatus ve cameraPermission da bağımlılıkta olmalı: kullanıcı
+    // Ayarlar'dan rıza/izin verdikten sonra eski kapanış (stale closure)
+    // kamerayı açmayı reddetmeye devam ediyordu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission],
   );
 
   const listHeader = (

@@ -14,6 +14,7 @@ import {
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { resetAnalyticsIdentity } from '@/lib/analytics';
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -85,6 +86,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+      if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+        // Hesap değişince PostHog kimliği sıfırlanır; aksi hâlde yeni hesabın
+        // event'leri önceki kullanıcıya yazılıyordu.
+        resetAnalyticsIdentity();
+      }
       setLoading(false);
     });
     return () => {
