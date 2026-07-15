@@ -6,7 +6,7 @@
  * Expo'da AsyncStorage/SecureStore kullan.
  */
 import { supabase } from '@/lib/supabase';
-import { ApiTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
+import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 
@@ -342,17 +342,20 @@ export function sendChatMessage(
   messages: ChatMessage[],
   collected: CollectedIntent,
 ): Promise<ChatResponse> {
+  // Gemini 2.5 Flash sohbet yanıtı backend retry'larıyla uzayabilir; genel 20s
+  // yerine sohbete özel geniş zaman aşımı kullan (erken iptal = "Sunucu yanıt vermedi").
   return request<ChatResponse>('/chat', {
     method: 'POST',
     body: JSON.stringify({ messages, collected }),
-  });
+  }, { timeoutMs: ChatTimeoutMs });
 }
 
 export function generatePlan(collected: CollectedIntent, durationDays = 7): Promise<Plan> {
+  // Gemini 2.5 Pro plan üretimi backend'de 90 sn'ye kadar sürebilir.
   return request<Plan>('/plan/generate', {
     method: 'POST',
     body: JSON.stringify({ collected, duration_days: durationDays }),
-  });
+  }, { timeoutMs: PlanTimeoutMs });
 }
 
 /** Var olan planı okur; hiç plan yoksa null döner (404'ü hata saymaz). */
@@ -370,7 +373,7 @@ export async function getCurrentPlan(): Promise<Plan | null> {
  * cihazda kaldığı yerden devam etmek için kullanılır. Hiç mesaj yoksa [] döner.
  */
 export function getChatSession(): Promise<ChatSession> {
-  return request<ChatSession>('/chat/session');
+  return request<ChatSession>('/chat/session', undefined, { timeoutMs: ChatTimeoutMs });
 }
 
 /** Boş sohbet veya yeni niyet başlangıcında saat/isim bazlı karşılama metni. */

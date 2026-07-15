@@ -1,34 +1,43 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
-  FadeIn,
   FadeOut,
+  Keyframe,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 
 import { Fonts, Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 
 const DURATION = 900;
 
+/**
+ * Açılış animasyonu — zincir bağlanma metaforu korunur:
+ * iki yarım halka kenarlardan gelip ortada kenetlenir, kenetlenme anında
+ * yeni sonsuzluk logosu tek bir "pop" ile belirir ve marka adı yükselir.
+ * Tüm sahne tek zaman çizelgesinde ilerler; halkalar kaybolurken logo
+ * aynı easing ile ölçeklenir, böylece geçiş kesintisiz hissedilir.
+ */
 export function AnimatedSplashOverlay() {
   const [visible, setVisible] = useState(true);
   const leftX = useSharedValue(-34);
   const rightX = useSharedValue(34);
   const linkOpacity = useSharedValue(0);
+  const logoProgress = useSharedValue(0);
   const titleOpacity = useSharedValue(0);
   const titleY = useSharedValue(10);
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => undefined);
+    // 1) Yarım halkalar kenardan merkeze gelir ve kenetlenir.
     leftX.value = withSequence(
       withTiming(-8, { duration: 420, easing: Easing.out(Easing.cubic) }),
       withTiming(0, { duration: 180, easing: Easing.inOut(Easing.quad) }),
@@ -37,12 +46,22 @@ export function AnimatedSplashOverlay() {
       withTiming(8, { duration: 420, easing: Easing.out(Easing.cubic) }),
       withTiming(0, { duration: 180, easing: Easing.inOut(Easing.quad) }),
     );
-    linkOpacity.value = withDelay(260, withTiming(1, { duration: 280 }));
-    titleOpacity.value = withDelay(620, withTiming(1, { duration: 360 }));
-    titleY.value = withDelay(620, withTiming(0, { duration: 360 }));
-    const timer = setTimeout(() => setVisible(false), DURATION + 500);
+    linkOpacity.value = withSequence(
+      withDelay(160, withTiming(1, { duration: 240 })),
+      // Kenetlenme tamamlanınca halkalar logoya yerini bırakır.
+      withDelay(220, withTiming(0, { duration: 220 })),
+    );
+    // 2) Kenetlenme anında (≈600ms) logo tek hamlede belirir.
+    logoProgress.value = withDelay(
+      560,
+      withTiming(1, { duration: 340, easing: Easing.out(Easing.back(1.6)) }),
+    );
+    // 3) Marka adı logodan hemen sonra yükselir.
+    titleOpacity.value = withDelay(720, withTiming(1, { duration: 320 }));
+    titleY.value = withDelay(720, withTiming(0, { duration: 320 }));
+    const timer = setTimeout(() => setVisible(false), DURATION + 600);
     return () => clearTimeout(timer);
-  }, [leftX, linkOpacity, rightX, titleOpacity, titleY]);
+  }, [leftX, linkOpacity, logoProgress, rightX, titleOpacity, titleY]);
 
   const leftStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: leftX.value }, { rotate: '-18deg' }],
@@ -51,6 +70,10 @@ export function AnimatedSplashOverlay() {
   const rightStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: rightX.value }, { rotate: '18deg' }],
     opacity: linkOpacity.value,
+  }));
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: logoProgress.value,
+    transform: [{ scale: interpolate(logoProgress.value, [0, 1], [0.6, 1]) }],
   }));
   const titleStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
@@ -68,10 +91,10 @@ export function AnimatedSplashOverlay() {
         <Animated.View style={[styles.halfLink, styles.rightLink, rightStyle]}>
           <View style={[styles.linkArc, styles.linkArcRight]} />
         </Animated.View>
-        <Animated.View entering={FadeIn.delay(520).duration(260)} style={styles.logoWrap}>
+        <Animated.View style={[styles.logoWrap, logoStyle]}>
           <Image
             style={styles.logo}
-            source={require('@/assets/images/niyetsen-chain.png')}
+            source={require('@/assets/images/niyetsen-logo.png')}
             contentFit="contain"
           />
         </Animated.View>
@@ -96,8 +119,8 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   chainStage: {
-    width: 120,
-    height: 92,
+    width: 130,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -109,12 +132,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   leftLink: {
-    left: 4,
-    top: 18,
+    left: 8,
+    top: 22,
   },
   rightLink: {
-    right: 4,
-    top: 18,
+    right: 8,
+    top: 22,
   },
   linkArc: {
     width: 34,
@@ -139,8 +162,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 84,
+    height: 84,
+    borderRadius: 22,
   },
   titleWrap: {
     alignItems: 'center',
@@ -156,9 +180,6 @@ const styles = StyleSheet.create({
 });
 
 // Eski AnimatedIcon bileşeni — onboarding vb. için korunuyor.
-import { Dimensions } from 'react-native';
-import { Keyframe } from 'react-native-reanimated';
-
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const ICON_DURATION = 600;
 
@@ -191,7 +212,7 @@ export function AnimatedIcon() {
       <Animated.View style={iconStyles.imageContainer} entering={logoKeyframe.duration(ICON_DURATION)}>
         <Image
           style={iconStyles.image}
-          source={require('@/assets/images/niyetsen-chain.png')}
+          source={require('@/assets/images/niyetsen-logo.png')}
           contentFit="contain"
         />
       </Animated.View>
@@ -209,7 +230,7 @@ const iconStyles = StyleSheet.create({
     height: 128,
     zIndex: 100,
   },
-  image: { width: 92, height: 92 },
+  image: { width: 92, height: 92, borderRadius: 24 },
   background: {
     borderRadius: 40,
     backgroundColor: '#F0E9D8',

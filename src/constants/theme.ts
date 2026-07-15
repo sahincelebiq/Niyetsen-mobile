@@ -148,5 +148,13 @@ export const BottomTabInset = Platform.select({ ios: 78, android: 72, default: 6
 export const TabBarBackground = '#FBF6EF';
 export const MaxContentWidth = 800;
 export const ApiTimeoutMs = 20_000;
+/**
+ * Sohbet (Gemini 2.5 Flash): backend'de araç tespiti + JSON retry'ları 20 sn'yi
+ * aşabiliyor. İstemci erken iptal edip "Sunucu yanıt vermedi" göstermesin diye
+ * sohbet istekleri için ayrı ve daha geniş zaman aşımı kullanılır.
+ */
+export const ChatTimeoutMs = 75_000;
+/** Plan üretimi (Gemini 2.5 Pro): backend GEMINI_PLAN_TIMEOUT_SEC=90 ile uyumlu. */
+export const PlanTimeoutMs = 120_000;
 /** Kanıt yükleme + Gemini Vision; backend GEMINI_PROOF_TIMEOUT_SEC ile uyumlu. */
 export const ProofTimeoutMs = 90_000;

@@ -65,7 +65,7 @@ export function AnimatedIcon() {
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
         <Image
           style={styles.image}
-          source={require('@/assets/images/niyetsen-chain.png')}
+          source={require('@/assets/images/niyetsen-logo.png')}
           contentFit="contain"
         />
       </Animated.View>
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 92,
     height: 92,
+    borderRadius: 24,
   },
   background: {
     backgroundColor: '#F0E9D8',

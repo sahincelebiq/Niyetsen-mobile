@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, type Href, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,8 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAccount, updateProfile } from '@/lib/api';
+import { openLegalDocument } from '@/lib/legal-links';
+import type { LegalDocumentId } from '@/constants/legal';
 import {
   birthDateDisplayFromIso,
   birthDateIsoFromDisplay,
@@ -336,10 +338,10 @@ export default function SettingsScreen() {
             />
             {consentError && <ThemedText themeColor="danger">{consentError}</ThemedText>}
             <View style={styles.legalLinks}>
-              <LegalLink href="/legal/privacy" label="Gizlilik Politikası" />
-              <LegalLink href="/legal/kvkk" label="KVKK Aydınlatma" />
-              <LegalLink href="/legal/consent" label="Açık Rıza Metni" />
-              <LegalLink href="/legal/terms" label="Kullanım Koşulları" />
+              <LegalLink documentId="privacy" label="Gizlilik Politikası" />
+              <LegalLink documentId="kvkk" label="KVKK Aydınlatma" />
+              <LegalLink documentId="consent" label="Açık Rıza Metni" />
+              <LegalLink documentId="terms" label="Kullanım Koşulları" />
             </View>
           </ThemedView>
 
@@ -350,6 +352,16 @@ export default function SettingsScreen() {
             <ThemedText themeColor="textSecondary">{auth.user?.email}</ThemedText>
             <ActionButton label="Çıkış Yap" onPress={() => void auth.signOut()} />
           </ThemedView>
+
+          <Pressable
+            accessibilityLabel="Mistik keşif"
+            delayLongPress={700}
+            onLongPress={() => router.push('/mystic' as Href)}
+            style={styles.mysticHint}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.mysticHintText}>
+              ☾
+            </ThemedText>
+          </Pressable>
 
           <ThemedView
             type="backgroundElement"
@@ -408,18 +420,23 @@ function ConsentSwitch({
 }
 
 function LegalLink({
-  href,
+  documentId,
   label,
 }: {
-  href: '/legal/privacy' | '/legal/kvkk' | '/legal/consent' | '/legal/terms';
+  documentId: LegalDocumentId;
   label: string;
 }) {
   return (
-    <Link href={href as Href}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${label} sayfasını aç`}
+      hitSlop={8}
+      onPress={() => void openLegalDocument(documentId)}
+      style={({ pressed }) => pressed && { opacity: 0.6 }}>
       <ThemedText type="smallBold" themeColor="tint">
         {label}
       </ThemedText>
-    </Link>
+    </Pressable>
   );
 }
 
@@ -493,6 +510,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: Spacing.three,
     gap: Spacing.three,
+  },
+  /** Gizli mistik giriş: ay simgesi sade bir süs gibi durur, uzun basınca açılır. */
+  mysticHint: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
+  mysticHintText: {
+    fontSize: 18,
+    lineHeight: 22,
+    opacity: 0.55,
   },
   header: { gap: Spacing.one, paddingVertical: Spacing.two },
   card: {
