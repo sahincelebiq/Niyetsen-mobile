@@ -8,6 +8,8 @@ import {
   StyleSheet,
   View,
   type ListRenderItem,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -117,9 +119,23 @@ export default function ChatScreen() {
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attaching, setAttaching] = useState(false);
 
-  const scrollToEnd = useCallback(() => {
+  // Kullanıcı geçmişi okmak için yukarı kaydırdıysa otomatik scroll devre dışı kalır;
+  // yalnız listenin dibine yakınken yeni içerikte en alta iner (zorla zıplama biter).
+  const nearBottomRef = useRef(true);
+  const scrollToEnd = useCallback((force = false) => {
+    if (!force && !nearBottomRef.current) return;
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, []);
+
+  const handleListScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - layoutMeasurement.height - contentOffset.y;
+      nearBottomRef.current = distanceFromBottom < 120;
+    },
+    [],
+  );
 
   const applySession = useCallback(
     async (session: Awaited<ReturnType<typeof getChatSession>>) => {
@@ -254,7 +270,7 @@ export default function ChatScreen() {
     ];
     setMessages(nextMessages);
     setInput('');
-    scrollToEnd();
+    scrollToEnd(true);
     void doSend(nextMessages);
   }, [aiAllowed, doSend, input, messages, pendingAttachment, scrollToEnd, sending]);
 
@@ -410,8 +426,10 @@ export default function ChatScreen() {
                   maxToRenderPerBatch={12}
                   windowSize={9}
                   initialNumToRender={16}
-                  onContentSizeChange={scrollToEnd}
-                  onLayout={scrollToEnd}
+                  onContentSizeChange={() => scrollToEnd()}
+                  onLayout={() => scrollToEnd()}
+                  onScroll={handleListScroll}
+                  scrollEventThrottle={64}
                   ListFooterComponent={listFooter}
                 />
               )}
@@ -441,7 +459,8 @@ export default function ChatScreen() {
               value={input}
               onChangeText={setInput}
               onSubmit={handleSend}
-              disabled={sending || !aiAllowed}
+              disabled={!aiAllowed}
+              sending={sending}
               pendingAttachment={pendingAttachment}
               onAttach={() => void handleAttach()}
               onClearAttachment={() => setPendingAttachment(null)}

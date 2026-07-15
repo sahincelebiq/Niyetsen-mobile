@@ -96,9 +96,11 @@ export function OnboardingScreen() {
         notif_minute: notifTime.minute,
         kvkk_consent: true,
       });
+      // KVKK açık rıza, zorunlu aydınlatma onayıyla (privacy) birlikte kaydedilir;
+      // AI/fotoğraf amaç bazlı izinlerdir ve KVKK temel rızasını etkilemez.
       await updateConsent({
         privacy_policy: { accepted: consents.privacy },
-        kvkk_explicit_consent: { accepted: consents.ai || consents.proofPhoto },
+        kvkk_explicit_consent: { accepted: consents.privacy },
         ai_chat_processing: { accepted: consents.ai },
         proof_photo_processing: { accepted: consents.proofPhoto },
         marketing_communications: { accepted: consents.marketing },

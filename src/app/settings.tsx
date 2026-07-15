@@ -3,7 +3,6 @@ import { Link, type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -144,6 +143,31 @@ export default function SettingsScreen() {
         { text: 'Kalıcı olarak sil', style: 'destructive', onPress: () => void perform() },
       ],
     );
+  }
+
+  // İrade Modu switch'i artık anında kaydedilir — önceden "Değişiklikleri Kaydet"e
+  // basılmazsa tercih sessizce kayboluyordu (switch deseni otomatik kayıt bekletir).
+  async function changeIradeMode(nextValue: boolean) {
+    if (!profile?.name || !profile.birth_date) return;
+    setIradeMode(nextValue);
+    setBusy('irade');
+    setError(null);
+    try {
+      await updateProfile({
+        name: profile.name,
+        birth_date: profile.birth_date,
+        timezone: profile.timezone,
+        notif_hour: profile.notif_hour ?? 8,
+        notif_minute: profile.notif_minute ?? 0,
+        irade_modu_active: nextValue,
+      });
+      await refresh();
+    } catch (value) {
+      setIradeMode(!nextValue);
+      setError(value instanceof Error ? value.message : 'İrade Modu kaydedilemedi.');
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function changeConsent(
@@ -299,11 +323,13 @@ export default function SettingsScreen() {
               <Switch
                 accessibilityLabel="İrade Modu"
                 value={iradeMode}
-                onValueChange={setIradeMode}
+                disabled={busy === 'irade'}
+                onValueChange={(value) => void changeIradeMode(value)}
                 trackColor={{ false: theme.border, true: theme.tint }}
                 thumbColor={theme.background}
               />
             </View>
+            {busy === 'irade' ? <ActivityIndicator color={theme.tint} /> : null}
           </ThemedView>
 
           <ThemedView

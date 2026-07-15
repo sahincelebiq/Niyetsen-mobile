@@ -20,9 +20,9 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Radii, Shadows, Spacing } from '@/constants/theme';
+import { Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError, getCurrentPlan, listProjects, Plan, PlanDay } from '@/lib/api';
+import { ApiError, getCurrentPlan, Plan, PlanDay } from '@/lib/api';
 import { useSubscription } from '@/providers/subscription-provider';
 
 export default function PlanScreen() {
@@ -41,8 +41,9 @@ export default function PlanScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const [result] = await Promise.all([getCurrentPlan(), listProjects()]);
-      setPlan(result);
+      // Not: eskiden burada sonucu kullanılmayan bir listProjects() çağrısı vardı;
+      // gereksiz ağ isteği kaldırıldı, ekran daha hızlı yükleniyor.
+      setPlan(await getCurrentPlan());
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
     } finally {
@@ -58,9 +59,9 @@ export default function PlanScreen() {
     }, []),
   );
 
-  const contentIntent =
-    plan?.days[0]?.theme ||
-    'Bu yıl bahane üretmeyen, sözünü tutan biri olmak istiyorum.';
+  // Önceden tema yoksa uydurma bir niyet cümlesi gösteriliyordu; artık gerçek
+  // plan adına düşer — kullanıcıya yanlış bilgi verilmez.
+  const contentIntent = plan?.days[0]?.theme || plan?.name || 'Planım';
 
   return (
     <ThemedView style={styles.flex}>

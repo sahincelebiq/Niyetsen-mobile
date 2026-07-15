@@ -11,7 +11,7 @@ import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { BottomTabInset, Fonts, MaxContentWidth, Spacing, TabBarBackground } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
 export default function AppTabs() {
   return (
@@ -57,9 +57,8 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView
-        type="backgroundElement"
-        style={[styles.innerContainer, { backgroundColor: TabBarBackground }]}>
+      {/* Sabit açık renk kaldırıldı — ThemedView dark modda da doğru zemini verir. */}
+      <ThemedView type="backgroundElement" style={styles.innerContainer}>
         {props.children}
       </ThemedView>
     </View>

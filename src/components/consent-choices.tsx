@@ -32,8 +32,8 @@ export function ConsentChoices({
       <ConsentRow
         checked={value.privacy}
         onChange={(checked) => onChange({ ...value, privacy: checked })}
-        label="Gizlilik Politikası ile KVKK Aydınlatma Metni’ni okudum."
-        detail="Bu bir bilgilendirme onayıdır; tek başına açık rıza değildir."
+        label="Gizlilik Politikası ile KVKK Aydınlatma Metni’ni okudum ve kişisel verilerimin işlenmesine açık rıza veriyorum."
+        detail="Uygulamayı kullanmak için gereklidir. AI sohbeti ve fotoğraf işleme izinlerini aşağıdan ayrıca yönetebilirsin."
         required
       />
       <View style={styles.links}>

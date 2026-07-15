@@ -21,6 +21,8 @@ export type ChatComposerProps = {
   onChangeText: (value: string) => void;
   onSubmit: () => void;
   disabled: boolean;
+  /** true iken input yazılabilir kalır, yalnız gönderme kilitlenir (yanıt beklenirken). */
+  sending?: boolean;
   pendingAttachment?: PendingAttachment | null;
   onAttach?: () => void;
   onClearAttachment?: () => void;
@@ -32,6 +34,7 @@ export function ChatComposer({
   onChangeText,
   onSubmit,
   disabled,
+  sending = false,
   pendingAttachment,
   onAttach,
   onClearAttachment,
@@ -41,7 +44,7 @@ export function ChatComposer({
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   const keyboardOpen = keyboardHeight > 0;
-  const canSend = !disabled && (!!value.trim() || !!pendingAttachment);
+  const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
   const bottomPadding = keyboardOpen
     ? Math.max(insets.bottom, Spacing.two)
     : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
@@ -96,6 +99,8 @@ export function ChatComposer({
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
             editable={!disabled}
+            // Yanıt beklenirken (sending) kullanıcı bir sonraki mesajını yazmayı
+            // sürdürebilir; yalnız gönderme butonu kilitlenir.
             returnKeyType="send"
             submitBehavior="submit"
             onSubmitEditing={onSubmit}

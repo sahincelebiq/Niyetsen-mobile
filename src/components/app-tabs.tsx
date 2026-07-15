@@ -1,13 +1,16 @@
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useColorScheme } from 'react-native';
 
-import { Colors, TabBarBackground } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
-  const colors = Colors.light;
+  // Tab bar artık sistem temasını izler — önceden dark modda açık renkli kalıyordu.
+  const scheme = useColorScheme();
+  const colors = scheme === 'dark' ? Colors.dark : Colors.light;
 
   return (
     <NativeTabs
-      backgroundColor={TabBarBackground}
+      backgroundColor={colors.backgroundElement}
       indicatorColor={colors.backgroundSelected}
       labelStyle={{
         default: { color: colors.tabInactive },

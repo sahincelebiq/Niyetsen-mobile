@@ -296,8 +296,17 @@ export function PlanPickerSheet({
 
   async function handleNewPlan() {
     if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
+      // ChatHistorySheet ile tutarlı: kullanıcıyı habersiz paywall'a atmak yerine
+      // önce kısa bir açıklama gösterilir.
       onClose();
-      router.push('/paywall');
+      Alert.alert(
+        'İkinci plan için abonelik',
+        'Yeni bir niyet başlatmak için abonelik gerekiyor. Aboneliğe göz atmak ister misin?',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Aboneliğe git', onPress: () => router.push('/paywall') },
+        ],
+      );
       return;
     }
     setBusyId('new');
@@ -356,6 +365,8 @@ export function PlanPickerSheet({
                         value={draftName}
                         onChangeText={setDraftName}
                         autoFocus
+                        returnKeyType="done"
+                        onSubmitEditing={() => void handleRename(project.id)}
                         style={[
                           styles.renameInput,
                           {
@@ -379,6 +390,16 @@ export function PlanPickerSheet({
                         </ThemedText>
                       </Pressable>
                     )}
+                    {editingId === project.id ? (
+                      <Pressable
+                        onPress={() => setEditingId(null)}
+                        disabled={busyId !== null}
+                        hitSlop={8}>
+                        <ThemedText type="smallBold" themeColor="textSecondary">
+                          Vazgeç
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
                     <Pressable
                       onPress={() => {
                         if (editingId === project.id) {
@@ -388,7 +409,8 @@ export function PlanPickerSheet({
                         setEditingId(project.id);
                         setDraftName(project.name);
                       }}
-                      disabled={busyId !== null}>
+                      disabled={busyId !== null}
+                      hitSlop={8}>
                       <ThemedText type="smallBold" themeColor="tint">
                         {editingId === project.id ? 'Kaydet' : 'İsimlendir'}
                       </ThemedText>

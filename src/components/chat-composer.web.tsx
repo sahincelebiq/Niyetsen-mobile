@@ -18,6 +18,12 @@ type ChatComposerProps = {
   onChangeText: (value: string) => void;
   onSubmit: () => void;
   disabled: boolean;
+  /** true iken input yazılabilir kalır, yalnız gönderme kilitlenir (yanıt beklenirken). */
+  sending?: boolean;
+  pendingAttachment?: { filename: string; summary: string; mime_type: string } | null;
+  onAttach?: () => void;
+  onClearAttachment?: () => void;
+  attaching?: boolean;
 };
 
 export function ChatComposer({
@@ -25,9 +31,10 @@ export function ChatComposer({
   onChangeText,
   onSubmit,
   disabled,
+  sending = false,
 }: ChatComposerProps) {
   const theme = useTheme();
-  const canSend = !disabled && !!value.trim();
+  const canSend = !disabled && !sending && !!value.trim();
 
   function handleKeyPress(
     event: NativeSyntheticEvent<TextInputKeyPressEventData>,

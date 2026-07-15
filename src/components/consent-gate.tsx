@@ -84,9 +84,13 @@ export function ConsentGate({ children }: PropsWithChildren) {
     setSaving(true);
     setError(null);
     try {
+      // KVKK açık rıza, aydınlatma onayıyla (privacy) birlikte verilir. AI ve fotoğraf
+      // izinleri amaç bazlı ek rızalardır; kapatılmaları KVKK temel rızasını DÜŞÜRMEZ.
+      // (Eski `ai || proofPhoto` türetmesi, iki izin kapatılınca tüm uygulamayı
+      // consent kilidine sokuyordu — backend sözleşmesiyle çelişen hataydı.)
       const nextStatus = await updateConsent({
         privacy_policy: { accepted: nextChoices.privacy },
-        kvkk_explicit_consent: { accepted: nextChoices.ai || nextChoices.proofPhoto },
+        kvkk_explicit_consent: { accepted: nextChoices.privacy },
         ai_chat_processing: { accepted: nextChoices.ai },
         proof_photo_processing: { accepted: nextChoices.proofPhoto },
         marketing_communications: { accepted: nextChoices.marketing },

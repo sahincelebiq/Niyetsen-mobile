@@ -127,14 +127,9 @@ export default function DailyTasksScreen() {
     setCameraError(null);
     setCameraReady(false);
     setCameraTask(task);
-
-    if (profile?.irade_modu_active && supportsWillpowerReminder(task)) {
-      void scheduleTaskNotification(task, profile.notif_hour ?? 8, profile.notif_minute ?? 0).then((result) => {
-        if (result.ok) {
-          setOutcome(task.id, { tone: 'success', message: result.message });
-        }
-      });
-    }
+    // Not: önceden burada İrade Modu aktifken kamera açılırken sessizce bildirim
+    // kuruluyordu — kameradan bağımsız, kafa karıştıran bir yan etkiydi. Hatırlatıcı
+    // kurma işlemi artık yalnız kartın "Hatırlat" aksiyonundan yapılır.
   }
 
   async function captureAndUpload() {
