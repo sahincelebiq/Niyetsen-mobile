@@ -9,6 +9,7 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FlipInEasyY } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -84,22 +85,43 @@ export default function TarotScreen() {
             </ThemedText>
 
             {draw === null ? (
-              <Pressable
-                accessibilityRole="button"
-                disabled={busy}
-                onPress={() => void handleDraw()}
-                style={({ pressed }) => [
-                  styles.button,
-                  { backgroundColor: colors.tint, opacity: pressed || busy ? 0.75 : 1 },
-                ]}>
-                {busy ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <ThemedText type="smallBold" style={{ color: colors.background }}>
-                    Günün Kartlarını Çek
-                  </ThemedText>
-                )}
-              </Pressable>
+              <>
+                {/* Deste: yüzü kapalı üç kart — çekim öncesi sahne */}
+                <View style={styles.deckRow}>
+                  {[0, 1, 2].map((index) => (
+                    <Animated.View
+                      key={index}
+                      entering={FadeInDown.delay(index * 120).duration(400)}
+                      style={[
+                        styles.deckCard,
+                        {
+                          backgroundColor: colors.backgroundSelected,
+                          borderColor: colors.tint,
+                        },
+                      ]}>
+                      <ThemedText style={[styles.deckSymbol, { color: colors.tint }]}>
+                        ◈
+                      </ThemedText>
+                    </Animated.View>
+                  ))}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={busy}
+                  onPress={() => void handleDraw()}
+                  style={({ pressed }) => [
+                    styles.button,
+                    { backgroundColor: colors.tint, opacity: pressed || busy ? 0.75 : 1 },
+                  ]}>
+                  {busy ? (
+                    <ActivityIndicator color={colors.background} />
+                  ) : (
+                    <ThemedText type="smallBold" style={{ color: colors.background }}>
+                      Günün Kartlarını Çek
+                    </ThemedText>
+                  )}
+                </Pressable>
+              </>
             ) : (
               <>
                 {draw.already_drawn_today ? (
@@ -109,13 +131,23 @@ export default function TarotScreen() {
                     </ThemedText>
                   </View>
                 ) : null}
-                {draw.cards.map((card) => (
-                  <View
+                {/* Kartlar sırayla çevrilir; yorum en sonda belirir */}
+                {draw.cards.map((card, index) => (
+                  <Animated.View
                     key={`${card.position}-${card.name}`}
-                    style={[styles.cardRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                    <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
-                      {card.position.toUpperCase()}
-                    </ThemedText>
+                    entering={FlipInEasyY.delay(index * 450).duration(600)}
+                    style={[
+                      styles.cardRow,
+                      { borderColor: colors.tint, backgroundColor: colors.background },
+                    ]}>
+                    <View style={styles.cardTopRow}>
+                      <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
+                        {card.position.toUpperCase()}
+                      </ThemedText>
+                      <ThemedText style={[styles.cardGlyph, { color: colors.tint }]}>
+                        {card.reversed ? '▽' : '△'}
+                      </ThemedText>
+                    </View>
                     <ThemedText type="subtitle" style={{ color: colors.text }}>
                       {card.name}
                       {card.reversed ? ' (ters)' : ''}
@@ -125,12 +157,16 @@ export default function TarotScreen() {
                         {card.meaning}
                       </ThemedText>
                     ) : null}
-                  </View>
+                  </Animated.View>
                 ))}
-                <ThemedText style={{ color: colors.text }}>{draw.interpretation}</ThemedText>
-                <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                  {draw.disclaimer}
-                </ThemedText>
+                <Animated.View entering={FadeIn.delay(draw.cards.length * 450 + 300).duration(600)}>
+                  <ThemedText style={{ color: colors.text }}>{draw.interpretation}</ThemedText>
+                  <ThemedText
+                    type="small"
+                    style={[styles.disclaimer, { color: colors.textSecondary }]}>
+                    {draw.disclaimer}
+                  </ThemedText>
+                </Animated.View>
               </>
             )}
 
@@ -177,10 +213,31 @@ const styles = StyleSheet.create({
   },
   cardRow: {
     gap: 4,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: Radii.medium,
     padding: Spacing.three,
   },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardGlyph: { fontSize: 16, lineHeight: 20 },
+  deckRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  deckCard: {
+    width: 72,
+    height: 108,
+    borderWidth: 1.5,
+    borderRadius: Radii.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deckSymbol: { fontSize: 30, lineHeight: 36 },
   symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
   badge: {
     alignSelf: 'center',

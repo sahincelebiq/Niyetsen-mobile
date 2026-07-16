@@ -345,6 +345,11 @@ export type BonusCompletionResponse = {
 };
 
 // ---------- Çağrılar ----------
+// Uzun sohbetlerde TÜM geçmişi göndermek istek gövdesini şişiriyor ve
+// uygulamayı yoruyordu; backend zaten son 24 mesajı kullanıyor. Son 40 mesajı
+// göndermek hem bağlamı korur hem yükü sabitler.
+const CHAT_HISTORY_SEND_LIMIT = 40;
+
 export function sendChatMessage(
   messages: ChatMessage[],
   collected: CollectedIntent,
@@ -353,8 +358,16 @@ export function sendChatMessage(
   // yerine sohbete özel geniş zaman aşımı kullan (erken iptal = "Sunucu yanıt vermedi").
   return request<ChatResponse>('/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages, collected }),
+    body: JSON.stringify({
+      messages: messages.slice(-CHAT_HISTORY_SEND_LIMIT),
+      collected,
+    }),
   }, { timeoutMs: ChatTimeoutMs });
+}
+
+/** Yeni sohbet başlat: aktif planın konuşma geçmişini sıfırlar (plan korunur). */
+export function resetChat(): Promise<ChatGreeting> {
+  return request<ChatGreeting>('/chat/reset', { method: 'POST' });
 }
 
 export function generatePlan(collected: CollectedIntent, durationDays = 7): Promise<Plan> {
@@ -656,4 +669,22 @@ export async function uploadFortunePhoto(
     method: 'POST',
     body,
   }, { timeoutMs: ProofTimeoutMs });
+}
+
+export type FortuneHistoryItem = {
+  id: string;
+  type: 'tarot' | 'kahve' | 'el' | 'burc';
+  day: string;
+  result: {
+    interpretation?: string;
+    symbols?: string[];
+    sign?: string;
+    question?: string;
+    cards?: TarotCard[];
+  };
+  created_at: string;
+};
+
+export function getFortuneHistory(limit = 30): Promise<FortuneHistoryItem[]> {
+  return request<FortuneHistoryItem[]>(`/fortune/history?limit=${limit}`);
 }

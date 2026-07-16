@@ -26,6 +26,7 @@ import {
   listProjects,
   PlanSummary,
   renameProject,
+  resetChat,
   startNewProject,
   type SubscriptionInfo,
 } from '@/lib/api';
@@ -82,6 +83,33 @@ export function ChatHistorySheet({
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function performChatReset() {
+    setBusyId('reset');
+    setError(null);
+    try {
+      await resetChat();
+      onProjectChanged(); // sohbet ekranı taze karşılamayla yeniden yüklenir
+      onClose();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Sohbet sıfırlanamadı.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function handleNewChat() {
+    const message =
+      'Konuşma geçmişi temizlenir; planın, görevlerin ve puanların aynen kalır.';
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(message)) void performChatReset();
+      return;
+    }
+    Alert.alert('Yeni sohbet başlat', message, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Sohbeti sıfırla', style: 'destructive', onPress: () => void performChatReset() },
+    ]);
   }
 
   async function handleNewProject() {
@@ -200,6 +228,28 @@ export function ChatHistorySheet({
               {error}
             </ThemedText>
           ) : null}
+
+          <Pressable
+            disabled={busyId !== null}
+            onPress={handleNewChat}
+            accessibilityRole="button"
+            accessibilityLabel="Yeni sohbet başlat"
+            style={({ pressed }) => [
+              styles.newButton,
+              styles.secondaryButton,
+              {
+                borderColor: theme.accentWarm,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}>
+            {busyId === 'reset' ? (
+              <ActivityIndicator color={theme.accentWarm} />
+            ) : (
+              <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
+                Yeni Sohbet Başlat
+              </ThemedText>
+            )}
+          </Pressable>
 
           <Pressable
             disabled={busyId !== null}
@@ -530,6 +580,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  secondaryButton: {
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
   pressed: {
     opacity: 0.7,

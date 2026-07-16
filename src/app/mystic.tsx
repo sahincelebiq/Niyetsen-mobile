@@ -86,11 +86,26 @@ export default function MysticHubScreen() {
                   {module.description}
                 </ThemedText>
                 <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                  Yakında
+                  Keşfet
                 </ThemedText>
               </Pressable>
             ))}
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/fal-gecmisi' as Href)}
+            style={({ pressed }) => [
+              styles.historyLink,
+              { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.tint }}>
+              ☾ Fal Geçmişin
+            </ThemedText>
+            <ThemedText type="small" style={{ color: colors.textSecondary }}>
+              Önceki çekimlerine ve yorumlarına dön
+            </ThemedText>
+          </Pressable>
 
           <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
             Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
@@ -142,6 +157,15 @@ const styles = StyleSheet.create({
   },
   symbol: { fontSize: 38, lineHeight: 46 },
   disclaimer: { textAlign: 'center', paddingHorizontal: Spacing.three },
+  historyLink: {
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: Radii.large,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    minHeight: 44,
+  },
   backButton: {
     alignSelf: 'center',
     minHeight: 48,
