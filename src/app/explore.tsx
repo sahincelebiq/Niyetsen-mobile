@@ -220,6 +220,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Fraunces_600SemiBold',
   },
   switchPlan: {
+    minHeight: 44, // erişilebilir dokunma hedefi
+    justifyContent: 'center',
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.two,
   },

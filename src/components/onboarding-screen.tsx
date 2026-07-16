@@ -175,7 +175,9 @@ export function OnboardingScreen() {
 
               <View style={styles.actions}>
                 {step > 0 && (
-                  <Pressable onPress={() => setStep((value) => value - 1)}>
+                  <Pressable
+                    hitSlop={12}
+                    onPress={() => setStep((value) => value - 1)}>
                     <ThemedText themeColor="tint">Geri</ThemedText>
                   </Pressable>
                 )}

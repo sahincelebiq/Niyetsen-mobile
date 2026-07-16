@@ -232,6 +232,8 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   linkButton: {
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44, // Apple review: geri yükleme erişilebilir olmalı
     paddingVertical: Spacing.two,
   },
   legalRow: {

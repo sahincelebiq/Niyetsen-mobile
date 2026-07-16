@@ -574,3 +574,86 @@ export async function pingHealth(): Promise<boolean> {
     return false;
   }
 }
+
+// ---------- V2: Fal modülü (FAZ 7) ----------
+// Backend sözleşmesi: app/models/schemas.py — alan adlarını değiştirme.
+
+export type FortuneRightsItem = {
+  limit: number; // -1 = sınırsız
+  used: number;
+  remaining: number;
+};
+
+export type FortuneRights = {
+  is_premium: boolean;
+  rights: Record<'tarot' | 'kahve' | 'el' | 'burc', FortuneRightsItem>;
+  disclaimer: string;
+};
+
+export type TarotCard = {
+  name: string;
+  position: string;
+  reversed: boolean;
+  meaning: string;
+};
+
+export type TarotDraw = {
+  cards: TarotCard[];
+  interpretation: string;
+  already_drawn_today: boolean;
+  disclaimer: string;
+};
+
+export type PhotoFortune = {
+  kind: 'kahve' | 'el';
+  symbols: string[];
+  interpretation: string;
+  remaining_today: number;
+  disclaimer: string;
+};
+
+export type Horoscope = {
+  sign: string;
+  day: string;
+  interpretation: string;
+  disclaimer: string;
+};
+
+export function getFortuneRights(): Promise<FortuneRights> {
+  return request<FortuneRights>('/fortune/rights');
+}
+
+export function drawTarot(question = ''): Promise<TarotDraw> {
+  return request<TarotDraw>('/fortune/tarot', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  }, { timeoutMs: ChatTimeoutMs });
+}
+
+export function getDailyHoroscope(): Promise<Horoscope> {
+  return request<Horoscope>('/fortune/horoscope', undefined, {
+    timeoutMs: ChatTimeoutMs,
+  });
+}
+
+export async function uploadFortunePhoto(
+  kind: 'kahve' | 'el',
+  photoUri: string,
+): Promise<PhotoFortune> {
+  const body = new FormData();
+  const fileName = `fortune-${kind}-${Date.now()}.jpg`;
+  if (Platform.OS === 'web') {
+    const blob = await fetch(photoUri).then((response) => response.blob());
+    body.append('photo', blob, fileName);
+  } else {
+    body.append('photo', {
+      uri: photoUri,
+      name: fileName,
+      type: 'image/jpeg',
+    } as unknown as Blob);
+  }
+  return request<PhotoFortune>(`/fortune/photo/${kind}`, {
+    method: 'POST',
+    body,
+  }, { timeoutMs: ProofTimeoutMs });
+}

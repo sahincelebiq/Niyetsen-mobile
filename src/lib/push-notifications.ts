@@ -13,7 +13,7 @@ import {
 } from '@/lib/api';
 
 const ANDROID_CHANNEL_ID = 'niyetsen-gorevleri';
-const ALLOWED_NOTIFICATION_URLS = new Set(['/daily', '/bonus', '/rank']);
+const ALLOWED_NOTIFICATION_URLS = new Set(['/daily', '/bonus', '/rank', '/tarot']);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
