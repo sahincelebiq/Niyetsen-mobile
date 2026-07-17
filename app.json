@@ -11,7 +11,10 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "usesAppleSignIn": true,
-      "bundleIdentifier": "com.niyetsen.app"
+      "bundleIdentifier": "com.niyetsen.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.niyetsen.app",

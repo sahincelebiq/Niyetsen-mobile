@@ -118,6 +118,8 @@ export default function ChatScreen() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attaching, setAttaching] = useState(false);
+  // Hızlı yanıt çipleri: modelin sorduğu soruya tek dokunuşla cevap (FAZ 7.5)
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   // Kullanıcı geçmişi okmak için yukarı kaydırdıysa otomatik scroll devre dışı kalır;
   // yalnız listenin dibine yakınken yeni içerikte en alta iner (zorla zıplama biter).
@@ -150,6 +152,7 @@ export default function ChatScreen() {
       setActivePlanName(session.active_plan_name || 'Planım');
       setInput('');
       setPendingAttachment(null);
+      setSuggestions([]);
       setError(null);
     },
     [],
@@ -241,6 +244,7 @@ export default function ChatScreen() {
         ]);
         setCollected(res.collected);
         setReadyForPlan(res.ready_for_plan);
+        setSuggestions(res.suggestions ?? []);
         setPendingAttachment(null);
         scrollToEnd();
         void refreshStreak();
@@ -270,9 +274,25 @@ export default function ChatScreen() {
     ];
     setMessages(nextMessages);
     setInput('');
+    setSuggestions([]);
     scrollToEnd(true);
     void doSend(nextMessages);
   }, [aiAllowed, doSend, input, messages, pendingAttachment, scrollToEnd, sending]);
+
+  const handleSuggestionTap = useCallback(
+    (suggestion: string) => {
+      if (!aiAllowed || sending) return;
+      const nextMessages: ChatMessage[] = [
+        ...messages,
+        { id: generateMessageId(), role: 'user', content: suggestion },
+      ];
+      setMessages(nextMessages);
+      setSuggestions([]);
+      scrollToEnd(true);
+      void doSend(nextMessages);
+    },
+    [aiAllowed, doSend, messages, scrollToEnd, sending],
+  );
 
   const handleAttach = useCallback(async () => {
     if (!aiAllowed || attaching) return;
@@ -358,8 +378,14 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
+  // Modelin ürettiği dinamik çipler öncelikli; yoksa (plan öncesi) statik öneriler.
+  const dynamicSuggestions = suggestions.length > 0 ? suggestions : null;
   const showQuickReplies =
-    !sending && aiAllowed && !input.trim() && !pendingAttachment && !planHasContent;
+    !sending &&
+    aiAllowed &&
+    !input.trim() &&
+    !pendingAttachment &&
+    (dynamicSuggestions !== null || !planHasContent);
 
   const listFooter = (
     <View style={styles.footerGap}>
@@ -442,10 +468,15 @@ export default function ChatScreen() {
 
             {showQuickReplies ? (
               <ChatQuickReplies
-                suggestions={Copy.chat.suggestions}
+                suggestions={dynamicSuggestions ?? Copy.chat.suggestions}
                 onSelect={(label) => {
-                  setInput(label);
-                  scrollToEnd();
+                  if (dynamicSuggestions) {
+                    // Dinamik çip = hazır cevap: tek dokunuşla gönder.
+                    handleSuggestionTap(label);
+                  } else {
+                    setInput(label);
+                    scrollToEnd();
+                  }
                 }}
               />
             ) : null}

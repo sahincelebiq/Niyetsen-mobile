@@ -152,6 +152,8 @@ export type ChatResponse = {
   crisis: boolean;
   message_id: string | null;
   tool_calls: ToolCall[];
+  /** Tek dokunuşluk hızlı yanıtlar (boş olabilir). */
+  suggestions?: string[];
 };
 
 export type ChatSession = {
