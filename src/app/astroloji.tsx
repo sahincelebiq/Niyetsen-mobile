@@ -26,13 +26,14 @@ export default function AstrologyScreen() {
   const [horoscope, setHoroscope] = useState<Horoscope | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (target: 'daily' | 'weekly' = 'daily') => {
     setLoading(true);
     setError(null);
     setNeedsProfile(false);
     try {
-      const result = await getDailyHoroscope();
+      const result = await getDailyHoroscope(target);
       setHoroscope(result);
       void trackEvent('mystic_secret_entry', { module: 'astroloji' });
     } catch (value) {
@@ -49,8 +50,8 @@ export default function AstrologyScreen() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(period);
+  }, [load, period]);
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -65,8 +66,32 @@ export default function AstrologyScreen() {
           <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
             <ThemedText style={[styles.symbol, { color: colors.tint }]}>✦</ThemedText>
             <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
-              Günlük Burç
+              {period === 'weekly' ? 'Haftalık Burç' : 'Günlük Burç'}
             </ThemedText>
+
+            <View style={styles.periodRow}>
+              {(['daily', 'weekly'] as const).map((target) => (
+                <Pressable
+                  key={target}
+                  accessibilityRole="button"
+                  disabled={loading}
+                  onPress={() => setPeriod(target)}
+                  style={[
+                    styles.periodButton,
+                    {
+                      borderColor: colors.tint,
+                      backgroundColor:
+                        period === target ? colors.tint : 'transparent',
+                    },
+                  ]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: period === target ? colors.background : colors.tint }}>
+                    {target === 'daily' ? 'Bugün' : 'Bu Hafta'}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
 
             {loading ? (
               <ActivityIndicator color={colors.tint} />
@@ -108,7 +133,7 @@ export default function AstrologyScreen() {
                 </ThemedText>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => void load()}
+                  onPress={() => void load(period)}
                   style={({ pressed }) => [
                     styles.button,
                     { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
@@ -156,6 +181,20 @@ const styles = StyleSheet.create({
     ...(Shadows.soft ?? {}),
   },
   symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
+  periodRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.two,
+  },
+  periodButton: {
+    minHeight: 44,
+    minWidth: 110,
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
   badge: {
     alignSelf: 'center',
     borderRadius: Radii.pill,

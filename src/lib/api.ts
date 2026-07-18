@@ -645,8 +645,8 @@ export function drawTarot(question = ''): Promise<TarotDraw> {
   }, { timeoutMs: ChatTimeoutMs });
 }
 
-export function getDailyHoroscope(): Promise<Horoscope> {
-  return request<Horoscope>('/fortune/horoscope', undefined, {
+export function getDailyHoroscope(period: 'daily' | 'weekly' = 'daily'): Promise<Horoscope> {
+  return request<Horoscope>(`/fortune/horoscope?period=${period}`, undefined, {
     timeoutMs: ChatTimeoutMs,
   });
 }
