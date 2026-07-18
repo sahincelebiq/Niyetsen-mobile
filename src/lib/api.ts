@@ -690,3 +690,35 @@ export type FortuneHistoryItem = {
 export function getFortuneHistory(limit = 30): Promise<FortuneHistoryItem[]> {
   return request<FortuneHistoryItem[]>(`/fortune/history?limit=${limit}`);
 }
+
+// ---------- Felsefe Yolları (İdol Modu, Dalga 4.2) ----------
+export type PhilosophyPath = {
+  name: string;
+  tagline: string;
+  philosophy: string;
+  source_note: string;
+};
+
+export function getPhilosophyPaths(): Promise<PhilosophyPath[]> {
+  return request<PhilosophyPath[]>('/paths');
+}
+
+// ---------- Sohbet oturumları (FAZ 7.6 — yeni sohbet eskiyi silmez) ----------
+export type ChatThread = {
+  id: string;
+  title: string;
+  is_active: boolean;
+  updated_at: string;
+};
+
+export function listChatThreads(): Promise<ChatThread[]> {
+  return request<ChatThread[]>('/chat/threads');
+}
+
+/** Geçmiş bir sohbete döner; o oturumun mesajlarını getirir. */
+export function activateChatThread(threadId: string): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>(
+    `/chat/threads/${encodeURIComponent(threadId)}/activate`,
+    { method: 'POST' },
+  );
+}

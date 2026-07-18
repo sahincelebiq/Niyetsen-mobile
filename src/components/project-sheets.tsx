@@ -20,9 +20,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  activateChatThread,
   activateProject,
   ApiError,
+  type ChatThread,
   isPaywallError,
+  listChatThreads,
   listProjects,
   PlanSummary,
   renameProject,
@@ -51,6 +54,7 @@ export function ChatHistorySheet({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [projects, setProjects] = useState<PlanSummary[]>([]);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +63,13 @@ export function ChatHistorySheet({
     setLoading(true);
     setError(null);
     try {
-      setProjects(await listProjects());
+      // Sohbet oturumları + planlar paralel yüklenir (FAZ 7.6).
+      const [projectList, threadList] = await Promise.all([
+        listProjects(),
+        listChatThreads().catch(() => [] as ChatThread[]),
+      ]);
+      setProjects(projectList);
+      setThreads(threadList);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Projeler yüklenemedi.');
     } finally {
@@ -85,6 +95,20 @@ export function ChatHistorySheet({
     }
   }
 
+  async function handleActivateThread(threadId: string) {
+    setBusyId(threadId);
+    setError(null);
+    try {
+      await activateChatThread(threadId);
+      onProjectChanged(); // sohbet ekranı seçilen oturumla yeniden yüklenir
+      onClose();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Sohbete dönülemedi.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function performChatReset() {
     setBusyId('reset');
     setError(null);
@@ -100,16 +124,9 @@ export function ChatHistorySheet({
   }
 
   function handleNewChat() {
-    const message =
-      'Konuşma geçmişi temizlenir; planın, görevlerin ve puanların aynen kalır.';
-    if (Platform.OS === 'web') {
-      if (globalThis.confirm?.(message)) void performChatReset();
-      return;
-    }
-    Alert.alert('Yeni sohbet başlat', message, [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Sohbeti sıfırla', style: 'destructive', onPress: () => void performChatReset() },
-    ]);
+    // FAZ 7.6: yeni sohbet ESKİYİ SİLMEZ — geçmiş oturum bu panelde
+    // başlığıyla saklanır. Onay diyaloğuna gerek kalmadı.
+    void performChatReset();
   }
 
   async function handleNewProject() {
@@ -184,7 +201,7 @@ export function ChatHistorySheet({
             </Pressable>
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            Geçmiş sohbetlerine dön veya yeni bir niyet başlat.
+            Sohbetlerin burada saklanır — dilediğine dön, yenisini başlat.
           </ThemedText>
 
           {loading ? (
@@ -195,6 +212,47 @@ export function ChatHistorySheet({
               contentContainerStyle={styles.list}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
+              {threads.length > 0 ? (
+                <>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    Sohbetler
+                  </ThemedText>
+                  {threads.map((thread) => (
+                    <Pressable
+                      key={thread.id}
+                      disabled={busyId !== null}
+                      onPress={() => void handleActivateThread(thread.id)}
+                      style={({ pressed }) => [
+                        styles.row,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: thread.is_active
+                            ? theme.backgroundSelected
+                            : theme.background,
+                          opacity: pressed ? 0.82 : 1,
+                        },
+                      ]}>
+                      <View style={styles.rowText}>
+                        <ThemedText type="smallBold" numberOfLines={1}>
+                          {thread.title || 'Yeni sohbet'}
+                        </ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {thread.is_active ? 'Aktif sohbet' : 'Dokun ve devam et'}
+                        </ThemedText>
+                      </View>
+                      {busyId === thread.id ? (
+                        <ActivityIndicator color={theme.tint} />
+                      ) : null}
+                    </Pressable>
+                  ))}
+                  <ThemedText
+                    type="smallBold"
+                    themeColor="textSecondary"
+                    style={styles.sectionGap}>
+                    Niyetlerim
+                  </ThemedText>
+                </>
+              ) : null}
               {projects.map((project) => (
                 <Pressable
                   key={project.id}
@@ -228,6 +286,25 @@ export function ChatHistorySheet({
               {error}
             </ThemedText>
           ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Felsefe yolları"
+            onPress={() => {
+              onClose();
+              router.push('/yollar');
+            }}
+            style={({ pressed }) => [
+              styles.pathsLink,
+              { borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <ThemedText type="smallBold" themeColor="tint">
+              ✦ Felsefe Yolları
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Bir idolden ilham al, yola çevir
+            </ThemedText>
+          </Pressable>
 
           <Pressable
             disabled={busyId !== null}
@@ -584,6 +661,17 @@ const styles = StyleSheet.create({
   secondaryButton: {
     borderWidth: 1.5,
     backgroundColor: 'transparent',
+  },
+  pathsLink: {
+    gap: 2,
+    borderWidth: 1,
+    borderRadius: Radii.medium,
+    padding: Spacing.three,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  sectionGap: {
+    marginTop: Spacing.two,
   },
   pressed: {
     opacity: 0.7,

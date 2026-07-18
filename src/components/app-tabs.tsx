@@ -52,6 +52,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="tarot" hidden />
       <NativeTabs.Trigger name="fal" hidden />
       <NativeTabs.Trigger name="fal-gecmisi" hidden />
+      <NativeTabs.Trigger name="yollar" hidden />
     </NativeTabs>
   );
 }

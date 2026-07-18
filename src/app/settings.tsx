@@ -380,9 +380,10 @@ export default function SettingsScreen() {
           </ThemedView>
 
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Mistik keşif"
-            delayLongPress={700}
-            onLongPress={() => router.push('/mystic' as Href)}
+            hitSlop={12}
+            onPress={() => router.push('/mystic' as Href)}
             style={styles.mysticHint}>
             <ThemedText type="small" themeColor="textSecondary" style={styles.mysticHintText}>
               ☾

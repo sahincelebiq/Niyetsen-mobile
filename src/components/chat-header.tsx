@@ -10,8 +10,10 @@ type ChatHeaderProps = {
   trialDaysRemaining?: number | null;
   onOpenHistory?: () => void;
   /**
-   * Gizli mistik bölüm girişi: başlığa uzun basınca tetiklenir.
-   * Görünür hiçbir UI öğesi eklemez; keşfedilebilir bir "easter egg" kapısıdır.
+   * Mistik bölüm girişi. Başlığa uzun basma jesti korunur; ayrıca başlığın
+   * yanında görünür bir ☾ düğmesi vardır (Şahin'in kararı, 2026-07-17 —
+   * gizli kapı keşfedilemiyordu). Fal ikincil özellik konumunu korur:
+   * yalnız küçük bir sembol, ana akışta reklamı yapılmaz.
    */
   onSecretGesture?: () => void;
 };
@@ -52,6 +54,16 @@ export function ChatHeader({
             {Copy.chat.subtitle}
           </ThemedText>
         </Pressable>
+        {onSecretGesture ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mistik keşif"
+            onPress={onSecretGesture}
+            hitSlop={10}
+            style={({ pressed }) => [styles.mysticButton, pressed && styles.pressed]}>
+            <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
+          </Pressable>
+        ) : null}
         <StreakPill streakDays={streakDays} compact />
       </View>
       {showTrial ? (
@@ -87,6 +99,19 @@ const styles = StyleSheet.create({
   },
   historySpacer: {
     width: 40,
+  },
+  mysticButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  mysticGlyph: {
+    fontSize: 20,
+    lineHeight: 24,
+    opacity: 0.7,
   },
   historyGlyph: {
     fontSize: 22,

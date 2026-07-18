@@ -12,7 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
 import { ChatMessageBody } from '@/components/chat-message-body';
@@ -50,6 +50,7 @@ import {
   sendChatMessage,
   uploadChatAttachment,
 } from '@/lib/api';
+import { consumePendingChatMessage } from '@/lib/pending-chat';
 import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
 import { useSubscription } from '@/providers/subscription-provider';
@@ -205,6 +206,18 @@ export default function ChatScreen() {
   useEffect(() => {
     void refreshStreak();
   }, [refreshStreak]);
+
+  // Felsefe Yolları ekranından gelen hazır mesajı giriş kutusuna koy
+  // (otomatik göndermeyiz — kontrol kullanıcıda).
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumePendingChatMessage();
+      if (pending) {
+        setInput(pending);
+        scrollToEnd(true);
+      }
+    }, [scrollToEnd]),
+  );
 
   useEffect(() => {
     if (keyboardHeight > 0) {
