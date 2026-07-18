@@ -54,17 +54,19 @@ export function ChatHeader({
             {Copy.chat.subtitle}
           </ThemedText>
         </Pressable>
-        {onSecretGesture ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mistik keşif"
-            onPress={onSecretGesture}
-            hitSlop={10}
-            style={({ pressed }) => [styles.mysticButton, pressed && styles.pressed]}>
-            <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
-          </Pressable>
-        ) : null}
-        <StreakPill streakDays={streakDays} compact />
+        <View style={styles.rightCluster}>
+          {onSecretGesture ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mistik keşif"
+              onPress={onSecretGesture}
+              hitSlop={10}
+              style={({ pressed }) => [styles.mysticButton, pressed && styles.pressed]}>
+              <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
+            </Pressable>
+          ) : null}
+          <StreakPill streakDays={streakDays} compact />
+        </View>
       </View>
       {showTrial ? (
         <View style={styles.trialChip}>
@@ -100,17 +102,24 @@ const styles = StyleSheet.create({
   historySpacer: {
     width: 40,
   },
+  rightCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginTop: 2, // history butonuyla aynı üst hiza
+  },
   mysticButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   mysticGlyph: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 22,
+    textAlign: 'center',
+    includeFontPadding: false, // Android'de dikey kaymayı önler
     opacity: 0.7,
   },
   historyGlyph: {

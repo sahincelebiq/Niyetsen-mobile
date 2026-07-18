@@ -37,6 +37,31 @@ import { needsPaidPlanForSecondProject } from '@/lib/project-access';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.86, 340);
 
+/** Oturum zamanı: bugünse saat, bu yılsa gün+ay, değilse tam tarih. */
+function formatThreadTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameDay =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+  if (sameDay) {
+    return `Bugün ${date.getHours().toString().padStart(2, '0')}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+  }
+  const months = [
+    'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+    'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
+  ];
+  const dayMonth = `${date.getDate()} ${months[date.getMonth()]}`;
+  return date.getFullYear() === now.getFullYear()
+    ? dayMonth
+    : `${dayMonth} ${date.getFullYear()}`;
+}
+
 type ChatHistorySheetProps = {
   visible: boolean;
   onClose: () => void;
@@ -237,7 +262,8 @@ export function ChatHistorySheet({
                           {thread.title || 'Yeni sohbet'}
                         </ThemedText>
                         <ThemedText type="small" themeColor="textSecondary">
-                          {thread.is_active ? 'Aktif sohbet' : 'Dokun ve devam et'}
+                          {formatThreadTime(thread.updated_at)}
+                          {thread.is_active ? ' · Aktif' : ''}
                         </ThemedText>
                       </View>
                       {busyId === thread.id ? (
