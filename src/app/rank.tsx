@@ -14,6 +14,7 @@ import { StreakPill } from '@/components/streak-pill';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { CountUpText } from '@/components/count-up-text';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -77,9 +78,12 @@ export default function RankScreen() {
                   {Copy.chain.heroLabel.toUpperCase()}
                 </ThemedText>
                 <View style={styles.heroNumbers}>
-                  <ThemedText style={[styles.heroCount, { color: theme.onAccent }]}>
-                    {state.streak_len}
-                  </ThemedText>
+                  {/* UI cilası v2: zincir sayısı akarak belirir — kazanılmış
+                      ilerleme hissi. Hareket azaltma modunda doğrudan görünür. */}
+                  <CountUpText
+                    value={state.streak_len}
+                    style={[styles.heroCount, { color: theme.onAccent }]}
+                  />
                   <ThemedText style={[styles.heroUnit, { color: theme.onAccent }]}>
                     gün
                   </ThemedText>
@@ -123,11 +127,13 @@ export default function RankScreen() {
                 ))}
               </SurfaceCard>
 
-              <SurfaceCard style={styles.totalRow}>
+              <SurfaceCard style={styles.totalRow} elevated>
                 <ThemedText>{Copy.chain.totalPoints}</ThemedText>
-                <ThemedText type="title" style={{ color: theme.accentWarm }}>
-                  {CATEGORIES.reduce((sum, cat) => sum + state.points[cat], 0).toLocaleString('tr-TR')}
-                </ThemedText>
+                <CountUpText
+                  grouped
+                  value={CATEGORIES.reduce((sum, cat) => sum + state.points[cat], 0)}
+                  style={[styles.totalValue, { color: theme.accentWarm }]}
+                />
               </SurfaceCard>
 
               <SurfaceCard>
@@ -228,5 +234,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  // CountUpText, ThemedText type="title" yerine geçtiği için stil burada.
+  totalValue: {
+    fontSize: 44,
+    lineHeight: 48,
+    fontFamily: 'Fraunces_600SemiBold',
+    letterSpacing: -0.8,
   },
 });

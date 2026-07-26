@@ -35,37 +35,44 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 }
 
 const styles = StyleSheet.create({
+  // UI cilası v2: okuma ritmi — gövde satır yüksekliği açıldı, küçük metinlerde
+  // hafif harf aralığı (küçük puntoda okunurluk), serif başlıklarda daha sıkı
+  // optik aralık. Punto ölçeği DEĞİŞMEDİ; düzen kaymaz.
   small: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: 0.1,
   },
   smallBold: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: 0.2,
   },
   default: {
     fontFamily: Fonts.sansMedium,
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 25,
+    letterSpacing: 0.05,
   },
   title: {
     fontFamily: Fonts.serif,
     fontSize: 44,
     lineHeight: 48,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   screenTitle: {
     fontFamily: Fonts.serif,
     fontSize: 28,
     lineHeight: 34,
-    letterSpacing: -0.3,
+    letterSpacing: -0.45,
   },
   subtitle: {
     fontFamily: Fonts.serifMedium,
     fontSize: 30,
     lineHeight: 38,
+    letterSpacing: -0.3,
   },
   link: {
     fontFamily: Fonts.sansMedium,

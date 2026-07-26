@@ -136,6 +136,61 @@ export const Shadows = {
       elevation: 4,
     },
   }),
+  /**
+   * UI cilası v2 (19 Tem): "kaldırılmış yüzey" — kartlar zeminden ayrılsın,
+   * düz beyaz kart hissi gitsin. Web'de iki katmanlı gölge (yakın + uzak),
+   * native'de daha geniş yayılım. Layout'a etkisi YOKTUR.
+   */
+  lifted: Platform.select({
+    web: {
+      boxShadow:
+        '0 1px 2px rgba(74, 59, 44, 0.06), 0 10px 30px rgba(154, 78, 46, 0.10)',
+    },
+    default: {
+      shadowColor: '#8A4526',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.14,
+      shadowRadius: 20,
+      elevation: 6,
+    },
+  }),
+  /** Öne çıkan tek kart (bugünün görevi, kutlama kartı). */
+  hero: Platform.select({
+    web: {
+      boxShadow:
+        '0 2px 4px rgba(74, 59, 44, 0.08), 0 18px 44px rgba(154, 78, 46, 0.16)',
+    },
+    default: {
+      shadowColor: '#8A4526',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.18,
+      shadowRadius: 28,
+      elevation: 9,
+    },
+  }),
+} as const;
+
+/**
+ * Yüzey kenar ışığı: kartın üst kenarında 1px açık çizgi — ışık yukarıdan
+ * geliyormuş hissi verir (premium algısının en ucuz kaynağı).
+ */
+export const SurfaceEdge = {
+  light: 'rgba(255, 255, 255, 0.72)',
+  dark: 'rgba(255, 255, 255, 0.06)',
+} as const;
+
+/** Görev kartı görseli üzerine metin okunurluğu için degrade örtü. */
+export const ImageScrim = {
+  light: ['rgba(28, 22, 16, 0)', 'rgba(28, 22, 16, 0.55)'] as const,
+  dark: ['rgba(12, 9, 6, 0)', 'rgba(12, 9, 6, 0.68)'] as const,
+} as const;
+
+/** Mikro hareket süreleri — tek yerden, tutarlı ritim. */
+export const Motion = {
+  fast: 180,
+  base: 260,
+  slow: 420,
+  stagger: 60, // liste öğeleri arası gecikme
 } as const;
 
 export const Texture = {

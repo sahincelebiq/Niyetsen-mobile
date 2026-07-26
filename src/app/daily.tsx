@@ -15,6 +15,7 @@ import {
   View,
   type ListRenderItem,
 } from 'react-native';
+import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Copy } from '@/constants/copy';
@@ -27,6 +28,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
   MaxContentWidth,
+  Motion,
   Radii,
   Spacing,
 } from '@/constants/theme';
@@ -233,16 +235,23 @@ export default function DailyTasksScreen() {
   }
 
   const renderTask = useCallback<ListRenderItem<DailyTask>>(
-    ({ item: task }) => (
-      <TaskCard
-        task={task}
-        outcome={outcomes[task.id]}
-        busy={busy}
-        iradeActive={!!profile?.irade_modu_active}
-        onOpenCamera={() => void openCamera(task)}
-        onExcuse={() => confirmExcuse(task)}
-        onDeviceAction={(action) => void runDeviceAction(task, action)}
-      />
+    ({ item: task, index }) => (
+      // UI cilası v2: kartlar kademeli olarak aşağıdan belirir (ilk 6 kart);
+      // sistemde "hareketi azalt" açıksa Reanimated otomatik sakinleşir.
+      <Animated.View
+        entering={FadeInDown.delay(Math.min(index, 5) * Motion.stagger)
+          .duration(Motion.base)
+          .reduceMotion(ReduceMotion.System)}>
+        <TaskCard
+          task={task}
+          outcome={outcomes[task.id]}
+          busy={busy}
+          iradeActive={!!profile?.irade_modu_active}
+          onOpenCamera={() => void openCamera(task)}
+          onExcuse={() => confirmExcuse(task)}
+          onDeviceAction={(action) => void runDeviceAction(task, action)}
+        />
+      </Animated.View>
     ),
     // consentStatus ve cameraPermission da bağımlılıkta olmalı: kullanıcı
     // Ayarlar'dan rıza/izin verdikten sonra eski kapanış (stale closure)
@@ -391,6 +400,11 @@ const TaskCard = memo(function TaskCard({
       {!!task.image_url && (
         <ThemedView style={styles.imageWrapper}>
           <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+          {/* UI cilası v2: katmanlı degrade örtü (bağımlılık eklemeden) —
+              görselin altı koyulaşır, kart gövdesine yumuşak geçiş olur. */}
+          <View pointerEvents="none" style={[styles.scrim, styles.scrimTop]} />
+          <View pointerEvents="none" style={[styles.scrim, styles.scrimMid]} />
+          <View pointerEvents="none" style={[styles.scrim, styles.scrimBottom]} />
           {!!task.image_attribution && (
             <Pressable
               accessibilityLabel="Fotoğraf atfı"
@@ -565,6 +579,16 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
   },
+  // Katmanlı örtü: üç ince şerit yukarıdan aşağı koyulaşır (gradyan taklidi).
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  scrimTop: { height: '46%', backgroundColor: 'rgba(28, 22, 16, 0.06)' },
+  scrimMid: { height: '26%', backgroundColor: 'rgba(28, 22, 16, 0.14)' },
+  scrimBottom: { height: '12%', backgroundColor: 'rgba(28, 22, 16, 0.22)' },
   attributionBadge: {
     position: 'absolute',
     right: Spacing.two,

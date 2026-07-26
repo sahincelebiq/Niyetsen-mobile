@@ -1,30 +1,39 @@
 import { memo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useColorScheme, View } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
 import { ChatMessageBody } from '@/components/chat-message-body';
-import { Radii, Shadows, Spacing, Texture } from '@/constants/theme';
+import { Motion, Radii, Shadows, Spacing, SurfaceEdge, Texture } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AssistantMessageProps = {
   content: string;
 };
 
+/**
+ * Rehber balonu. UI cilası v2: yumuşak giriş, kaldırılmış gölge ve üst kenar
+ * ışığı — cevap "gelmiş" gibi belirir, balon zeminden ayrılır. Ölçüler aynı.
+ */
 export const AssistantMessage = memo(function AssistantMessage({ content }: AssistantMessageProps) {
   const theme = useTheme();
+  const scheme = useColorScheme();
   return (
-    <View style={styles.row}>
+    <Animated.View
+      entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+      style={styles.row}>
       <View
         style={[
           styles.bubble,
           {
             backgroundColor: theme.backgroundElement,
             borderColor: theme.border,
+            borderTopColor: scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light,
           },
-          Shadows.subtle ?? {},
+          Shadows.lifted ?? {},
         ]}>
         <ChatMessageBody content={content} style={styles.text} />
       </View>
-    </View>
+    </Animated.View>
   );
 });
 

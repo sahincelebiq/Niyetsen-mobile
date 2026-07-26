@@ -11,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import Animated, { FadeInRight, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -30,6 +31,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Copy } from '@/constants/copy';
 import {
   MaxContentWidth,
+  Motion,
   Radii,
   Shadows,
   Spacing,
@@ -81,16 +83,20 @@ function buildOutgoingText(text: string, attachment: PendingAttachment | null): 
 const UserBubble = memo(function UserBubble({ content }: { content: string }) {
   const theme = useTheme();
   return (
-    <ThemedView
-      style={[
-        styles.bubbleUser,
-        {
-          backgroundColor: theme.accentWarm,
-          borderColor: theme.accentWarm,
-        },
-      ]}>
-      <ChatMessageBody content={content} color={theme.onAccent} />
-    </ThemedView>
+    // UI cilası v2: kullanıcı balonu sağdan yumuşakça girer (gönderim hissi).
+    <Animated.View
+      entering={FadeInRight.duration(Motion.fast).reduceMotion(ReduceMotion.System)}>
+      <ThemedView
+        style={[
+          styles.bubbleUser,
+          {
+            backgroundColor: theme.accentWarm,
+            borderColor: theme.accentWarm,
+          },
+        ]}>
+        <ChatMessageBody content={content} color={theme.onAccent} />
+      </ThemedView>
+    </Animated.View>
   );
 });
 
