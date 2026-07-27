@@ -1,56 +1,83 @@
-# Welcome to your Expo app 👋
+# Niyetsen — Mobil Uygulama (iOS & Android)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+> **Niyetini söze, sözünü zincire çevir. 🌙**
+> Expo (React Native + TypeScript) istemcisi · Backend: FastAPI + Supabase
 
-## Get started
+Bu depo Niyetsen'in mobil istemcisidir. Ürünün tamamı, mimarisi ve yol haritası
+için ana depoya bakın: [`Niyetsen`](https://github.com/sahincelebiq/Niyetsen)
+(`README.md` + `NIYETSEN_MASTER_PLAN.md`).
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Ne yapar?
 
-2. Start the app
+Kullanıcının "bu yıl nasıl bir hayat istiyorum?" niyetini yapay zekâ sohbetiyle
+toplar, kişinin gerçek hayatından türeyen **365 günlük görselli plana** çevirir,
+görevleri **uygulama içi kamerayla çekilen fotoğraf kanıtıyla** kapatır ve
+**zincir + puan** mekaniğiyle sürdürülebilir kılar.
 
-   ```bash
-   npx expo start
-   ```
+**Ekranlar:** Sohbet (oturum geçmişli) · Bugün (görev + kanıt) · Planım ·
+Zincir & Rank · Profil · Felsefe Yolları (İdol Modu) · Mistik bölüm
+(tarot, kahve/el falı, burç — eğlence amaçlı, ikincil özellik)
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Kurulum
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env      # EXPO_PUBLIC_* değerlerini doldur
+npx expo start -c         # temiz önbellekle başlat
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`.env` **asla commit edilmez** (gitignore'da). Gerekli değişkenler
+`.env.example` içinde listelidir: Supabase URL + publishable key, API URL,
+RevenueCat public key, PostHog key.
 
-### Other setup steps
+> Kamera, takvim ve bildirim izinleri gerektiğinden **Expo Go kısıtlıdır**;
+> tam deneyim için development build veya EAS build kullanın.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+---
 
-## Learn more
+## Mimari notlar
 
-To learn more about developing your project with Expo, look at the following resources:
+| Konu | Karar |
+|---|---|
+| Yönlendirme | `expo-router` (dosya tabanlı, `src/app/`) |
+| Tema | Tek kaynak: `src/constants/theme.ts` (renk, tipografi, gölge, hareket) |
+| Animasyon | **Yalnız `react-native-reanimated`** |
+| Depolama | Oturum: `expo-secure-store` (parçalı), diğer: AsyncStorage — `localStorage` YASAK |
+| API sözleşmesi | `src/lib/api.ts` tipleri backend `app/models/schemas.py` ile birebir eşleşir |
+| Abonelik | RevenueCat (yalnız IAP; harici ödeme linki yasak — App Store kuralı) |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### ⚠️ Kritik kural: `Easing` importu
 
-## Join the community
+Animasyonlarda kullanılan `Easing` **mutlaka** `react-native-reanimated`'dan
+import edilmelidir. `react-native`'in `Easing`'i worklet değildir; `withTiming`
+içinde kullanılırsa uygulama çalışma zamanında
+*"The easing function is not a worklet"* hatasıyla çöker — ve TypeScript bunu
+yakalamaz. Bu yüzden `eslint.config.js`'te `no-restricted-imports` kuralı
+vardır; **kaldırılmamalıdır.**
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Doğrulama
+
+```bash
+npx tsc --noEmit     # 0 hata beklenir
+npx expo lint        # no-restricted-imports dahil
+```
+
+---
+
+## Katkı disiplini
+
+- Küçük commit'ler, biçim: `faz7: fal gecmisi ekrani`
+- Ekranlar gerçek cihazda test edilir (simülatör tek başına yeterli değil)
+- Ton kuralı: kayıp hissi + kimlik ✅ · suçlama/utandırma ❌
+- Puan/ceza/zincir sayıları ana depodaki `NIYETSEN_MASTER_PLAN.md` §1-2'den
+  alınır; uydurulmaz
+
+---
+
+© 2026 Niyetsen · [niyetsen.com](https://niyetsen.com) · ai@niyetsen.com
