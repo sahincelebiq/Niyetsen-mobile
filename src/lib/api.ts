@@ -229,10 +229,19 @@ export type DailyTaskItem = {
   task: Task;
 };
 
+export type GenderOption = 'kadın' | 'erkek' | 'belirtmek istemiyorum';
+
+export const GENDER_OPTIONS: readonly GenderOption[] = [
+  'kadın',
+  'erkek',
+  'belirtmek istemiyorum',
+] as const;
+
 export type UserProfile = {
   name: string | null;
   birth_date: string | null;
   zodiac_sign: string | null;
+  gender: GenderOption | null;
   timezone: string;
   notif_hour: number;
   notif_minute: number;
@@ -268,6 +277,7 @@ export type ProfileUpdate = {
   notif_minute: number;
   kvkk_consent?: boolean;
   irade_modu_active?: boolean;
+  gender?: GenderOption | null;
 };
 
 export type ConsentItem = {

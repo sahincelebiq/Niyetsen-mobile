@@ -22,10 +22,10 @@ import { Copy } from '@/constants/copy';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
-import { deleteAccount, updateProfile } from '@/lib/api';
+import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
 import type { LegalDocumentId } from '@/constants/legal';
 import {
@@ -52,6 +52,7 @@ export default function SettingsScreen() {
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [name, setName] = useState(profile?.name ?? '');
   const [birthDate, setBirthDate] = useState(profile?.birth_date ?? '');
+  const [gender, setGender] = useState<GenderOption | null>(profile?.gender ?? null);
   const [notifTime, setNotifTime] = useState<TimeOfDayValue>({ hour: 8, minute: 0 });
   const [iradeMode, setIradeMode] = useState(profile?.irade_modu_active ?? false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     setName(profile?.name ?? '');
     setBirthDate(birthDateDisplayFromIso(profile?.birth_date));
+    setGender(profile?.gender ?? null);
     setNotifTime({
       hour: profile?.notif_hour ?? 8,
       minute: profile?.notif_minute ?? 0,
@@ -109,6 +111,7 @@ export default function SettingsScreen() {
         notif_hour: notifTime.hour,
         notif_minute: notifTime.minute,
         irade_modu_active: iradeMode,
+        gender,
       });
       await refresh();
       setMessage('Ayarların kaydedildi.');
@@ -163,6 +166,7 @@ export default function SettingsScreen() {
         notif_hour: profile.notif_hour ?? 8,
         notif_minute: profile.notif_minute ?? 0,
         irade_modu_active: nextValue,
+        gender: profile.gender,
       });
       await refresh();
     } catch (value) {
@@ -220,20 +224,33 @@ export default function SettingsScreen() {
 
         <SurfaceCard>
           <View style={styles.profileRow}>
-            <View style={[styles.avatar, { backgroundColor: theme.accentWarm }]}>
-              <ThemedText type="subtitle" style={{ color: theme.onAccent }}>
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: theme.backgroundSelected,
+                  borderColor: theme.tint,
+                },
+              ]}>
+              <ThemedText type="subtitle" style={{ color: theme.tint }}>
                 {(name.trim()[0] || 'S').toUpperCase()}
               </ThemedText>
             </View>
             <View style={styles.profileMeta}>
-              <ThemedText type="subtitle">
+              <ThemedText type="subtitle" style={styles.profileName}>
                 {name.trim() || 'Sen'}
-                {profile?.zodiac_sign
-                  ? ` ${getZodiacGlyph(profile.zodiac_sign)}`
-                  : ''}
+                {profile?.zodiac_sign ? (
+                  <ThemedText type="subtitle" themeColor="textSecondary">
+                    {` ${getZodiacGlyph(profile.zodiac_sign)}`}
+                  </ThemedText>
+                ) : null}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {subscriptionStatus?.status === 'active' ? 'Abonelik aktif' : 'Deneme / ücretsiz'}
+                {profile?.zodiac_sign
+                  ? zodiacLabel(profile.zodiac_sign)
+                  : subscriptionStatus?.status === 'active'
+                    ? 'Abonelik aktif'
+                    : 'Deneme / ücretsiz'}
               </ThemedText>
             </View>
           </View>
@@ -242,22 +259,53 @@ export default function SettingsScreen() {
         <ThemedView
           type="backgroundElement"
           style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="subtitle">Hesap</ThemedText>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            HESAP
+          </ThemedText>
             <Field label="İsim" value={name} onChangeText={setName} />
             <View style={styles.field}>
               <ThemedText type="smallBold">Doğum tarihi</ThemedText>
               <BirthDateField value={birthDate} onChangeText={setBirthDate} />
+            </View>
+            <View style={styles.field}>
+              <ThemedText type="smallBold">Cinsiyet</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                İsteğe bağlı — yalnız hitap ve örnekleri kişiselleştirmek için.
+              </ThemedText>
+              <View style={styles.genderRow}>
+                {GENDER_OPTIONS.map((option) => {
+                  const selected = gender === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => setGender(option)}
+                      style={({ pressed }) => [
+                        styles.genderChip,
+                        {
+                          borderColor: selected ? theme.tint : theme.border,
+                          backgroundColor: selected
+                            ? theme.backgroundSelected
+                            : theme.surfaceMuted,
+                          opacity: pressed ? 0.85 : 1,
+                        },
+                      ]}>
+                      <ThemedText
+                        type="smallBold"
+                        themeColor={selected ? 'tint' : 'text'}>
+                        {option}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
             <TimeOfDayField
               label="Bildirim saati"
               value={notifTime}
               onChange={setNotifTime}
             />
-            {profile?.zodiac_sign && (
-              <ThemedText themeColor="textSecondary">
-                Burcun: {zodiacLabel(profile.zodiac_sign)}
-              </ThemedText>
-            )}
             {error && <ThemedText themeColor="danger">{error}</ThemedText>}
             {message && <ThemedText themeColor="success">{message}</ThemedText>}
             <ActionButton
@@ -270,7 +318,9 @@ export default function SettingsScreen() {
           <ThemedView
             type="backgroundElement"
             style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="subtitle">Abonelik</ThemedText>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+              ABONELİK
+            </ThemedText>
             <ThemedText themeColor="textSecondary">
               {subscriptionStatus?.status === 'active'
                 ? 'Premium aktif — zincirine kesintisiz devam edebilirsin.'
@@ -293,7 +343,9 @@ export default function SettingsScreen() {
             style={[styles.card, { borderColor: theme.border }]}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleCopy}>
-                <ThemedText type="subtitle">Bildirimler</ThemedText>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+                  BİLDİRİMLER
+                </ThemedText>
                 <ThemedText themeColor="textSecondary">
                   Günlük görev ve bonus görev haberlerini al. İzin yalnız bu anahtarı kendin
                   açtığında istenir; tarot bildirimi gönderilmez.
@@ -322,7 +374,9 @@ export default function SettingsScreen() {
             style={[styles.card, { borderColor: theme.border }]}>
             <View style={styles.toggleRow}>
               <View style={styles.toggleCopy}>
-                <ThemedText type="subtitle">İrade Modu</ThemedText>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+                  İRADE MODU
+                </ThemedText>
                 <ThemedText themeColor="textSecondary">
                   İrade ve Disiplin görevlerinde yerel hatırlatıcı kurmanı sağlar. Gerçek bir sistem
                   alarmı değildir; izinler yalnız hatırlatıcı istediğinde sorulur.
@@ -343,7 +397,9 @@ export default function SettingsScreen() {
           <ThemedView
             type="backgroundElement"
             style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="subtitle">Gizlilik ve rıza tercihleri</ThemedText>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+              GİZLİLİK VE RIZA
+            </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               Aydınlatma metni sürümü: {consentStatus.privacy_policy.version}
             </ThemedText>
@@ -568,15 +624,38 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileMeta: {
     flex: 1,
     gap: Spacing.half,
+  },
+  profileName: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  sectionLabel: {
+    letterSpacing: 0.8,
+    fontSize: 12,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  genderChip: {
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   field: { gap: Spacing.one },
   toggleRow: {

@@ -20,9 +20,9 @@ import {
 } from '@/components/consent-choices';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { updateConsent, updateProfile } from '@/lib/api';
+import { updateConsent, updateProfile, GENDER_OPTIONS, type GenderOption } from '@/lib/api';
 import {
   birthDateIsoFromDisplay,
   isValidBirthDateDisplay,
@@ -32,6 +32,7 @@ import { useProfile } from '@/providers/profile-provider';
 
 const STEP_TITLES = [
   'Sana nasıl hitap edelim?',
+  'Cinsiyetin (isteğe bağlı)',
   'Doğum tarihin',
   'Hatırlatma saatin',
   'Gizlilik ve tercihler',
@@ -42,6 +43,7 @@ export function OnboardingScreen() {
   const { refresh } = useProfile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<GenderOption | null>(null);
   const [birthDate, setBirthDate] = useState('');
   const [notifTime, setNotifTime] = useState<TimeOfDayValue>({ hour: 8, minute: 0 });
   const [consents, setConsents] = useState<ConsentChoicesValue>(EMPTY_CONSENT_CHOICES);
@@ -57,13 +59,14 @@ export function OnboardingScreen() {
 
   function validateCurrent() {
     if (step === 0 && !name.trim()) return 'İsmini yazmalısın.';
-    if (step === 1 && !isValidBirthDateDisplay(birthDate)) {
+    // step 1 (cinsiyet) atlanabilir — zorunlu değil.
+    if (step === 2 && !isValidBirthDateDisplay(birthDate)) {
       return 'Tarihi gün.ay.yıl olarak yaz (ör. 10.04.1995).';
     }
-    if (step === 2 && notifTime.hour === undefined) {
+    if (step === 3 && notifTime.hour === undefined) {
       return 'Bildirim saati seçmelisin.';
     }
-    if (step === 3 && !consents.privacy) {
+    if (step === 4 && !consents.privacy) {
       return 'Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.';
     }
     return null;
@@ -95,9 +98,8 @@ export function OnboardingScreen() {
         notif_hour: notifTime.hour,
         notif_minute: notifTime.minute,
         kvkk_consent: true,
+        gender,
       });
-      // KVKK açık rıza, zorunlu aydınlatma onayıyla (privacy) birlikte kaydedilir;
-      // AI/fotoğraf amaç bazlı izinlerdir ve KVKK temel rızasını etkilemez.
       await updateConsent({
         privacy_policy: { accepted: consents.privacy },
         kvkk_explicit_consent: { accepted: consents.privacy },
@@ -138,7 +140,9 @@ export function OnboardingScreen() {
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
-              <ThemedText type="title">{STEP_TITLES[step]}</ThemedText>
+              <ThemedText type="subtitle" style={styles.stepTitle}>
+                {STEP_TITLES[step]}
+              </ThemedText>
               {step === 0 && (
                 <>
                   <ThemedText themeColor="textSecondary">
@@ -150,12 +154,48 @@ export function OnboardingScreen() {
               {step === 1 && (
                 <>
                   <ThemedText themeColor="textSecondary">
+                    İstersen paylaş — yalnız hitabı kişiselleştirmek için. Atlayabilirsin.
+                  </ThemedText>
+                  <View style={styles.genderRow}>
+                    {GENDER_OPTIONS.map((option) => {
+                      const selected = gender === option;
+                      return (
+                        <Pressable
+                          key={option}
+                          onPress={() => setGender(option)}
+                          style={({ pressed }) => [
+                            styles.genderChip,
+                            {
+                              borderColor: selected ? theme.tint : theme.border,
+                              backgroundColor: selected
+                                ? theme.backgroundSelected
+                                : theme.surfaceMuted,
+                              opacity: pressed ? 0.85 : 1,
+                            },
+                          ]}>
+                          <ThemedText type="smallBold" themeColor={selected ? 'tint' : 'text'}>
+                            {option}
+                          </ThemedText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable hitSlop={12} onPress={() => { setGender(null); void next(); }}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Şimdilik atla
+                    </ThemedText>
+                  </Pressable>
+                </>
+              )}
+              {step === 2 && (
+                <>
+                  <ThemedText themeColor="textSecondary">
                     Burcunu otomatik hesaplamak için kullanılır.
                   </ThemedText>
                   <BirthDateField value={birthDate} onChangeText={setBirthDate} />
                 </>
               )}
-              {step === 2 && (
+              {step === 3 && (
                 <>
                   <ThemedText themeColor="textSecondary">
                     Günlük görev hatırlatıcını hangi saatte almak istersin?
@@ -167,7 +207,7 @@ export function OnboardingScreen() {
                   />
                 </>
               )}
-              {step === 3 && (
+              {step === 4 && (
                 <ConsentChoices value={consents} onChange={setConsents} />
               )}
 
@@ -248,6 +288,24 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     padding: Spacing.four,
     gap: Spacing.three,
+  },
+  stepTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  genderChip: {
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     minHeight: 52,
