@@ -37,6 +37,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getRecap, type Recap, type RecapCard } from '@/lib/api';
 
 const STORY_MS = 5200;
+type RecapPeriod = '14d' | '30d';
 
 function streakDaysFromHeadline(headline: string): number {
   const match = headline.match(/(\d+)/);
@@ -46,6 +47,7 @@ function streakDaysFromHeadline(headline: string): number {
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const [period, setPeriod] = useState<RecapPeriod>('14d');
   const [recap, setRecap] = useState<Recap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -57,19 +59,25 @@ export default function RecapScreen() {
   const remainingMsRef = useRef(STORY_MS);
   const shotRef = useRef<ViewShotRef>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (nextPeriod: RecapPeriod = period) => {
     setError(null);
     try {
-      setRecap(await getRecap('14d'));
+      const next = await getRecap(nextPeriod);
+      setRecap(next);
+      setIndex(0);
     } catch {
       setError('Raporun şu an yüklenemedi. Birazdan tekrar dene.');
     }
-  }, []);
+  }, [period]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(period);
+  }, [load, period]);
 
+  const selectPeriod = (next: RecapPeriod) => {
+    if (next === period) return;
+    setPeriod(next);
+  };
   useEffect(() => {
     const sub = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
@@ -165,6 +173,38 @@ export default function RecapScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
+      <View style={styles.topBar}>
+        <View
+          style={[
+            styles.periodSegment,
+            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+          ]}>
+          {([
+            { id: '14d' as const, label: '14 gün' },
+            { id: '30d' as const, label: '30 gün' },
+          ]).map((option) => {
+            const active = period === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => selectPeriod(option.id)}
+                style={[
+                  styles.periodChip,
+                  active && { backgroundColor: theme.tint },
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: active ? theme.onAccent : theme.textSecondary }}>
+                  {option.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
       <View style={styles.progressRow}>
         {cards.map((c, i) => (
           <View
@@ -191,7 +231,7 @@ export default function RecapScreen() {
       {error && (
         <View style={styles.center}>
           <ThemedText themeColor="danger">{error}</ThemedText>
-          <Pressable onPress={() => void load()} style={styles.retry}>
+          <Pressable onPress={() => void load(period)} style={styles.retry}>
             <ThemedText themeColor="tint">Tekrar dene</ThemedText>
           </Pressable>
         </View>
@@ -294,6 +334,24 @@ function StoryCardBody({ card }: { card: RecapCard }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  topBar: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  periodSegment: {
+    flexDirection: 'row',
+    borderRadius: Radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 2,
+    gap: 2,
+  },
+  periodChip: {
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one + 2,
+  },
   progressRow: {
     flexDirection: 'row',
     gap: Spacing.one,
