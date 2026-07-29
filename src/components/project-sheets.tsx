@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -34,7 +33,7 @@ import {
   type SubscriptionInfo,
 } from '@/lib/api';
 import { needsPaidPlanForSecondProject } from '@/lib/project-access';
-
+import { showConfirm } from '@/lib/web-alert';
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.86, 340);
 
 /** Oturum zamanı: bugünse saat, bu yılsa gün+ay, değilse tam tarih. */
@@ -157,13 +156,13 @@ export function ChatHistorySheet({
   async function handleNewProject() {
     if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
       onClose();
-      Alert.alert(
+      showConfirm(
         'İkinci plan için abonelik',
-        'İlk planın hazır. Deneme süresinde bile yalnızca 1 plan açılır; yeni niyet için mağaza aboneliği gerekir (CANLI YA DEVAM APP sonrası).',
-        [
-          { text: 'Vazgeç', style: 'cancel' },
-          { text: 'Aboneliğe git', onPress: () => router.push('/paywall') },
-        ],
+        'İlk planın hazır. Deneme süresinde bile yalnızca 1 plan açılır; yeni niyet için mağaza aboneliği gerekir.',
+        {
+          confirmLabel: 'Aboneliğe git',
+          onConfirm: () => router.push('/paywall'),
+        },
       );
       return;
     }
@@ -173,6 +172,8 @@ export function ChatHistorySheet({
       await startNewProject();
       onProjectChanged();
       onClose();
+      // Yeni niyet → sohbet: niyet toplama buradan başlar.
+      router.push('/');
     } catch (e) {
       if (isPaywallError(e)) {
         onClose();
@@ -451,16 +452,14 @@ export function PlanPickerSheet({
 
   async function handleNewPlan() {
     if (needsPaidPlanForSecondProject(projects, subscriptionStatus)) {
-      // ChatHistorySheet ile tutarlı: kullanıcıyı habersiz paywall'a atmak yerine
-      // önce kısa bir açıklama gösterilir.
       onClose();
-      Alert.alert(
+      showConfirm(
         'İkinci plan için abonelik',
         'Yeni bir niyet başlatmak için abonelik gerekiyor. Aboneliğe göz atmak ister misin?',
-        [
-          { text: 'Vazgeç', style: 'cancel' },
-          { text: 'Aboneliğe git', onPress: () => router.push('/paywall') },
-        ],
+        {
+          confirmLabel: 'Aboneliğe git',
+          onConfirm: () => router.push('/paywall'),
+        },
       );
       return;
     }

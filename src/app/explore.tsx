@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '48%',
+    height: '34%',
   },
   coverTitleWrap: {
     position: 'absolute',
@@ -436,6 +436,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 20,
     lineHeight: 26,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   coverTitlePlain: {
     fontFamily: Fonts.serif,

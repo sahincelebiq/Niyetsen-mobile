@@ -12,48 +12,47 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
-  // "İlkbahar sabahı": güneşli krem zemin, koyu yaprak metin (kontrast ↑),
-  // taze yaprak yeşili birincil, çiçek mercanı enerji vurgusu.
+  // "İlkbahar sabahı" — daha açık, profesyonel; neon oyuncak yeşili yok.
   light: {
-    text: '#1F2A1E',
-    textSecondary: '#64735B',
-    background: '#F6F7EE',
-    backgroundElement: '#FEFEF8',
-    backgroundSelected: '#DCEEDD',
-    tint: '#35814A',
-    accentWarm: '#E06842',
-    border: '#DDE4CF',
-    success: '#2F8A46',
+    text: '#1C241C',
+    textSecondary: '#5E6B58',
+    background: '#F8F9F3',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#E4EFE4',
+    tint: '#3D7A4E',
+    accentWarm: '#D96A45',
+    border: '#E2E8D8',
+    success: '#3A8A4C',
     danger: '#C94F44',
     onAccent: '#FFFCF4',
-    surfaceMuted: '#EFF2E2',
-    categoryBadge: '#DBEFD9',
-    categoryBadgeText: '#2F7A41',
-    pointsBadge: '#FFE3D3',
-    pointsBadgeText: '#C25A2E',
-    tabInactive: '#93A088',
-    progressTrack: '#E3E9D4',
+    surfaceMuted: '#F1F3E8',
+    categoryBadge: '#E2F0E0',
+    categoryBadgeText: '#2F6B3E',
+    pointsBadge: '#FFE8DA',
+    pointsBadgeText: '#B85A32',
+    tabInactive: '#8A9684',
+    progressTrack: '#E8ECDD',
   },
-  // "İlkbahar gecesi": derin orman zemini, parlayan genç yaprak vurgusu.
+  // Soft dark — simsiyah değil; hafif açık orman charcoal (profesyonel).
   dark: {
-    text: '#ECF4E6',
-    textSecondary: '#A3B598',
-    background: '#131A12',
-    backgroundElement: '#1D271B',
-    backgroundSelected: '#2A3A27',
-    tint: '#7FD08B',
-    accentWarm: '#E0764C',
-    border: '#364634',
-    success: '#8FD99B',
-    danger: '#E9857A',
-    onAccent: '#FFF7EC',
-    surfaceMuted: '#232E20',
-    categoryBadge: '#2E4229',
-    categoryBadgeText: '#A8D8A0',
-    pointsBadge: '#472E1E',
-    pointsBadgeText: '#F0AF85',
-    tabInactive: '#77876F',
-    progressTrack: '#2A3A27',
+    text: '#EAF1E6',
+    textSecondary: '#A3B49A',
+    background: '#1C241B',
+    backgroundElement: '#2A3428',
+    backgroundSelected: '#354235',
+    tint: '#7BBF86',
+    accentWarm: '#E2855C',
+    border: '#445343',
+    success: '#86C992',
+    danger: '#E98F85',
+    onAccent: '#FFF8EE',
+    surfaceMuted: '#303B2E',
+    categoryBadge: '#3A4A36',
+    categoryBadgeText: '#B4D4AC',
+    pointsBadge: '#4A3526',
+    pointsBadgeText: '#EBB894',
+    tabInactive: '#87967F',
+    progressTrack: '#354235',
   },
 } as const;
 
@@ -187,10 +186,10 @@ export const SurfaceEdge = {
   dark: 'rgba(255, 255, 255, 0.06)',
 } as const;
 
-/** Görev kartı görseli üzerine metin okunurluğu için degrade örtü. */
+/** Görev kartı görseli — sadece alt başlık bandı; renkleri silikleştirmesin. */
 export const ImageScrim = {
-  light: ['rgba(20, 26, 16, 0)', 'rgba(20, 26, 16, 0.55)'] as const,
-  dark: ['rgba(8, 12, 7, 0)', 'rgba(8, 12, 7, 0.68)'] as const,
+  light: ['rgba(20, 26, 16, 0)', 'rgba(20, 26, 16, 0.32)'] as const,
+  dark: ['rgba(8, 12, 7, 0)', 'rgba(8, 12, 7, 0.42)'] as const,
 } as const;
 
 /** Mikro hareket süreleri — tek yerden, tutarlı ritim. */
@@ -208,7 +207,8 @@ export const Texture = {
 
 /** Native tab bar + home indicator payı; içerik bunun üstünde biter. */
 export const BottomTabInset = Platform.select({ ios: 78, android: 72, default: 68 }) ?? 68;
-export const TabBarBackground = '#FEFEF8';
+/** @deprecated Tema ile uyumsuz sabit kremdi (dark web'de beyaz şerit). Colors.*.backgroundElement kullan. */
+export const TabBarBackground = Colors.light.backgroundElement;
 export const MaxContentWidth = 800;
 export const ApiTimeoutMs = 20_000;
 /**

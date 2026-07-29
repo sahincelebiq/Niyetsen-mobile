@@ -35,6 +35,7 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { pingHealth } from '@/lib/api';
 import { initSentry } from '@/lib/sentry';
+import { AppearanceProvider } from '@/providers/appearance-provider';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { ProfileProvider, useProfile } from '@/providers/profile-provider';
 import { SubscriptionProvider } from '@/providers/subscription-provider';
@@ -42,7 +43,6 @@ import { SubscriptionProvider } from '@/providers/subscription-provider';
 SplashScreen.preventAutoHideAsync();
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const pathname = usePathname();
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
@@ -58,6 +58,16 @@ export default function TabLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <AppearanceProvider>
+        <RootNavigation pathname={pathname} />
+      </AppearanceProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function RootNavigation({ pathname }: { pathname: string }) {
+  const colorScheme = useColorScheme();
+  return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       {pathname.startsWith('/legal/') ? (
@@ -68,7 +78,6 @@ export default function TabLayout() {
         </AuthProvider>
       )}
     </ThemeProvider>
-    </GestureHandlerRootView>
   );
 }
 

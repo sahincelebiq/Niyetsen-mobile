@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
@@ -54,14 +54,18 @@ export function ChatHeader({
             {Copy.chat.subtitle}
           </ThemedText>
         </Pressable>
-        <View style={styles.rightCluster}>
+        <View style={styles.rightCluster} pointerEvents="box-none">
           {onSecretGesture ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Mistik keşif"
+              accessibilityHint="Fal ve burç bölümünü açar"
               onPress={onSecretGesture}
-              hitSlop={10}
-              style={({ pressed }) => [styles.mysticButton, pressed && styles.pressed]}>
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              style={({ pressed }) => [
+                styles.mysticButton,
+                pressed && styles.pressed,
+              ]}>
               <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
             </Pressable>
           ) : null}
@@ -84,6 +88,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingBottom: Spacing.two,
     paddingHorizontal: Spacing.three,
+    zIndex: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -106,21 +111,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
-    marginTop: 2, // history butonuyla aynı üst hiza
+    marginTop: 2,
+    zIndex: 3,
   },
   mysticButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 4,
+    ...Platform.select({
+      web: { cursor: 'pointer' as const },
+      default: {},
+    }),
   },
   mysticGlyph: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 24,
     textAlign: 'center',
-    includeFontPadding: false, // Android'de dikey kaymayı önler
-    opacity: 0.7,
+    includeFontPadding: false,
+    opacity: 0.85,
   },
   historyGlyph: {
     fontSize: 22,

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
+import { Image, StyleSheet, useColorScheme, View } from 'react-native';
 import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 
 import { ChatMessageBody } from '@/components/chat-message-body';
@@ -11,8 +11,7 @@ type AssistantMessageProps = {
 };
 
 /**
- * Rehber balonu — İlkbahar v3: backgroundElement + SurfaceEdge + Shadows.subtle;
- * giriş: 12px yukarı kayma + fade (Motion.base, stagger yok).
+ * Rehber balonu + küçük Niyetsen logo avatarı (kişi kartı).
  */
 export const AssistantMessage = memo(function AssistantMessage({ content }: AssistantMessageProps) {
   const theme = useTheme();
@@ -23,6 +22,21 @@ export const AssistantMessage = memo(function AssistantMessage({ content }: Assi
         .withInitialValues({ opacity: 0, transform: [{ translateY: 12 }] })
         .reduceMotion(ReduceMotion.System)}
       style={styles.row}>
+      <View
+        style={[
+          styles.avatar,
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: theme.border,
+          },
+        ]}
+        accessibilityLabel="Niyetsen">
+        <Image
+          source={require('@/assets/images/niyetsen-logo.png')}
+          style={styles.avatarImage}
+          resizeMode="cover"
+        />
+      </View>
       <View
         style={[
           styles.bubble,
@@ -41,11 +55,27 @@ export const AssistantMessage = memo(function AssistantMessage({ content }: Assi
 
 const styles = StyleSheet.create({
   row: {
-    maxWidth: '88%',
+    maxWidth: '92%',
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.two,
     paddingVertical: Spacing.one,
   },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    marginBottom: 2,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
   bubble: {
+    flexShrink: 1,
     borderWidth: Texture.cardBorderWidth,
     borderRadius: Radii.bubble,
     borderBottomLeftRadius: 6,

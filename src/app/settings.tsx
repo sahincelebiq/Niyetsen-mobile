@@ -39,11 +39,13 @@ import {
   type PushStatus,
 } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
+import { useAppearance } from '@/providers/appearance-provider';
 import { useProfile } from '@/providers/profile-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const appearance = useAppearance();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const auth = useAuth();
@@ -344,6 +346,36 @@ export default function SettingsScreen() {
             <View style={styles.toggleRow}>
               <View style={styles.toggleCopy}>
                 <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+                  GÖRÜNÜM
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">
+                  {appearance.isDark
+                    ? 'Karanlık — soft orman tonları (simsiyah değil).'
+                    : 'Açık — ilkbahar krem ve yaprak yeşili.'}
+                </ThemedText>
+              </View>
+              <View style={styles.themeSwitchWrap}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  {appearance.isDark ? 'Karanlık' : 'Açık'}
+                </ThemedText>
+                <Switch
+                  accessibilityLabel="Karanlık mod"
+                  accessibilityHint="Açık ve soft karanlık tema arasında geçer"
+                  value={appearance.isDark}
+                  onValueChange={(value) => appearance.toggleDark(value)}
+                  trackColor={{ false: theme.border, true: theme.tint }}
+                  thumbColor={theme.backgroundElement}
+                />
+              </View>
+            </View>
+          </ThemedView>
+
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.card, { borderColor: theme.border }]}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleCopy}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
                   BİLDİRİMLER
                 </ThemedText>
                 <ThemedText themeColor="textSecondary">
@@ -444,11 +476,26 @@ export default function SettingsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Mistik keşif"
+            accessibilityHint="Fal ve burç bölümünü açar"
             hitSlop={12}
             onPress={() => router.push('/mystic' as Href)}
-            style={styles.mysticHint}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.mysticHintText}>
-              ☾
+            style={({ pressed }) => [
+              styles.mysticCard,
+              {
+                backgroundColor: theme.backgroundElement,
+                borderColor: theme.border,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}>
+            <ThemedText style={styles.mysticCardGlyph}>☾</ThemedText>
+            <View style={styles.mysticCardCopy}>
+              <ThemedText type="smallBold">Mistik Keşif</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Tarot, burç ve fal — dokunarak aç
+              </ThemedText>
+            </View>
+            <ThemedText type="smallBold" themeColor="tint">
+              Aç →
             </ThemedText>
           </Pressable>
 
@@ -600,16 +647,24 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.three,
   },
-  /** Gizli mistik giriş: ay simgesi sade bir süs gibi durur, uzun basınca açılır. */
-  mysticHint: {
-    alignSelf: 'center',
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
+  /** Mistik giriş — net etiketli kart (web tıklaması için yeterli hit alanı). */
+  mysticCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Spacing.four,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
   },
-  mysticHintText: {
-    fontSize: 18,
-    lineHeight: 22,
-    opacity: 0.55,
+  mysticCardGlyph: {
+    fontSize: 22,
+    lineHeight: 26,
+    opacity: 0.9,
+  },
+  mysticCardCopy: {
+    flex: 1,
+    gap: 2,
   },
   header: { gap: Spacing.one, paddingVertical: Spacing.two },
   card: {
@@ -665,6 +720,10 @@ const styles = StyleSheet.create({
   },
   toggleCopy: {
     flex: 1,
+    gap: Spacing.one,
+  },
+  themeSwitchWrap: {
+    alignItems: 'center',
     gap: Spacing.one,
   },
   legalLinks: {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
@@ -21,6 +21,7 @@ import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
 import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
 import { ChatQuickReplies } from '@/components/chat-quick-replies';
+import { ChatWallpaper } from '@/components/chat-wallpaper';
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatHeader } from '@/components/chat-header';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
@@ -132,18 +133,18 @@ export default function ChatScreen() {
 
   // Kullanıcı geçmişi okmak için yukarı kaydırdıysa otomatik scroll devre dışı kalır;
   // yalnız listenin dibine yakınken yeni içerikte en alta iner (zorla zıplama biter).
+  // inverted listede görsel "alt" = offset ~0; geçmiş okurken auto-scroll kapanır.
   const nearBottomRef = useRef(true);
   const scrollToEnd = useCallback((force = false) => {
     if (!force && !nearBottomRef.current) return;
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToOffset({ offset: 0, animated: true }),
+    );
   }, []);
 
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const distanceFromBottom =
-        contentSize.height - layoutMeasurement.height - contentOffset.y;
-      nearBottomRef.current = distanceFromBottom < 120;
+      nearBottomRef.current = event.nativeEvent.contentOffset.y < 120;
     },
     [],
   );
@@ -399,6 +400,9 @@ export default function ChatScreen() {
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
+  // inverted FlatList: en yeni mesaj görsel olarak alta yapışır (boşluk kayması biter).
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   // Modelin ürettiği dinamik çipler öncelikli; yoksa (plan öncesi) statik öneriler.
   const dynamicSuggestions = suggestions.length > 0 ? suggestions : null;
   const hasUserMessage = messages.some((m) => m.role === 'user');
@@ -461,6 +465,7 @@ export default function ChatScreen() {
         ) : null}
         <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
           <View style={styles.chatColumn}>
+            <ChatWallpaper />
             <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
               {loadingHistory ? (
                 <View style={styles.loadingContainer}>
@@ -469,8 +474,9 @@ export default function ChatScreen() {
               ) : (
                 <FlatList
                   ref={listRef}
+                  inverted
                   style={styles.list}
-                  data={messages}
+                  data={invertedMessages}
                   keyExtractor={keyExtractor}
                   renderItem={renderItem}
                   contentContainerStyle={styles.listContent}
@@ -484,7 +490,7 @@ export default function ChatScreen() {
                   onLayout={() => scrollToEnd()}
                   onScroll={handleListScroll}
                   scrollEventThrottle={64}
-                  ListFooterComponent={listFooter}
+                  ListHeaderComponent={listFooter}
                 />
               )}
             </ChatEdgeDrawer>
@@ -545,6 +551,9 @@ const styles = StyleSheet.create({
   },
   chatColumn: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    position: 'relative',
   },
   loadingContainer: {
     flex: 1,
@@ -553,13 +562,15 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    minHeight: 0,
+    backgroundColor: 'transparent',
   },
   listContent: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    // inverted: paddingTop görsel olarak input'a yakın alt boşluk.
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.two,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
     width: '100%',
@@ -577,7 +588,8 @@ const styles = StyleSheet.create({
   },
   footerGap: {
     gap: Spacing.three,
-    marginTop: Spacing.two,
+    // inverted ListHeader → görsel altta, mesaj ile composer arası sıkı.
+    marginBottom: Spacing.one,
   },
   ctaButton: {
     borderRadius: Radii.pill,
