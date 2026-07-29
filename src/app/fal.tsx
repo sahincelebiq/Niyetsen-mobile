@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { useConsentPreferences } from '@/components/consent-gate';
 import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
+  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing, SurfaceEdge,
 } from '@/constants/theme';
 import { trackEvent } from '@/lib/analytics';
 import {
@@ -39,6 +39,7 @@ export default function FortuneScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
+  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -132,7 +133,16 @@ export default function FortuneScreen() {
       />
       <SafeAreaView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.card,
+              Shadows.lifted ?? {},
+              {
+                backgroundColor: colors.backgroundElement,
+                borderColor: colors.border,
+                borderTopColor: edge,
+              },
+            ]}>
             <ThemedText style={[styles.symbol, { color: colors.tint }]}>☾</ThemedText>
             <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
               Fal

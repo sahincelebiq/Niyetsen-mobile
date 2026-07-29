@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
+  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing, SurfaceEdge,
 } from '@/constants/theme';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, drawTarot, getFortuneRights, type TarotDraw } from '@/lib/api';
@@ -23,6 +23,7 @@ export default function TarotScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
+  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
   const [busy, setBusy] = useState(false);
   const [draw, setDraw] = useState<TarotDraw | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +76,16 @@ export default function TarotScreen() {
       />
       <SafeAreaView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.card,
+              Shadows.lifted ?? {},
+              {
+                backgroundColor: colors.backgroundElement,
+                borderColor: colors.border,
+                borderTopColor: edge,
+              },
+            ]}>
             <ThemedText style={[styles.symbol, { color: colors.tint }]}>◈</ThemedText>
             <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
               Günlük Tarot

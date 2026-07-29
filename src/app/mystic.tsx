@@ -1,12 +1,22 @@
 import { Image } from 'expo-image';
 import { Href, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
+  BottomTabInset,
+  MaxContentWidth,
+  Motion,
+  MysticColors,
+  Radii,
+  Shadows,
+  Spacing,
+  SurfaceEdge,
 } from '@/constants/theme';
+import { getZodiacGlyph } from '@/constants/zodiac';
+import { useProfile } from '@/providers/profile-provider';
 
 const MODULES: {
   title: string;
@@ -38,8 +48,14 @@ export default function MysticHubScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
+  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
+  const { profile } = useProfile();
+  const zodiac = profile?.zodiac_sign;
+
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+    <Animated.View
+      entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+      style={[styles.flex, { backgroundColor: colors.background }]}>
       <Image
         source={require('@/assets/images/chat-mystic-bg.png')}
         style={styles.background}
@@ -55,6 +71,7 @@ export default function MysticHubScreen() {
           <View style={styles.header}>
             <ThemedText type="title" style={{ color: colors.text }}>
               Mistik Keşif
+              {zodiac ? ` ${getZodiacGlyph(zodiac)}` : ''}
             </ThemedText>
             <ThemedText style={[styles.center, { color: colors.textSecondary }]}>
               Gizli kapıyı buldun ☾ Yaşam planın merkezde kalırken, sembolik
@@ -70,10 +87,13 @@ export default function MysticHubScreen() {
                 onPress={() => router.push(module.href)}
                 style={({ pressed }) => [
                   styles.card,
+                  Shadows.lifted ?? {},
                   {
                     backgroundColor: colors.backgroundElement,
                     borderColor: colors.border,
+                    borderTopColor: edge,
                     opacity: pressed ? 0.75 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
                   },
                 ]}>
                 <ThemedText style={[styles.symbol, { color: colors.tint }]}>
@@ -127,7 +147,7 @@ export default function MysticHubScreen() {
           </Pressable>
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -153,7 +173,6 @@ const styles = StyleSheet.create({
     borderRadius: Radii.large,
     padding: Spacing.four,
     gap: Spacing.two,
-    ...(Shadows.subtle ?? {}),
   },
   symbol: { fontSize: 38, lineHeight: 46 },
   disclaimer: { textAlign: 'center', paddingHorizontal: Spacing.three },
