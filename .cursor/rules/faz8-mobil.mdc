@@ -1,0 +1,35 @@
+---
+description: FAZ 8 mobil görevleri (Ağustos lansmanı) — profil redesign, cinsiyet UI, burç ikonu, plan düzenleme
+globs:
+  - "src/**/*.tsx"
+alwaysApply: false
+---
+
+# FAZ 8 — Mobil Görev Bağlamı
+
+Tam liste ve KAPI kriterleri: ana repodaki `docs/FAZ8_LANSMAN.md` (bu repo,
+kök reponun içinde ayrı git deposu — dosya `../docs/FAZ8_LANSMAN.md`).
+Sıra atlanmaz; her görev = 1 küçük commit (`faz8: ...` formatı).
+
+## 8.3 — Plan düzenleme UI
+- Plan/takvim ekranında görev kartına uzun basış → action sheet:
+  "Taşı / Düzenle / Sil". Tarih seçici Niyetsen temasında.
+- Geçmiş güne taşıma ve tamamlanmış görevi düzenleme UI'da da engellenir
+  (backend zaten reddeder ama kullanıcıya baştan gösterme).
+- Vision-board görselleri ve kart tasarımı değişmez.
+
+## 8.4 — Profil (settings.tsx) gerçek app hissi
+- `src/app/settings.tsx` kompakt mobil hiyerarşiye geçer (niyetsen-ui
+  kuralları: başlık boyutları, kart listeleri, 44pt hedefler).
+- İsim yanına burç: `zodiacLabel(profile.zodiac_sign)` (`src/constants/zodiac.ts`).
+- Cinsiyet seçimi: 3 seçenek, string'ler birebir "kadın" / "erkek" /
+  "belirtmek istemiyorum"; API `PATCH /me/profile` üzerinden `gender` alanı.
+  Onboarding'e atlanabilir nazik soru olarak da ekle.
+- Mistik ekran başlıklarında (tarot/astroloji/fal) kullanıcının burç sembolü.
+
+## API notları
+- İstemci: `src/lib/api.ts` — yeni endpoint'leri oraya ekle, fetch'i ekrana gömme.
+- Hata durumunda sohbet/plan akışı düşmez; error-banner + tekrar dene.
+
+## Bitirme kriteri (her görevde)
+- `npx tsc --noEmit` 0 hata + gerçek cihaz (Expo Go) testi + KAPI maddesi yeşil.

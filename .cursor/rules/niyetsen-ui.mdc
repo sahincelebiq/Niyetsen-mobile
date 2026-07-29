@@ -1,0 +1,54 @@
+---
+description: Niyetsen mobil tasarım dili + UI/UX zanaat kuralları (her frontend işinde geçerli)
+globs:
+  - "src/**/*.tsx"
+  - "src/**/*.ts"
+alwaysApply: true
+---
+
+# Niyetsen UI/UX Kuralları
+
+## Kimlik (İCAT ETME, DERİNLEŞTİR)
+- Tek gerçek kaynak: `src/constants/theme.ts`. Ana palet `Colors` (sıcak kil/yeşil),
+  fal/mistik ekranlarda `MysticColors`. **Hex kodu hardcode ETME** — token kullan.
+- Metin/yüzey için `ThemedText` / `ThemedView`; ekran iskeleti için
+  `screen-scaffold.tsx`. Yeni ekran = mevcut bileşenlerden kurulur.
+- Font: Manrope (`Fonts`). Yeni font ekleme.
+- Vision-board kart tasarımı ve plan görsel kimliği DEĞİŞMEZ; cila = spacing,
+  hiyerarşi, mikro animasyon.
+
+## "Gerçek app hissi" (yatırımcı geri bildirimi — web görünümü yasak)
+- Ekran başlığı ≤ 22-24pt; bölüm başlığı 13-15pt, uppercase/secondary olabilir.
+  Dev web başlıkları (28pt+) YASAK.
+- Kompakt hiyerarşi: avatar+isim satırı, kart listeleri, satır içi ikonlar.
+- Dokunma hedefi ≥ 44pt; satır yüksekliği cömert ama boşluk israfı yok.
+- Her ekran iPhone SE (375pt) ve büyük Android'de taşmasız olmalı — dar ekranı
+  varsayılan kabul et.
+
+## Teknik tuzaklar (geçmişte canlı crash üretti — taviz yok)
+- `Easing`/`Animated` ASLA 'react-native'ten import edilmez; reanimated
+  worklet'lerinde `react-native-reanimated`'ın kendi `Easing`'i kullanılır.
+  `eslint.config.js`'teki `no-restricted-imports` kuralı bunu yakalar —
+  KURALI KALDIRMA/GEVŞETME.
+- `count-up-text.tsx` BİLEREK saf JS (requestAnimationFrame) — reanimated'e çevirme.
+- localStorage YOK — `AsyncStorage`/`SecureStore`.
+- Animasyonlarda `AccessibilityInfo.isReduceMotionEnabled` saygısı korunur.
+
+## Performans + durum tasarımı
+- Uzun listeler: FlatList (+keyExtractor, memo edilmiş satır bileşeni).
+- Her async ekranda 3 durum tasarla: yükleniyor (skeleton/spinner), boş durum
+  (tek cümle + eylem), hata (`error-banner.tsx` + tekrar dene).
+- Görsellerde boyut/resizeMode belirt; layout shift yaratma.
+
+## Dil + ton
+- Tüm kullanıcı metinleri Türkçe; İngilizce sözcük sızdırma ("task" değil "görev").
+- Ton: kayıp hissi + kimlik ✅ ("23 günlük zincirin seni bekliyor"),
+  suçlama/utandırma ❌. Dürüst yüzleşme serbest, aşağılama yasak.
+- Burç gösterimi: `src/constants/zodiac.ts` helper'ları (`zodiacLabel`,
+  `getZodiacGlyph`) — yeni harita yazma.
+- Cinsiyet seçenekleri backend Literal ile birebir: "kadın", "erkek",
+  "belirtmek istemiyorum" (başka string kırar).
+
+## Doğrulama
+- Her değişiklikten sonra `npx tsc --noEmit` = 0 hata.
+- Her ekran gerçek cihazda (Expo Go) test edilir; simülatör yetmez.
