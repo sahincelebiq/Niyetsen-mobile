@@ -1,7 +1,8 @@
-import { useFocusEffect } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -25,7 +26,13 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError, CATEGORIES, getState, type StateResponse } from '@/lib/api';
+import {
+  ApiError,
+  CATEGORIES,
+  getRecap,
+  getState,
+  type StateResponse,
+} from '@/lib/api';
 
 function isSproutMilestone(days: number): boolean {
   return days === 3 || days === 7 || days === 30 || (days > 30 && days % 30 === 0);
@@ -33,7 +40,9 @@ function isSproutMilestone(days: number): boolean {
 
 export default function RankScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [state, setState] = useState<StateResponse | null>(null);
+  const [recapReady, setRecapReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +52,12 @@ export default function RankScreen() {
     else setLoading(true);
     setError(null);
     try {
-      setState(await getState());
+      const [nextState, recap] = await Promise.all([
+        getState(),
+        getRecap('14d').catch(() => null),
+      ]);
+      setState(nextState);
+      setRecapReady(!!recap && recap.days_in >= 14);
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Rütbe bilgisi yüklenemedi.');
     } finally {
@@ -82,6 +96,31 @@ export default function RankScreen() {
 
         {state && !loading && (
           <>
+            {recapReady && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Niyetsen raporunu aç"
+                onPress={() => router.push('/rapor' as Href)}
+                style={[
+                  styles.recapBanner,
+                  {
+                    backgroundColor: theme.backgroundSelected,
+                    borderColor: theme.tint,
+                  },
+                ]}>
+                <View style={styles.recapBannerCopy}>
+                  <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                    Raporun hazır ✨
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Son günlerinin hikâyesini story olarak gör
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                  Aç →
+                </ThemedText>
+              </Pressable>
+            )}
             <View
               style={[
                 styles.hero,
@@ -183,6 +222,20 @@ function Metric({ value, label }: { value: string; label: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  recapBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    borderRadius: Radii.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
+  recapBannerCopy: {
+    flex: 1,
+    gap: 2,
+  },
   hero: {
     borderRadius: Radii.large,
     padding: Spacing.four,
