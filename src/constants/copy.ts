@@ -31,7 +31,8 @@ export const Copy = {
     subtitle: 'Küçük adımlar, kırılmayan zincir',
     emptyTitle: 'Bugün sakin bir gün',
     emptyBody:
-      'Bugüne atanmış görev görünmüyor. Planım sekmesinden gelecek halkalarına göz atabilirsin.',
+      'Bugün planında görev yok — bonus ister misin?',
+    emptyCta: 'Bonusa bak',
     complete: 'Tamamla',
     addProof: 'Kanıt ekle',
     chainAdded: (pts: number) => `Zincire eklendi · +${pts} puan`,
