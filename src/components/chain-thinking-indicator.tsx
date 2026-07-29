@@ -102,9 +102,9 @@ export function ChainThinkingIndicator() {
         düşünüyor
       </ThemedText>
       <View style={styles.dots}>
-        <Animated.View style={[styles.dot, { backgroundColor: theme.textSecondary }, dot1Style]} />
-        <Animated.View style={[styles.dot, { backgroundColor: theme.textSecondary }, dot2Style]} />
-        <Animated.View style={[styles.dot, { backgroundColor: theme.textSecondary }, dot3Style]} />
+        <Animated.View style={[styles.dot, { backgroundColor: theme.tint }, dot1Style]} />
+        <Animated.View style={[styles.dot, { backgroundColor: theme.tint }, dot2Style]} />
+        <Animated.View style={[styles.dot, { backgroundColor: theme.tint }, dot3Style]} />
       </View>
     </View>
   );

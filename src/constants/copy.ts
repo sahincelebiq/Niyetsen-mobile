@@ -15,7 +15,12 @@ export const Copy = {
     planCta: 'Planını Oluştur ✨',
     planReadyHint:
       'Bu niyetin planı hazır. Yeni kapsamlı plan için ☰ menüden Yeni Niyet Başlat.',
-    suggestions: ['Birini arayacağım', 'Erken yatacağım', 'Kitap okuyacağım'],
+    emptyInvite: 'Nereden başlamak istersin?',
+    suggestions: [
+      'Bu yıl ne değişsin?',
+      'Daha disiplinli olmak istiyorum',
+      'Sağlığımı toparlamak istiyorum',
+    ],
   },
   profile: {
     title: 'Profil',

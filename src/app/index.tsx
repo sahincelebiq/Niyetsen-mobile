@@ -11,7 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import Animated, { FadeInRight, ReduceMotion } from 'react-native-reanimated';
+import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -83,15 +83,17 @@ function buildOutgoingText(text: string, attachment: PendingAttachment | null): 
 const UserBubble = memo(function UserBubble({ content }: { content: string }) {
   const theme = useTheme();
   return (
-    // UI cilası v2: kullanıcı balonu sağdan yumuşakça girer (gönderim hissi).
+    // İlkbahar v3: tint dolgu + onAccent metin; 12px yukarı + fade (Motion.base).
     <Animated.View
-      entering={FadeInRight.duration(Motion.fast).reduceMotion(ReduceMotion.System)}>
+      entering={FadeInUp.duration(Motion.base)
+        .withInitialValues({ opacity: 0, transform: [{ translateY: 12 }] })
+        .reduceMotion(ReduceMotion.System)}>
       <ThemedView
         style={[
           styles.bubbleUser,
           {
-            backgroundColor: theme.accentWarm,
-            borderColor: theme.accentWarm,
+            backgroundColor: theme.tint,
+            borderColor: theme.tint,
           },
         ]}>
         <ChatMessageBody content={content} color={theme.onAccent} />
@@ -399,6 +401,8 @@ export default function ChatScreen() {
 
   // Modelin ürettiği dinamik çipler öncelikli; yoksa (plan öncesi) statik öneriler.
   const dynamicSuggestions = suggestions.length > 0 ? suggestions : null;
+  const hasUserMessage = messages.some((m) => m.role === 'user');
+  const showEmptyInvite = !hasUserMessage && !planHasContent && dynamicSuggestions === null;
   const showQuickReplies =
     !sending &&
     aiAllowed &&
@@ -487,6 +491,7 @@ export default function ChatScreen() {
 
             {showQuickReplies ? (
               <ChatQuickReplies
+                invite={showEmptyInvite ? Copy.chat.emptyInvite : undefined}
                 suggestions={dynamicSuggestions ?? Copy.chat.suggestions}
                 onSelect={(label) => {
                   if (dynamicSuggestions) {
