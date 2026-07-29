@@ -644,6 +644,28 @@ export type Horoscope = {
   disclaimer: string;
 };
 
+export type RecapCard = {
+  kind: 'intro' | 'tasks' | 'trait' | 'streak' | 'closing';
+  title: string;
+  headline: string;
+  subtitle: string;
+};
+
+export type Recap = {
+  period: string;
+  start_date: string;
+  end_date: string;
+  days_in: number;
+  completed_tasks: number;
+  total_points: number;
+  top_category: string;
+  cards: RecapCard[];
+};
+
+export function getRecap(period: '14d' | '30d' = '14d'): Promise<Recap> {
+  return request<Recap>(`/me/recap?period=${period}`);
+}
+
 export function getFortuneRights(): Promise<FortuneRights> {
   return request<FortuneRights>('/fortune/rights');
 }
