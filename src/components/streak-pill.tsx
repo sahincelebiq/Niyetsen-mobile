@@ -10,9 +10,17 @@ type StreakPillProps = {
   compact?: boolean;
 };
 
+/** İlkbahar filiz kademesi: 🌱→🌿→🌳 (3 / 7 / 30 gün). */
+export function sproutGlyph(streakDays: number): string {
+  if (streakDays >= 30) return '🌳';
+  if (streakDays >= 7) return '🌿';
+  if (streakDays >= 3) return '🌱';
+  return '🌱';
+}
+
 export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
   const theme = useTheme();
-  const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni halka';
+  const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni filiz';
 
   return (
     <ThemedView
@@ -22,7 +30,9 @@ export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
         compact && styles.pillCompact,
         { borderColor: theme.border },
       ]}>
-      <View style={[styles.dot, { backgroundColor: theme.tint }]} />
+      <ThemedText type="smallBold" style={styles.glyph}>
+        {sproutGlyph(streakDays)}
+      </ThemedText>
       <ThemedText type="smallBold" style={{ color: theme.text }}>
         {label}
       </ThemedText>
@@ -44,9 +54,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: 6,
   },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+  glyph: {
+    fontSize: 13,
+    lineHeight: 16,
   },
 });
