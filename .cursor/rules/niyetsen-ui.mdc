@@ -9,8 +9,12 @@ alwaysApply: true
 # Niyetsen UI/UX Kuralları
 
 ## Kimlik (İCAT ETME, DERİNLEŞTİR)
-- Tek gerçek kaynak: `src/constants/theme.ts`. Ana palet `Colors` (sıcak kil/yeşil),
-  fal/mistik ekranlarda `MysticColors`. **Hex kodu hardcode ETME** — token kullan.
+- Tek gerçek kaynak: `src/constants/theme.ts`. Ana palet `Colors` — **v3
+  "İLKBAHAR"** (genç yaprak yeşili + çiçek mercanı + güneşli krem; sonbahar
+  pasteli KALDIRILDI, geri getirme). Fal/mistik ekranlarda `MysticColors`.
+  **Hex kodu hardcode ETME** — token kullan.
+- UI yenileme şeridi: kök repodaki `docs/UI_V3_ILKBAHAR.md` — ekran sırası,
+  mikro-etkileşim sözlüğü ve KAPI kriterleri oradadır; ona sadık kal.
 - Metin/yüzey için `ThemedText` / `ThemedView`; ekran iskeleti için
   `screen-scaffold.tsx`. Yeni ekran = mevcut bileşenlerden kurulur.
 - Font: Manrope (`Fonts`). Yeni font ekleme.

@@ -1,6 +1,10 @@
 /**
- * Niyetsen MVP tasarım dili — sıcak kil/yeşil palet (2026-07-13 mockup).
- * `MysticColors` ikincil palet; V2 fal modülü için hazır, henüz bağlı değil.
+ * Niyetsen tasarım dili v3 — "İLKBAHAR" (2026-07-29, yatırımcı geri bildirimi:
+ * "uygulama bana ilkbaharı hissettirmeli, sonbaharı değil").
+ * Kuru kil/sonbahar pastelinden → taze yaprak yeşili + çiçek mercanı +
+ * güneşli krem. Token anahtarları DEĞİŞMEDİ; tüm ekranlar otomatik yenilenir.
+ * Ekran turu planı: kök repo `docs/UI_V3_ILKBAHAR.md`.
+ * `MysticColors` ikincil palet (fal/mistik ekranlar).
  */
 
 import '@/global.css';
@@ -8,45 +12,48 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
+  // "İlkbahar sabahı": güneşli krem zemin, koyu yaprak metin (kontrast ↑),
+  // taze yaprak yeşili birincil, çiçek mercanı enerji vurgusu.
   light: {
-    text: '#2C241C',
-    textSecondary: '#9C8B72',
-    background: '#F1E7D9',
-    backgroundElement: '#FBF6EF',
-    backgroundSelected: '#EBD9C6',
-    tint: '#6E7856',
-    accentWarm: '#B4623C',
-    border: '#E0D4C4',
-    success: '#56603F',
-    danger: '#A14F4F',
-    onAccent: '#FCF4EA',
-    surfaceMuted: '#F7EEE2',
-    categoryBadge: '#E5E8D4',
-    categoryBadgeText: '#56603F',
-    pointsBadge: '#F1DECF',
-    pointsBadgeText: '#9A4E2E',
-    tabInactive: '#A28F76',
-    progressTrack: '#E7DCCB',
+    text: '#1F2A1E',
+    textSecondary: '#64735B',
+    background: '#F6F7EE',
+    backgroundElement: '#FEFEF8',
+    backgroundSelected: '#DCEEDD',
+    tint: '#35814A',
+    accentWarm: '#E06842',
+    border: '#DDE4CF',
+    success: '#2F8A46',
+    danger: '#C94F44',
+    onAccent: '#FFFCF4',
+    surfaceMuted: '#EFF2E2',
+    categoryBadge: '#DBEFD9',
+    categoryBadgeText: '#2F7A41',
+    pointsBadge: '#FFE3D3',
+    pointsBadgeText: '#C25A2E',
+    tabInactive: '#93A088',
+    progressTrack: '#E3E9D4',
   },
+  // "İlkbahar gecesi": derin orman zemini, parlayan genç yaprak vurgusu.
   dark: {
-    text: '#F2EAD9',
-    textSecondary: '#B3A488',
-    background: '#1E1914',
-    backgroundElement: '#2A241C',
-    backgroundSelected: '#3D3428',
-    tint: '#93AF86',
-    accentWarm: '#CD8A5E',
-    border: '#4A4034',
-    success: '#A7C89B',
-    danger: '#E49A9A',
-    onAccent: '#FCF4EA',
-    surfaceMuted: '#352D22',
-    categoryBadge: '#3D4530',
-    categoryBadgeText: '#B8C4A0',
-    pointsBadge: '#4A3528',
-    pointsBadgeText: '#E8B89A',
-    tabInactive: '#8A7A66',
-    progressTrack: '#3D3428',
+    text: '#ECF4E6',
+    textSecondary: '#A3B598',
+    background: '#131A12',
+    backgroundElement: '#1D271B',
+    backgroundSelected: '#2A3A27',
+    tint: '#7FD08B',
+    accentWarm: '#E0764C',
+    border: '#364634',
+    success: '#8FD99B',
+    danger: '#E9857A',
+    onAccent: '#FFF7EC',
+    surfaceMuted: '#232E20',
+    categoryBadge: '#2E4229',
+    categoryBadgeText: '#A8D8A0',
+    pointsBadge: '#472E1E',
+    pointsBadgeText: '#F0AF85',
+    tabInactive: '#77876F',
+    progressTrack: '#2A3A27',
   },
 } as const;
 
@@ -58,8 +65,8 @@ export const MysticColors = {
     background: '#F3EFFB',
     backgroundElement: '#E4DBF6',
     backgroundSelected: '#CDBEEC',
-    tint: '#7B68B8',
-    accentWarm: '#5C86D6',
+    tint: '#6F58C0',
+    accentWarm: '#4A7FE0',
     border: '#CDBEEC',
   },
   dark: {
@@ -68,8 +75,8 @@ export const MysticColors = {
     background: '#15102A',
     backgroundElement: '#221A3D',
     backgroundSelected: '#31264F',
-    tint: '#9C87DD',
-    accentWarm: '#7C9EE8',
+    tint: '#A78FF0',
+    accentWarm: '#85A8F5',
     border: '#31264F',
   },
 } as const;
@@ -107,9 +114,9 @@ export const Radii = {
 
 export const Shadows = {
   soft: Platform.select({
-    web: { boxShadow: '0 8px 22px rgba(154, 78, 46, 0.12)' },
+    web: { boxShadow: '0 8px 22px rgba(47, 102, 50, 0.12)' },
     default: {
-      shadowColor: '#9A4E2E',
+      shadowColor: '#2F6632',
       shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.12,
       shadowRadius: 12,
@@ -117,19 +124,20 @@ export const Shadows = {
     },
   }),
   subtle: Platform.select({
-    web: { boxShadow: '0 2px 8px rgba(74, 59, 44, 0.07)' },
+    web: { boxShadow: '0 2px 8px rgba(42, 51, 36, 0.07)' },
     default: {
-      shadowColor: '#4A3B2C',
+      shadowColor: '#2A3324',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.07,
       shadowRadius: 8,
       elevation: 1,
     },
   }),
+  // v3: anahtar adı korunuyor (kırılma olmasın); artık "çiçek mercanı" gölgesi.
   clay: Platform.select({
-    web: { boxShadow: '0 3px 10px rgba(154, 78, 46, 0.28)' },
+    web: { boxShadow: '0 3px 10px rgba(224, 104, 66, 0.28)' },
     default: {
-      shadowColor: '#9A4E2E',
+      shadowColor: '#E06842',
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.28,
       shadowRadius: 10,
@@ -144,10 +152,10 @@ export const Shadows = {
   lifted: Platform.select({
     web: {
       boxShadow:
-        '0 1px 2px rgba(74, 59, 44, 0.06), 0 10px 30px rgba(154, 78, 46, 0.10)',
+        '0 1px 2px rgba(42, 51, 36, 0.06), 0 10px 30px rgba(47, 102, 50, 0.10)',
     },
     default: {
-      shadowColor: '#8A4526',
+      shadowColor: '#2E5A2F',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.14,
       shadowRadius: 20,
@@ -158,10 +166,10 @@ export const Shadows = {
   hero: Platform.select({
     web: {
       boxShadow:
-        '0 2px 4px rgba(74, 59, 44, 0.08), 0 18px 44px rgba(154, 78, 46, 0.16)',
+        '0 2px 4px rgba(42, 51, 36, 0.08), 0 18px 44px rgba(47, 102, 50, 0.16)',
     },
     default: {
-      shadowColor: '#8A4526',
+      shadowColor: '#2E5A2F',
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: 0.18,
       shadowRadius: 28,
@@ -181,8 +189,8 @@ export const SurfaceEdge = {
 
 /** Görev kartı görseli üzerine metin okunurluğu için degrade örtü. */
 export const ImageScrim = {
-  light: ['rgba(28, 22, 16, 0)', 'rgba(28, 22, 16, 0.55)'] as const,
-  dark: ['rgba(12, 9, 6, 0)', 'rgba(12, 9, 6, 0.68)'] as const,
+  light: ['rgba(20, 26, 16, 0)', 'rgba(20, 26, 16, 0.55)'] as const,
+  dark: ['rgba(8, 12, 7, 0)', 'rgba(8, 12, 7, 0.68)'] as const,
 } as const;
 
 /** Mikro hareket süreleri — tek yerden, tutarlı ritim. */
@@ -200,7 +208,7 @@ export const Texture = {
 
 /** Native tab bar + home indicator payı; içerik bunun üstünde biter. */
 export const BottomTabInset = Platform.select({ ios: 78, android: 72, default: 68 }) ?? 68;
-export const TabBarBackground = '#FBF6EF';
+export const TabBarBackground = '#FEFEF8';
 export const MaxContentWidth = 800;
 export const ApiTimeoutMs = 20_000;
 /**
