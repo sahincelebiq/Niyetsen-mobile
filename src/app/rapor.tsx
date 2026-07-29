@@ -2,6 +2,7 @@
  * FAZ 8.8 — Niyetsen Raporu ("Wrapped") story ekranı.
  * Spotify Wrapped mantığı: tam ekran kartlar, üstte ilerleme çubukları,
  * sağa dokun = ileri, sola dokun = geri, uzun basınca duraklat.
+ * Closing kartında Paylaş (view-shot → native share).
  * İlkbahar teması — hex yok. Kaçırılan görev/ceza ASLA gösterilmez.
  */
 import { useRouter } from 'expo-router';
@@ -9,7 +10,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   Pressable,
+  Share,
   StyleSheet,
   View,
 } from 'react-native';
@@ -23,6 +26,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
@@ -46,9 +51,11 @@ export default function RecapScreen() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const progress = useSharedValue(0);
   const advanceAtRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remainingMsRef = useRef(STORY_MS);
+  const shotRef = useRef<ViewShotRef>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -74,6 +81,7 @@ export default function RecapScreen() {
 
   const cards = recap?.cards ?? [];
   const card = cards[index];
+  const isClosing = card?.kind === 'closing';
 
   const advance = useCallback(
     (dir: 1 | -1) => {
@@ -88,14 +96,12 @@ export default function RecapScreen() {
     [cards.length, index, router],
   );
 
-  // Kart değişince zamanlayıcı sıfırlanır.
   useEffect(() => {
     remainingMsRef.current = STORY_MS;
     progress.value = reduceMotion ? 1 : 0;
     setPaused(false);
   }, [index, progress, reduceMotion]);
 
-  // Oynat / duraklat — uzun basınca paused=true.
   useEffect(() => {
     if (advanceAtRef.current) {
       clearTimeout(advanceAtRef.current);
@@ -130,6 +136,32 @@ export default function RecapScreen() {
   const fillStyle = useAnimatedStyle(() => ({
     width: `${Math.min(Math.max(progress.value, 0), 1) * 100}%`,
   }));
+
+  const shareClosing = useCallback(async () => {
+    if (Platform.OS === 'web' || sharing) return;
+    setSharing(true);
+    setPaused(true);
+    try {
+      const uri = await shotRef.current?.capture?.();
+      if (!uri) return;
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Niyetsen Raporunu paylaş',
+        });
+      } else {
+        await Share.share({
+          url: uri,
+          message: 'Niyetsen Raporum ✨',
+        });
+      }
+    } catch {
+      // Paylaşım iptali / platform kısıtı — sessiz geç.
+    } finally {
+      setSharing(false);
+      setPaused(false);
+    }
+  }, [sharing]);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -176,8 +208,32 @@ export default function RecapScreen() {
                   .reduceMotion(ReduceMotion.System)
           }
           style={styles.cardArea}>
-          <StoryCardBody card={card} />
+          <ViewShot
+            ref={shotRef}
+            options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+            style={[styles.shot, { backgroundColor: theme.background }]}>
+            <StoryCardBody card={card} />
+          </ViewShot>
         </Animated.View>
+      )}
+
+      {isClosing && Platform.OS !== 'web' && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Raporu paylaş"
+          onPress={() => void shareClosing()}
+          disabled={sharing}
+          style={[
+            styles.shareBtn,
+            {
+              backgroundColor: theme.tint,
+              opacity: sharing ? 0.7 : 1,
+            },
+          ]}>
+          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+            {sharing ? 'Hazırlanıyor…' : 'Paylaş'}
+          </ThemedText>
+        </Pressable>
       )}
 
       <View style={styles.tapZones} pointerEvents="box-none">
@@ -211,7 +267,7 @@ function StoryCardBody({ card }: { card: RecapCard }) {
   const streakDays = streakDaysFromHeadline(card.headline);
 
   return (
-    <>
+    <View style={styles.cardBody}>
       <ThemedText type="smallBold" themeColor="textSecondary" style={styles.cardTitle}>
         {card.title}
       </ThemedText>
@@ -232,7 +288,7 @@ function StoryCardBody({ card }: { card: RecapCard }) {
       <ThemedText themeColor="textSecondary" style={styles.subtitle}>
         {card.subtitle}
       </ThemedText>
-    </>
+    </View>
   );
 }
 
@@ -243,6 +299,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
+    zIndex: 2,
   },
   progressTrack: {
     flex: 1,
@@ -261,14 +318,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.five,
+    gap: Spacing.four,
+    zIndex: 1,
+  },
+  shot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.five,
+    borderRadius: Radii.large,
+    width: '100%',
+  },
+  cardBody: {
+    alignItems: 'center',
     gap: Spacing.three,
+    width: '100%',
   },
   cardTitle: { textTransform: 'uppercase', letterSpacing: 1.2 },
   traitBadge: { marginBottom: Spacing.one },
   sproutEmoji: { fontSize: 56, lineHeight: 64, textAlign: 'center' },
   headline: { fontSize: 44, lineHeight: 52, fontWeight: '700', textAlign: 'center' },
   subtitle: { textAlign: 'center', fontSize: 16, lineHeight: 24 },
-  tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: 'row' },
+  shareBtn: {
+    position: 'absolute',
+    bottom: Spacing.six,
+    alignSelf: 'center',
+    zIndex: 3,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.five,
+    paddingVertical: Spacing.three,
+  },
+  tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 0 },
   tapZone: { flex: 1 },
-  close: { position: 'absolute', top: Spacing.five, right: Spacing.three, padding: Spacing.two },
+  close: {
+    position: 'absolute',
+    top: Spacing.five,
+    right: Spacing.three,
+    padding: Spacing.two,
+    zIndex: 2,
+  },
 });
