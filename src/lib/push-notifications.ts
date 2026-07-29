@@ -13,7 +13,20 @@ import {
 } from '@/lib/api';
 
 const ANDROID_CHANNEL_ID = 'niyetsen-gorevleri';
-const ALLOWED_NOTIFICATION_URLS = new Set(['/daily', '/bonus', '/rank', '/tarot']);
+const ALLOWED_NOTIFICATION_URLS = new Set([
+  '/daily',
+  '/bonus',
+  '/rank',
+  '/tarot',
+  '/rapor',
+]);
+const SCREEN_TO_URL: Record<string, string> = {
+  rapor: '/rapor',
+  daily: '/daily',
+  bonus: '/bonus',
+  rank: '/rank',
+  tarot: '/tarot',
+};
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -160,10 +173,22 @@ export function openNotificationUrl(router: Router, value: unknown): boolean {
   return true;
 }
 
+function resolveNotificationTarget(data: Record<string, unknown> | undefined): unknown {
+  if (!data) return undefined;
+  if (typeof data.url === 'string') return data.url;
+  if (typeof data.screen === 'string') {
+    return SCREEN_TO_URL[data.screen] ?? `/${data.screen}`;
+  }
+  return undefined;
+}
+
 export async function openLastNotificationResponse(router: Router): Promise<void> {
   if (Platform.OS === 'web') return;
   const response = await Notifications.getLastNotificationResponseAsync();
-  if (openNotificationUrl(router, response?.notification.request.content.data?.url)) {
+  const data = response?.notification.request.content.data as
+    | Record<string, unknown>
+    | undefined;
+  if (openNotificationUrl(router, resolveNotificationTarget(data))) {
     await Notifications.clearLastNotificationResponseAsync();
   }
 }
@@ -173,6 +198,9 @@ export function addNotificationResponseListener(
 ): Notifications.EventSubscription | null {
   if (Platform.OS === 'web') return null;
   return Notifications.addNotificationResponseReceivedListener((response) => {
-    openNotificationUrl(router, response.notification.request.content.data?.url);
+    const data = response.notification.request.content.data as
+      | Record<string, unknown>
+      | undefined;
+    openNotificationUrl(router, resolveNotificationTarget(data));
   });
 }
