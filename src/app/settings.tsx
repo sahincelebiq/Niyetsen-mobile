@@ -23,6 +23,7 @@ import { ScreenScaffold } from '@/components/screen-scaffold';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAccount, updateProfile } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
@@ -225,7 +226,12 @@ export default function SettingsScreen() {
               </ThemedText>
             </View>
             <View style={styles.profileMeta}>
-              <ThemedText type="subtitle">{name.trim() || 'Sen'}</ThemedText>
+              <ThemedText type="subtitle">
+                {name.trim() || 'Sen'}
+                {profile?.zodiac_sign
+                  ? ` ${getZodiacGlyph(profile.zodiac_sign)}`
+                  : ''}
+              </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {subscriptionStatus?.status === 'active' ? 'Abonelik aktif' : 'Deneme / ücretsiz'}
               </ThemedText>
@@ -249,7 +255,7 @@ export default function SettingsScreen() {
             />
             {profile?.zodiac_sign && (
               <ThemedText themeColor="textSecondary">
-                Burcun: {profile.zodiac_sign}
+                Burcun: {zodiacLabel(profile.zodiac_sign)}
               </ThemedText>
             )}
             {error && <ThemedText themeColor="danger">{error}</ThemedText>}

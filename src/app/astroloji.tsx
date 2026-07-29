@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import {
   BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
 } from '@/constants/theme';
+import { getZodiacGlyph } from '@/constants/zodiac';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getDailyHoroscope, type Horoscope } from '@/lib/api';
 
@@ -99,7 +100,7 @@ export default function AstrologyScreen() {
               <>
                 <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
                   <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                    {horoscope.sign.toUpperCase()} · {horoscope.day}
+                    {getZodiacGlyph(horoscope.sign)} {horoscope.sign.toUpperCase()} · {horoscope.day}
                   </ThemedText>
                 </View>
                 <ThemedText style={{ color: colors.text }}>
