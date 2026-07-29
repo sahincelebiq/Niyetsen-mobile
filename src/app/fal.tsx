@@ -251,7 +251,7 @@ export default function FortuneScreen() {
                 styles.shutter,
                 (!cameraReady || pressed) && styles.dimmed,
               ]}>
-              {busy ? <ActivityIndicator color="#3B3327" /> : null}
+              {busy ? <ActivityIndicator color={colors.text} /> : null}
             </Pressable>
           </SafeAreaView>
         </View>

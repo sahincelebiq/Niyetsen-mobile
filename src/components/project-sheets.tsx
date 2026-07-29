@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   activateChatThread,
@@ -204,12 +204,14 @@ export function ChatHistorySheet({
           exiting={SlideOutLeft.duration(220)}
           style={[
             styles.drawer,
+            Shadows.lifted,
             {
               width: DRAWER_WIDTH,
               backgroundColor: theme.backgroundElement,
               borderColor: theme.border,
               paddingTop: insets.top + Spacing.three,
               paddingBottom: insets.bottom + Spacing.three,
+              shadowOffset: { width: 4, height: 0 },
             },
           ]}>
           <View style={styles.drawerHeader}>
@@ -612,11 +614,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     gap: Spacing.three,
     maxWidth: MaxContentWidth,
-    shadowColor: '#2C241C',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 8,
   },
   drawerHeader: {
     flexDirection: 'row',

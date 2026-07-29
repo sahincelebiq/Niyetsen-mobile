@@ -11,7 +11,7 @@ import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Shadows, Spacing } from '@/constants/theme';
 
 export default function AppTabs() {
   return (
@@ -58,7 +58,7 @@ export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
       {/* Sabit açık renk kaldırıldı — ThemedView dark modda da doğru zemini verir. */}
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+      <ThemedView type="backgroundElement" style={[styles.innerContainer, Shadows.subtle]}>
         {props.children}
       </ThemedView>
     </View>
@@ -86,11 +86,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: Spacing.one,
     maxWidth: MaxContentWidth,
-    shadowColor: '#4A3B2C',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
   },
   pressed: {
     opacity: 0.7,

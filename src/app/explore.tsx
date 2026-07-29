@@ -86,10 +86,14 @@ export default function PlanScreen() {
 
         {plan && !loading ? (
           <View style={[styles.intentHero, { backgroundColor: theme.tint }]}>
-            <ThemedText type="smallBold" style={styles.intentLabel}>
+            <ThemedText
+              type="smallBold"
+              style={[styles.intentLabel, { color: theme.onAccent, opacity: 0.8 }]}>
               BU AYIN BÜYÜK NİYETİ
             </ThemedText>
-            <ThemedText style={styles.intentText}>{contentIntent}</ThemedText>
+            <ThemedText style={[styles.intentText, { color: theme.onAccent }]}>
+              {contentIntent}
+            </ThemedText>
           </View>
         ) : null}
 
@@ -210,11 +214,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   intentLabel: {
-    color: 'rgba(252, 244, 234, 0.8)',
     letterSpacing: 1.1,
   },
   intentText: {
-    color: '#FCF4EA',
     fontSize: 22,
     lineHeight: 30,
     fontFamily: 'Fraunces_600SemiBold',

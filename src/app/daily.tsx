@@ -362,10 +362,11 @@ export default function DailyTasksScreen() {
               onPress={() => void captureAndUpload()}
               style={({ pressed }) => [
                 styles.shutter,
+                { backgroundColor: theme.backgroundElement },
                 (!cameraReady || pressed) && styles.dimmed,
               ]}>
               {busy?.startsWith('proof:') ? (
-                <ActivityIndicator color="#3B3327" />
+                <ActivityIndicator color={theme.text} />
               ) : null}
             </Pressable>
           </SafeAreaView>
@@ -661,7 +662,6 @@ const styles = StyleSheet.create({
     borderRadius: 39,
     borderWidth: 7,
     borderColor: '#fff',
-    backgroundColor: '#FBF7EF',
     alignItems: 'center',
     justifyContent: 'center',
   },

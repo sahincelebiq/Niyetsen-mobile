@@ -2,6 +2,8 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 
+import { useTheme } from '@/hooks/use-theme';
+
 const DURATION = 300;
 
 export function AnimatedSplashOverlay() {
@@ -54,13 +56,17 @@ const glowKeyframe = new Keyframe({
 });
 
 export function AnimatedIcon() {
+  const theme = useTheme();
   return (
     <View style={styles.iconContainer}>
       <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
         <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
       </Animated.View>
 
-      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)} />
+      <Animated.View
+        style={[styles.background, { backgroundColor: theme.surfaceMuted }]}
+        entering={keyframe.duration(DURATION)}
+      />
 
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
         <Image
@@ -103,7 +109,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   background: {
-    backgroundColor: '#F0E9D8',
     borderRadius: 40,
     width: 128,
     height: 128,

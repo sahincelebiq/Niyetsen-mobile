@@ -16,6 +16,7 @@ import Animated, {
 
 import { Fonts, Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/hooks/use-theme';
 
 const DURATION = 900;
 
@@ -27,6 +28,7 @@ const DURATION = 900;
  * aynı easing ile ölçeklenir, böylece geçiş kesintisiz hissedilir.
  */
 export function AnimatedSplashOverlay() {
+  const theme = useTheme();
   const [visible, setVisible] = useState(true);
   const leftX = useSharedValue(-34);
   const rightX = useSharedValue(34);
@@ -83,13 +85,27 @@ export function AnimatedSplashOverlay() {
   if (!visible) return null;
 
   return (
-    <Animated.View exiting={FadeOut.duration(280)} style={styles.splashOverlay}>
+    <Animated.View
+      exiting={FadeOut.duration(280)}
+      style={[styles.splashOverlay, { backgroundColor: theme.background }]}>
       <View style={styles.chainStage}>
         <Animated.View style={[styles.halfLink, styles.leftLink, leftStyle]}>
-          <View style={[styles.linkArc, styles.linkArcLeft]} />
+          <View
+            style={[
+              styles.linkArc,
+              styles.linkArcLeft,
+              { borderColor: theme.accentWarm },
+            ]}
+          />
         </Animated.View>
         <Animated.View style={[styles.halfLink, styles.rightLink, rightStyle]}>
-          <View style={[styles.linkArc, styles.linkArcRight]} />
+          <View
+            style={[
+              styles.linkArc,
+              styles.linkArcRight,
+              { borderColor: theme.accentWarm },
+            ]}
+          />
         </Animated.View>
         <Animated.View style={[styles.logoWrap, logoStyle]}>
           <Image
@@ -100,7 +116,7 @@ export function AnimatedSplashOverlay() {
         </Animated.View>
       </View>
       <Animated.View style={[styles.titleWrap, titleStyle]}>
-        <ThemedText style={styles.brandTitle}>Niyetsen</ThemedText>
+        <ThemedText style={[styles.brandTitle, { color: theme.text }]}>Niyetsen</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           niyetini yaşa
         </ThemedText>
@@ -112,7 +128,6 @@ export function AnimatedSplashOverlay() {
 const styles = StyleSheet.create({
   splashOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FBF7EF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
@@ -144,7 +159,6 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 18,
     borderWidth: 5,
-    borderColor: '#B4623C',
   },
   linkArcLeft: {
     borderRightColor: 'transparent',
@@ -174,7 +188,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 34,
     lineHeight: 38,
-    color: '#2C241C',
     letterSpacing: -0.4,
   },
 });
@@ -203,12 +216,16 @@ const glowKeyframe = new Keyframe({
 });
 
 export function AnimatedIcon() {
+  const theme = useTheme();
   return (
     <View style={iconStyles.iconContainer}>
       <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={iconStyles.glow}>
         <Image style={iconStyles.glow} source={require('@/assets/images/logo-glow.png')} />
       </Animated.View>
-      <Animated.View entering={keyframe.duration(ICON_DURATION)} style={iconStyles.background} />
+      <Animated.View
+        entering={keyframe.duration(ICON_DURATION)}
+        style={[iconStyles.background, { backgroundColor: theme.surfaceMuted }]}
+      />
       <Animated.View style={iconStyles.imageContainer} entering={logoKeyframe.duration(ICON_DURATION)}>
         <Image
           style={iconStyles.image}
@@ -233,7 +250,6 @@ const iconStyles = StyleSheet.create({
   image: { width: 92, height: 92, borderRadius: 24 },
   background: {
     borderRadius: 40,
-    backgroundColor: '#F0E9D8',
     width: 128,
     height: 128,
     position: 'absolute',
