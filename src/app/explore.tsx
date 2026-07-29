@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -7,7 +7,9 @@ import {
   Linking,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
+  useColorScheme,
   View,
 } from 'react-native';
 
@@ -20,10 +22,17 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radii, Shadows, Spacing } from '@/constants/theme';
+import { Fonts, ImageScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError, getCurrentPlan, Plan, PlanDay } from '@/lib/api';
+import { ApiError, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
 import { useSubscription } from '@/providers/subscription-provider';
+
+function calendarDayNumber(startDate: string): number {
+  const start = new Date(`${startDate}T12:00:00`);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return Math.floor((today.getTime() - start.getTime()) / 86_400_000) + 1;
+}
 
 export default function PlanScreen() {
   const { status: subscriptionStatus } = useSubscription();
@@ -35,14 +44,13 @@ export default function PlanScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusedDay, setFocusedDay] = useState<number | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      // Not: eskiden burada sonucu kullanılmayan bir listProjects() çağrısı vardı;
-      // gereksiz ağ isteği kaldırıldı, ekran daha hızlı yükleniyor.
       setPlan(await getCurrentPlan());
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
@@ -59,9 +67,14 @@ export default function PlanScreen() {
     }, []),
   );
 
-  // Önceden tema yoksa uydurma bir niyet cümlesi gösteriliyordu; artık gerçek
-  // plan adına düşer — kullanıcıya yanlış bilgi verilmez.
   const contentIntent = plan?.days[0]?.theme || plan?.name || 'Planım';
+  const todayDay = plan ? calendarDayNumber(plan.start_date) : 1;
+  const activeDay = focusedDay ?? Math.max(1, Math.min(todayDay, plan?.days.length ?? 1));
+  const visibleDays = useMemo(() => {
+    if (!plan) return [];
+    if (focusedDay === null) return plan.days;
+    return plan.days.filter((d) => d.day === focusedDay);
+  }, [focusedDay, plan]);
 
   return (
     <ThemedView style={styles.flex}>
@@ -97,13 +110,24 @@ export default function PlanScreen() {
           </View>
         ) : null}
 
+        {plan && !loading ? (
+          <DayStrip
+            days={plan.days}
+            todayDay={todayDay}
+            activeDay={activeDay}
+            onSelect={(day) => setFocusedDay((prev) => (prev === day ? null : day))}
+          />
+        ) : null}
+
         {loading && (
           <ThemedView style={styles.centerBlock}>
             <ActivityIndicator size="large" color={theme.accentWarm} />
           </ThemedView>
         )}
 
-        {!loading && error && <ErrorBanner message={error} onRetry={() => void load()} retrying={refreshing} />}
+        {!loading && error && (
+          <ErrorBanner message={error} onRetry={() => void load()} retrying={refreshing} />
+        )}
 
         {!loading && !error && !plan && (
           <SurfaceCard elevated style={styles.emptyState}>
@@ -126,8 +150,14 @@ export default function PlanScreen() {
 
         {!loading && !error && plan && (
           <ThemedView style={styles.daysWrapper}>
-            {plan.days.map((day) => (
-              <DaySection key={day.day} day={day} />
+            {visibleDays.map((day) => (
+              <DaySection
+                key={day.day}
+                day={day}
+                relation={
+                  day.day < todayDay ? 'past' : day.day === todayDay ? 'today' : 'future'
+                }
+              />
             ))}
           </ThemedView>
         )}
@@ -142,67 +172,155 @@ export default function PlanScreen() {
   );
 }
 
-function DaySection({ day }: { day: PlanDay }) {
+function DayStrip({
+  days,
+  todayDay,
+  activeDay,
+  onSelect,
+}: {
+  days: PlanDay[];
+  todayDay: number;
+  activeDay: number;
+  onSelect: (day: number) => void;
+}) {
+  const theme = useTheme();
   return (
-    <ThemedView style={styles.daySection}>
-      <ThemedText type="smallBold">
-        Gün {day.day}
-        {day.theme ? ` — ${day.theme}` : ''}
-      </ThemedText>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.dayStrip}>
+      {days.map((day) => {
+        const isToday = day.day === todayDay;
+        const isActive = day.day === activeDay;
+        const isPast = day.day < todayDay;
+        return (
+          <Pressable
+            key={day.day}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isActive }}
+            onPress={() => onSelect(day.day)}
+            style={({ pressed }) => [
+              styles.dayChip,
+              {
+                borderColor: isToday ? theme.tint : theme.border,
+                backgroundColor: isActive ? theme.backgroundSelected : theme.backgroundElement,
+                opacity: isPast && !isActive ? 0.55 : pressed ? 0.85 : 1,
+              },
+              isToday ? styles.dayChipToday : null,
+            ]}>
+            <ThemedText
+              type="smallBold"
+              themeColor={isToday ? 'tint' : isPast ? 'textSecondary' : 'text'}>
+              {day.day}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function DaySection({
+  day,
+  relation,
+}: {
+  day: PlanDay;
+  relation: 'past' | 'today' | 'future';
+}) {
+  const theme = useTheme();
+  return (
+    <ThemedView style={[styles.daySection, relation === 'past' ? { opacity: 0.72 } : null]}>
+      <View style={styles.dayHeading}>
+        <ThemedText type="smallBold" themeColor={relation === 'today' ? 'tint' : 'text'}>
+          Gün {day.day}
+          {day.theme ? ` — ${day.theme}` : ''}
+        </ThemedText>
+        {relation === 'today' ? (
+          <View style={[styles.todayRing, { borderColor: theme.tint }]}>
+            <ThemedText type="smallBold" themeColor="tint">
+              Bugün
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
       <ThemedView style={styles.taskList}>
         {day.tasks.map((task) => (
-          <SurfaceCard key={task.id} elevated style={styles.taskCard}>
-            {!!task.image_url && (
-              <ThemedView style={styles.imageWrapper}>
-                <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
-                {!!task.image_attribution && (
-                  <Pressable
-                    accessibilityLabel="Fotoğraf atfı"
-                    accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
-                    hitSlop={8}
-                    onLongPress={() => {
-                      Alert.alert(
-                        'Fotoğraf atfı',
-                        task.image_attribution,
-                        task.image_attribution_url
-                          ? [
-                              { text: 'Kapat', style: 'cancel' },
-                              {
-                                text:
-                                  task.image_source === 'gemini_nano_banana'
-                                    ? 'Kaynağı aç'
-                                    : 'Unsplash’ta aç',
-                                onPress: () => void Linking.openURL(task.image_attribution_url),
-                              },
-                            ]
-                          : [{ text: 'Kapat', style: 'cancel' }],
-                      );
-                    }}
-                    style={styles.attributionBadge}>
-                    <ThemedText type="smallBold" style={styles.attributionIcon}>
-                      ⓘ
-                    </ThemedText>
-                  </Pressable>
-                )}
-              </ThemedView>
-            )}
-            <ThemedView style={styles.taskInfo}>
-              <ThemedText type="default">{task.title}</ThemedText>
-              {!!task.tiny_version && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {Copy.daily.tinyPrefix}: {task.tiny_version}
-                </ThemedText>
-              )}
-              <ThemedView style={styles.tagRow}>
-                {task.categories.map((c) => (
-                  <CategoryBadge key={c} label={c} />
-                ))}
-              </ThemedView>
-            </ThemedView>
-          </SurfaceCard>
+          <VisionTaskCard key={task.id} task={task} />
         ))}
       </ThemedView>
     </ThemedView>
+  );
+}
+
+function VisionTaskCard({ task }: { task: Task }) {
+  const theme = useTheme();
+  const scheme = useColorScheme();
+  const scrim = scheme === 'dark' ? ImageScrim.dark : ImageScrim.light;
+
+  return (
+    <SurfaceCard elevated style={styles.taskCard}>
+      {!!task.image_url && (
+        <ThemedView style={styles.imageWrapper}>
+          <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+          <View pointerEvents="none" style={[styles.scrimBand, { backgroundColor: scrim[0] }]} />
+          <View
+            pointerEvents="none"
+            style={[styles.scrimBandBottom, { backgroundColor: scrim[1] }]}
+          />
+          <View style={styles.coverTitleWrap}>
+            <ThemedText style={[styles.coverTitle, { color: theme.onAccent }]} numberOfLines={2}>
+              {task.title}
+            </ThemedText>
+          </View>
+          {!!task.image_attribution && (
+            <Pressable
+              accessibilityLabel="Fotoğraf atfı"
+              accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+              hitSlop={8}
+              onLongPress={() => {
+                Alert.alert(
+                  'Fotoğraf atfı',
+                  task.image_attribution,
+                  task.image_attribution_url
+                    ? [
+                        { text: 'Kapat', style: 'cancel' },
+                        {
+                          text:
+                            task.image_source === 'gemini_nano_banana'
+                              ? 'Kaynağı aç'
+                              : 'Unsplash’ta aç',
+                          onPress: () => void Linking.openURL(task.image_attribution_url),
+                        },
+                      ]
+                    : [{ text: 'Kapat', style: 'cancel' }],
+                );
+              }}
+              style={styles.attributionBadge}>
+              <ThemedText type="smallBold" style={styles.attributionIcon}>
+                ⓘ
+              </ThemedText>
+            </Pressable>
+          )}
+        </ThemedView>
+      )}
+      <ThemedView style={styles.taskInfo}>
+        {!task.image_url ? (
+          <ThemedText type="default" style={styles.coverTitlePlain}>
+            {task.title}
+          </ThemedText>
+        ) : null}
+        {!!task.tiny_version && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {Copy.daily.tinyPrefix}: {task.tiny_version}
+          </ThemedText>
+        )}
+        <ThemedView style={styles.tagRow}>
+          {task.categories.map((c) => (
+            <CategoryBadge key={c} label={c} />
+          ))}
+        </ThemedView>
+      </ThemedView>
+    </SurfaceCard>
   );
 }
 
@@ -219,13 +337,42 @@ const styles = StyleSheet.create({
   intentText: {
     fontSize: 22,
     lineHeight: 30,
-    fontFamily: 'Fraunces_600SemiBold',
+    fontFamily: Fonts.serif,
   },
   switchPlan: {
-    minHeight: 44, // erişilebilir dokunma hedefi
+    minHeight: 44,
     justifyContent: 'center',
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.two,
+  },
+  dayStrip: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  dayChip: {
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: Radii.pill,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+  },
+  dayChipToday: {
+    borderWidth: 2,
+  },
+  dayHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  todayRing: {
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
   },
   centerText: {
     textAlign: 'center',
@@ -233,9 +380,6 @@ const styles = StyleSheet.create({
   centerBlock: {
     paddingVertical: Spacing.six,
     alignItems: 'center',
-  },
-  bannerWrapper: {
-    paddingBottom: Spacing.three,
   },
   emptyState: {
     alignItems: 'center',
@@ -271,6 +415,32 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     position: 'relative',
+  },
+  scrimBand: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  scrimBandBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '48%',
+  },
+  coverTitleWrap: {
+    position: 'absolute',
+    left: Spacing.three,
+    right: Spacing.three,
+    bottom: Spacing.three,
+  },
+  coverTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    lineHeight: 26,
+  },
+  coverTitlePlain: {
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    lineHeight: 24,
   },
   attributionBadge: {
     position: 'absolute',
