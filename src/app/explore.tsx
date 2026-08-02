@@ -9,12 +9,16 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  useColorScheme,
   View,
 } from 'react-native';
 
 import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
+import {
+  isTaskEditable,
+  PlanTaskEditor,
+  type PlanTaskEditorTarget,
+} from '@/components/plan-task-editor';
 import { PlanPickerSheet } from '@/components/project-sheets';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { CategoryBadge } from '@/components/ui/category-badge';
@@ -23,8 +27,11 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, ImageScrim, Radii, Shadows, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
+import { addDaysIso } from '@/lib/plan-dates';
+import { showAlert } from '@/lib/web-alert';
 import { useSubscription } from '@/providers/subscription-provider';
 
 function calendarDayNumber(startDate: string): number {
@@ -45,6 +52,8 @@ export default function PlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
+  const [addDate, setAddDate] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -154,9 +163,22 @@ export default function PlanScreen() {
               <DaySection
                 key={day.day}
                 day={day}
+                plan={plan}
                 relation={
                   day.day < todayDay ? 'past' : day.day === todayDay ? 'today' : 'future'
                 }
+                onEditTask={(task) => {
+                  setAddDate(null);
+                  setEditTarget({
+                    task,
+                    planStartDate: plan.start_date,
+                    planDurationDays: plan.duration_days,
+                  });
+                }}
+                onAddTask={(date) => {
+                  setEditTarget(null);
+                  setAddDate(date);
+                }}
               />
             ))}
           </ThemedView>
@@ -167,6 +189,15 @@ export default function PlanScreen() {
         onClose={() => setPickerOpen(false)}
         onPlanChanged={() => void load()}
         subscriptionStatus={subscriptionStatus}
+      />
+      <PlanTaskEditor
+        target={editTarget}
+        addDate={addDate}
+        onClose={() => {
+          setEditTarget(null);
+          setAddDate(null);
+        }}
+        onChanged={() => void load(true)}
       />
     </ThemedView>
   );
@@ -222,12 +253,19 @@ function DayStrip({
 
 function DaySection({
   day,
+  plan,
   relation,
+  onEditTask,
+  onAddTask,
 }: {
   day: PlanDay;
+  plan: Plan;
   relation: 'past' | 'today' | 'future';
+  onEditTask: (task: Task) => void;
+  onAddTask: (date: string) => void;
 }) {
   const theme = useTheme();
+  const dayDate = addDaysIso(plan.start_date, day.day - 1);
   return (
     <ThemedView style={[styles.daySection, relation === 'past' ? { opacity: 0.72 } : null]}>
       <View style={styles.dayHeading}>
@@ -245,82 +283,126 @@ function DaySection({
       </View>
       <ThemedView style={styles.taskList}>
         {day.tasks.map((task) => (
-          <VisionTaskCard key={task.id} task={task} />
+          <VisionTaskCard
+            key={task.id}
+            task={task}
+            planStartDate={plan.start_date}
+            onLongPressEdit={() => onEditTask(task)}
+          />
         ))}
       </ThemedView>
+      {relation !== 'past' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={Copy.plan.addTask}
+          onPress={() => onAddTask(dayDate)}
+          style={({ pressed }) => [
+            styles.addTaskButton,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surfaceMuted,
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}>
+          <ThemedText type="smallBold" themeColor="tint">
+            + {Copy.plan.addTask}
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </ThemedView>
   );
 }
 
-function VisionTaskCard({ task }: { task: Task }) {
+function VisionTaskCard({
+  task,
+  planStartDate,
+  onLongPressEdit,
+}: {
+  task: Task;
+  planStartDate: string;
+  onLongPressEdit: () => void;
+}) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const scrim = scheme === 'dark' ? ImageScrim.dark : ImageScrim.light;
+  const editable = isTaskEditable(task, planStartDate);
 
   return (
-    <SurfaceCard elevated style={styles.taskCard}>
-      {!!task.image_url && (
-        <ThemedView style={styles.imageWrapper}>
-          <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
-          <View pointerEvents="none" style={[styles.scrimBand, { backgroundColor: scrim[0] }]} />
-          <View
-            pointerEvents="none"
-            style={[styles.scrimBandBottom, { backgroundColor: scrim[1] }]}
-          />
-          <View style={styles.coverTitleWrap}>
-            <ThemedText style={[styles.coverTitle, { color: theme.onAccent }]} numberOfLines={2}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint={editable ? 'Uzun basarak taşı, düzenle veya sil' : undefined}
+      delayLongPress={380}
+      onLongPress={() => {
+        if (!editable) {
+          showAlert(Copy.plan.taskActionsTitle, Copy.plan.notEditable);
+          return;
+        }
+        onLongPressEdit();
+      }}>
+      <SurfaceCard elevated style={styles.taskCard}>
+        {!!task.image_url && (
+          <ThemedView style={styles.imageWrapper}>
+            <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+            <View pointerEvents="none" style={[styles.scrimBand, { backgroundColor: scrim[0] }]} />
+            <View
+              pointerEvents="none"
+              style={[styles.scrimBandBottom, { backgroundColor: scrim[1] }]}
+            />
+            <View style={styles.coverTitleWrap}>
+              <ThemedText style={[styles.coverTitle, { color: theme.onAccent }]} numberOfLines={2}>
+                {task.title}
+              </ThemedText>
+            </View>
+            {!!task.image_attribution && (
+              <Pressable
+                accessibilityLabel="Fotoğraf atfı"
+                accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+                hitSlop={8}
+                onLongPress={() => {
+                  Alert.alert(
+                    'Fotoğraf atfı',
+                    task.image_attribution,
+                    task.image_attribution_url
+                      ? [
+                          { text: 'Kapat', style: 'cancel' },
+                          {
+                            text:
+                              task.image_source === 'gemini_nano_banana'
+                                ? 'Kaynağı aç'
+                                : 'Unsplash’ta aç',
+                            onPress: () => void Linking.openURL(task.image_attribution_url),
+                          },
+                        ]
+                      : [{ text: 'Kapat', style: 'cancel' }],
+                  );
+                }}
+                style={styles.attributionBadge}>
+                <ThemedText type="smallBold" style={styles.attributionIcon}>
+                  ⓘ
+                </ThemedText>
+              </Pressable>
+            )}
+          </ThemedView>
+        )}
+        <ThemedView style={styles.taskInfo}>
+          {!task.image_url ? (
+            <ThemedText type="default" style={styles.coverTitlePlain}>
               {task.title}
             </ThemedText>
-          </View>
-          {!!task.image_attribution && (
-            <Pressable
-              accessibilityLabel="Fotoğraf atfı"
-              accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
-              hitSlop={8}
-              onLongPress={() => {
-                Alert.alert(
-                  'Fotoğraf atfı',
-                  task.image_attribution,
-                  task.image_attribution_url
-                    ? [
-                        { text: 'Kapat', style: 'cancel' },
-                        {
-                          text:
-                            task.image_source === 'gemini_nano_banana'
-                              ? 'Kaynağı aç'
-                              : 'Unsplash’ta aç',
-                          onPress: () => void Linking.openURL(task.image_attribution_url),
-                        },
-                      ]
-                    : [{ text: 'Kapat', style: 'cancel' }],
-                );
-              }}
-              style={styles.attributionBadge}>
-              <ThemedText type="smallBold" style={styles.attributionIcon}>
-                ⓘ
-              </ThemedText>
-            </Pressable>
+          ) : null}
+          {!!task.tiny_version && (
+            <ThemedText type="small" themeColor="textSecondary">
+              {Copy.daily.tinyPrefix}: {task.tiny_version}
+            </ThemedText>
           )}
+          <ThemedView style={styles.tagRow}>
+            {task.categories.map((c) => (
+              <CategoryBadge key={c} label={c} />
+            ))}
+          </ThemedView>
         </ThemedView>
-      )}
-      <ThemedView style={styles.taskInfo}>
-        {!task.image_url ? (
-          <ThemedText type="default" style={styles.coverTitlePlain}>
-            {task.title}
-          </ThemedText>
-        ) : null}
-        {!!task.tiny_version && (
-          <ThemedText type="small" themeColor="textSecondary">
-            {Copy.daily.tinyPrefix}: {task.tiny_version}
-          </ThemedText>
-        )}
-        <ThemedView style={styles.tagRow}>
-          {task.categories.map((c) => (
-            <CategoryBadge key={c} label={c} />
-          ))}
-        </ThemedView>
-      </ThemedView>
-    </SurfaceCard>
+      </SurfaceCard>
+    </Pressable>
   );
 }
 
@@ -404,6 +486,14 @@ const styles = StyleSheet.create({
   },
   taskList: {
     gap: Spacing.three,
+  },
+  addTaskButton: {
+    minHeight: 44,
+    borderRadius: Radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
   },
   taskCard: {
     padding: 0,

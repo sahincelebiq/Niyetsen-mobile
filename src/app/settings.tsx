@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -14,16 +14,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
+import { ProBadge } from '@/components/pro-badge';
 import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
-import { Copy } from '@/constants/copy';
 import { ScreenScaffold } from '@/components/screen-scaffold';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
-import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
+import { getZodiacGlyph, zodiacFromBirthDate, zodiacLabel } from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
@@ -32,12 +31,14 @@ import {
   birthDateDisplayFromIso,
   birthDateIsoFromDisplay,
 } from '@/lib/birth-date';
+import { presentCustomerCenter } from '@/lib/customer-center';
 import {
   disablePushNotifications,
   enablePushNotifications,
   getPushStatus,
   type PushStatus,
 } from '@/lib/push-notifications';
+import { restorePurchases } from '@/lib/purchases';
 import { useAuth } from '@/providers/auth-provider';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useProfile } from '@/providers/profile-provider';
@@ -50,7 +51,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
   const { profile, refresh } = useProfile();
-  const { status: subscriptionStatus } = useSubscription();
+  const { status: subscriptionStatus, refresh: refreshSubscription } = useSubscription();
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [name, setName] = useState(profile?.name ?? '');
   const [birthDate, setBirthDate] = useState(profile?.birth_date ?? '');
@@ -93,6 +94,11 @@ export default function SettingsScreen() {
       active = false;
     };
   }, [auth.user?.id]);
+
+  const previewZodiac = useMemo(() => {
+    const iso = birthDateIsoFromDisplay(birthDate);
+    return zodiacFromBirthDate(iso) ?? profile?.zodiac_sign ?? null;
+  }, [birthDate, profile?.zodiac_sign]);
 
   async function save() {
     if (!profile) return;
@@ -222,8 +228,7 @@ export default function SettingsScreen() {
     <ThemedView style={styles.flex}>
       <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
         <ScreenScaffold scrollable>
-        <ScreenHeader title={Copy.profile.title} subtitle={Copy.profile.subtitle} />
-
+        {/* Kompakt mobil hiyerarşi: kimlik satırı önce, web-doc başlık yok */}
         <SurfaceCard>
           <View style={styles.profileRow}>
             <View
@@ -234,22 +239,24 @@ export default function SettingsScreen() {
                   borderColor: theme.tint,
                 },
               ]}>
-              <ThemedText type="subtitle" style={{ color: theme.tint }}>
+              <ThemedText type="smallBold" style={[styles.avatarLetter, { color: theme.tint }]}>
                 {(name.trim()[0] || 'S').toUpperCase()}
               </ThemedText>
             </View>
             <View style={styles.profileMeta}>
-              <ThemedText type="subtitle" style={styles.profileName}>
-                {name.trim() || 'Sen'}
-                {profile?.zodiac_sign ? (
-                  <ThemedText type="subtitle" themeColor="textSecondary">
-                    {` ${getZodiacGlyph(profile.zodiac_sign)}`}
+              <View style={styles.nameGlyphRow}>
+                <ThemedText type="smallBold" style={styles.profileName} numberOfLines={1}>
+                  {name.trim() || 'Sen'}
+                </ThemedText>
+                {previewZodiac ? (
+                  <ThemedText style={[styles.zodiacGlyph, { color: theme.tint }]}>
+                    {getZodiacGlyph(previewZodiac)}
                   </ThemedText>
                 ) : null}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {profile?.zodiac_sign
-                  ? zodiacLabel(profile.zodiac_sign)
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {previewZodiac
+                  ? zodiacLabel(previewZodiac)
                   : subscriptionStatus?.status === 'active'
                     ? 'Abonelik aktif'
                     : 'Deneme / ücretsiz'}
@@ -268,11 +275,20 @@ export default function SettingsScreen() {
             <View style={styles.field}>
               <ThemedText type="smallBold">Doğum tarihi</ThemedText>
               <BirthDateField value={birthDate} onChangeText={setBirthDate} />
+              {previewZodiac ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Burç: {zodiacLabel(previewZodiac)}
+                </ThemedText>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Burç doğum tarihinden hesaplanır.
+                </ThemedText>
+              )}
             </View>
             <View style={styles.field}>
               <ThemedText type="smallBold">Cinsiyet</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                İsteğe bağlı — yalnız hitap ve örnekleri kişiselleştirmek için.
+                İsteğe bağlı — yalnız hitap için.
               </ThemedText>
               <View style={styles.genderRow}>
                 {GENDER_OPTIONS.map((option) => {
@@ -282,6 +298,7 @@ export default function SettingsScreen() {
                       key={option}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
+                      accessibilityLabel={option}
                       onPress={() => setGender(option)}
                       style={({ pressed }) => [
                         styles.genderChip,
@@ -311,7 +328,7 @@ export default function SettingsScreen() {
             {error && <ThemedText themeColor="danger">{error}</ThemedText>}
             {message && <ThemedText themeColor="success">{message}</ThemedText>}
             <ActionButton
-              label="Değişiklikleri Kaydet"
+              label="Kaydet"
               busy={busy === 'save'}
               onPress={() => void save()}
             />
@@ -332,12 +349,57 @@ export default function SettingsScreen() {
                     ? 'Deneme bitti — devam etmek için abonelik gerekli.'
                     : 'Durum yükleniyor veya ücretsiz erişim.'}
             </ThemedText>
-            {subscriptionStatus?.show_paywall ? (
+            {subscriptionStatus?.show_paywall
+              || (subscriptionStatus
+                && subscriptionStatus.status !== 'trial'
+                && subscriptionStatus.status !== 'active') ? (
               <ActionButton
-                label="Aboneliği Gör"
+                label="PRO'ya Geç"
                 onPress={() => router.push('/paywall' as Href)}
               />
             ) : null}
+            <ActionButton
+              label="Aboneliği Yönet"
+              busy={busy === 'customer-center'}
+              onPress={() => {
+                void (async () => {
+                  setBusy('customer-center');
+                  setError(null);
+                  setMessage(null);
+                  const result = await presentCustomerCenter({
+                    onRestoreCompleted: () => {
+                      void refreshSubscription();
+                    },
+                  });
+                  setBusy(null);
+                  if (!result.ok) {
+                    setError(result.message);
+                    return;
+                  }
+                  await refreshSubscription();
+                  setMessage('Abonelik merkezi kapatıldı.');
+                })();
+              }}
+            />
+            <ActionButton
+              label="Satın Alımları Geri Yükle"
+              busy={busy === 'restore'}
+              onPress={() => {
+                void (async () => {
+                  setBusy('restore');
+                  setError(null);
+                  setMessage(null);
+                  const result = await restorePurchases();
+                  await refreshSubscription();
+                  setBusy(null);
+                  if (!result.ok) {
+                    setError(result.message);
+                    return;
+                  }
+                  setMessage('Satın alımlar geri yüklendi — PRO özellikler açıldı.');
+                })();
+              }}
+            />
           </ThemedView>
 
           <ThemedView
@@ -349,9 +411,7 @@ export default function SettingsScreen() {
                   GÖRÜNÜM
                 </ThemedText>
                 <ThemedText themeColor="textSecondary">
-                  {appearance.isDark
-                    ? 'Karanlık — soft orman tonları (simsiyah değil).'
-                    : 'Açık — ilkbahar krem ve yaprak yeşili.'}
+                  {appearance.isDark ? 'Karanlık' : 'Açık'}
                 </ThemedText>
               </View>
               <View style={styles.themeSwitchWrap}>
@@ -360,7 +420,7 @@ export default function SettingsScreen() {
                 </ThemedText>
                 <Switch
                   accessibilityLabel="Karanlık mod"
-                  accessibilityHint="Açık ve soft karanlık tema arasında geçer"
+                  accessibilityHint="Açık ve karanlık tema arasında geçer"
                   value={appearance.isDark}
                   onValueChange={(value) => appearance.toggleDark(value)}
                   trackColor={{ false: theme.border, true: theme.tint }}
@@ -489,13 +549,23 @@ export default function SettingsScreen() {
             ]}>
             <ThemedText style={styles.mysticCardGlyph}>☾</ThemedText>
             <View style={styles.mysticCardCopy}>
-              <ThemedText type="smallBold">Mistik Keşif</ThemedText>
+              <View style={styles.mysticTitleRow}>
+                <ThemedText type="smallBold">Mistik Keşif</ThemedText>
+                {subscriptionStatus?.status !== 'trial'
+                  && subscriptionStatus?.status !== 'active' ? <ProBadge /> : null}
+              </View>
               <ThemedText type="small" themeColor="textSecondary">
-                Tarot, burç ve fal — dokunarak aç
+                {subscriptionStatus?.status === 'trial'
+                  || subscriptionStatus?.status === 'active'
+                  ? 'Tarot, burç ve fal — dokunarak aç'
+                  : 'PRO ile tarot, burç ve fal açılır'}
               </ThemedText>
             </View>
             <ThemedText type="smallBold" themeColor="tint">
-              Aç →
+              {subscriptionStatus?.status === 'trial'
+                || subscriptionStatus?.status === 'active'
+                ? 'Aç →'
+                : 'PRO'}
             </ThemedText>
           </Pressable>
 
@@ -666,37 +736,58 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  header: { gap: Spacing.one, paddingVertical: Spacing.two },
-  card: {
-    borderWidth: 1,
-    borderRadius: Spacing.four,
-    padding: Spacing.four,
-    gap: Spacing.three,
+  mysticTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
+  header: { gap: Spacing.one, paddingVertical: Spacing.two },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileMeta: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  profileName: {
+  avatarLetter: {
     fontSize: 18,
     lineHeight: 22,
   },
+  profileMeta: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  nameGlyphRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  profileName: {
+    fontSize: 17,
+    lineHeight: 22,
+    flexShrink: 1,
+  },
+  zodiacGlyph: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
   sectionLabel: {
     letterSpacing: 0.8,
-    fontSize: 12,
+    fontSize: 11,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: Spacing.four,
+    padding: Spacing.three,
+    gap: Spacing.two,
   },
   genderRow: {
     flexDirection: 'row',

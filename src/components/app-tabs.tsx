@@ -50,6 +50,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="mystic" hidden />
+      <NativeTabs.Trigger name="rapor" hidden />
       <NativeTabs.Trigger name="bonus" hidden />
       <NativeTabs.Trigger name="paywall" hidden />
       <NativeTabs.Trigger name="astroloji" hidden />

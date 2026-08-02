@@ -1,9 +1,11 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Copy } from '@/constants/copy';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 type ChatHeaderProps = {
   streakDays: number;
@@ -18,12 +20,15 @@ type ChatHeaderProps = {
   onSecretGesture?: () => void;
 };
 
+const HIT_SLOP_44 = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+
 export function ChatHeader({
   streakDays,
   trialDaysRemaining,
   onOpenHistory,
   onSecretGesture,
 }: ChatHeaderProps) {
+  const theme = useTheme();
   const showTrial =
     typeof trialDaysRemaining === 'number' &&
     trialDaysRemaining > 0 &&
@@ -35,11 +40,12 @@ export function ChatHeader({
         {onOpenHistory ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Geçmiş sohbetler"
+            accessibilityLabel="Bağlam penceresini aç"
+            accessibilityHint="Sohbetleri ve niyetleri listeler"
             onPress={onOpenHistory}
-            hitSlop={10}
+            hitSlop={HIT_SLOP_44}
             style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}>
-            <ThemedText style={styles.historyGlyph}>☰</ThemedText>
+            <MaterialCommunityIcons name="menu" size={24} color={theme.text} />
           </Pressable>
         ) : (
           <View style={styles.historySpacer} />
@@ -97,15 +103,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   historyButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    marginTop: 0,
   },
   historySpacer: {
-    width: 40,
+    width: 44,
   },
   rightCluster: {
     flexDirection: 'row',
@@ -132,11 +138,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
     opacity: 0.85,
-  },
-  historyGlyph: {
-    fontSize: 22,
-    lineHeight: 24,
-    fontFamily: Fonts.sansBold,
   },
   titles: {
     flex: 1,

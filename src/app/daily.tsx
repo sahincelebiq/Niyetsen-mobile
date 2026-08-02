@@ -22,6 +22,11 @@ import { Copy } from '@/constants/copy';
 import { CountUpText } from '@/components/count-up-text';
 import { ErrorBanner } from '@/components/error-banner';
 import { LeafConfetti } from '@/components/leaf-confetti';
+import {
+  isTaskEditable,
+  PlanTaskEditor,
+  type PlanTaskEditorTarget,
+} from '@/components/plan-task-editor';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -40,8 +45,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
+  ensureTodayPlan,
   excuseTask,
   getDailyTasks,
+  isPaywallError,
   type ProofResult,
   type Task,
   uploadTaskProof,
@@ -51,6 +58,7 @@ import {
   scheduleTaskNotification,
   supportsWillpowerReminder,
 } from '@/lib/task-reminders';
+import { showAlert } from '@/lib/web-alert';
 import { useProfile } from '@/providers/profile-provider';
 
 type Outcome = { tone: 'success' | 'danger'; message: string };
@@ -65,14 +73,17 @@ export default function DailyTasksScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [needsExtension, setNeedsExtension] = useState(false);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [extending, setExtending] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
   const screenInsets = useScreenInsets();
 
   const load = useCallback(async (refresh = false) => {
@@ -80,8 +91,9 @@ export default function DailyTasksScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const items = await getDailyTasks();
-      setTasks(items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+      const daily = await getDailyTasks();
+      setNeedsExtension(!!daily.needs_extension);
+      setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Günlük görevler yüklenemedi.');
     } finally {
@@ -89,6 +101,28 @@ export default function DailyTasksScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  async function handleExtendPlan() {
+    if (extending) return;
+    setExtending(true);
+    setError(null);
+    try {
+      await ensureTodayPlan();
+      await load(true);
+    } catch (value) {
+      if (isPaywallError(value)) {
+        router.push('/paywall' as Href);
+        return;
+      }
+      setError(
+        value instanceof ApiError
+          ? value.message
+          : 'Görevler şu an üretilemedi. Birazdan tekrar dene.',
+      );
+    } finally {
+      setExtending(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -262,6 +296,13 @@ export default function DailyTasksScreen() {
             onOpenCamera={() => void openCamera(task)}
             onExcuse={() => confirmExcuse(task)}
             onDeviceAction={(action) => void runDeviceAction(task, action)}
+            onLongPressEdit={() => {
+              if (!isTaskEditable(task)) {
+                showAlert(Copy.plan.taskActionsTitle, Copy.plan.notEditable);
+                return;
+              }
+              setEditTarget({ task });
+            }}
           />
         </Animated.View>
       );
@@ -311,14 +352,38 @@ export default function DailyTasksScreen() {
         <SurfaceCard elevated>
           <ThemedText type="subtitle">{Copy.daily.emptyTitle}</ThemedText>
           <ThemedText themeColor="textSecondary">{Copy.daily.emptyBody}</ThemedText>
+          {needsExtension ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={extending}
+              onPress={() => void handleExtendPlan()}
+              style={({ pressed }) => [
+                styles.emptyCta,
+                { backgroundColor: theme.tint, opacity: pressed || extending ? 0.85 : 1 },
+              ]}>
+              {extending ? (
+                <ActivityIndicator color={theme.onAccent} />
+              ) : (
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {Copy.daily.extendCta}
+                </ThemedText>
+              )}
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/bonus' as Href)}
             style={({ pressed }) => [
               styles.emptyCta,
-              { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+              {
+                backgroundColor: needsExtension ? theme.surfaceMuted : theme.tint,
+                opacity: pressed ? 0.85 : 1,
+                marginTop: needsExtension ? Spacing.two : 0,
+              },
             ]}>
-            <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+            <ThemedText
+              type="smallBold"
+              style={{ color: needsExtension ? theme.text : theme.onAccent }}>
               {Copy.daily.emptyCta}
             </ThemedText>
           </Pressable>
@@ -409,6 +474,12 @@ export default function DailyTasksScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      <PlanTaskEditor
+        target={editTarget}
+        onClose={() => setEditTarget(null)}
+        onChanged={() => void load(true)}
+      />
     </ThemedView>
   );
 }
@@ -422,6 +493,7 @@ const TaskCard = memo(function TaskCard({
   onOpenCamera,
   onExcuse,
   onDeviceAction,
+  onLongPressEdit,
 }: {
   task: DailyTask;
   outcome?: Outcome;
@@ -431,6 +503,7 @@ const TaskCard = memo(function TaskCard({
   onOpenCamera: () => void;
   onExcuse: () => void;
   onDeviceAction: (action: 'notification' | 'calendar') => void;
+  onLongPressEdit: () => void;
 }) {
   const theme = useTheme();
   const pending = task.status === 'pending';
@@ -441,117 +514,123 @@ const TaskCard = memo(function TaskCard({
 
   return (
     <View style={styles.cardShell}>
-      <SurfaceCard
-        style={{
-          ...styles.cardGap,
-          ...(emphasis === 'muted' ? { backgroundColor: theme.surfaceMuted } : null),
-        }}
-        elevated={emphasis === 'lifted'}
-        hero={emphasis === 'hero'}>
-        {!!task.image_url && (
-          <ThemedView style={styles.imageWrapper}>
-            <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
-            <View pointerEvents="none" style={[styles.scrim, styles.scrimTop]} />
-            <View pointerEvents="none" style={[styles.scrim, styles.scrimMid]} />
-            <View pointerEvents="none" style={[styles.scrim, styles.scrimBottom]} />
-            {!!task.image_attribution && (
-              <Pressable
-                accessibilityLabel="Fotoğraf atfı"
-                accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
-                hitSlop={8}
-                onLongPress={() => {
-                  Alert.alert(
-                    'Fotoğraf atfı',
-                    task.image_attribution,
-                    task.image_attribution_url
-                      ? [
-                          { text: 'Kapat', style: 'cancel' },
-                          {
-                            text:
-                              task.image_source === 'gemini_nano_banana'
-                                ? 'Kaynağı aç'
-                                : 'Unsplash’ta aç',
-                            onPress: () => void Linking.openURL(task.image_attribution_url),
-                          },
-                        ]
-                      : [{ text: 'Kapat', style: 'cancel' }],
-                  );
-                }}
-                style={styles.attributionBadge}>
-                <ThemedText type="smallBold" style={styles.attributionIcon}>
-                  ⓘ
-                </ThemedText>
-              </Pressable>
-            )}
-          </ThemedView>
-        )}
-        <ThemedView
-          style={[
-            styles.cardBody,
-            emphasis === 'muted' ? { backgroundColor: theme.surfaceMuted } : null,
-          ]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitle}>
-              <View style={styles.badgeRow}>
-                <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
-                <CategoryBadge label={task.plan_name} variant="points" />
-              </View>
-              <ThemedText type="subtitle" style={styles.taskTitle}>
-                {task.title}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {task.duration_min} dk
-                {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
-              </ThemedText>
-            </View>
-            <StatusPill status={task.status} />
-          </View>
-          {!!task.tiny_version && (
-            <ThemedText themeColor="textSecondary">
-              {Copy.daily.tinyPrefix}: {task.tiny_version}
-            </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint={pending ? 'Uzun basarak taşı, düzenle veya sil' : undefined}
+        delayLongPress={380}
+        onLongPress={onLongPressEdit}>
+        <SurfaceCard
+          style={{
+            ...styles.cardGap,
+            ...(emphasis === 'muted' ? { backgroundColor: theme.surfaceMuted } : null),
+          }}
+          elevated={emphasis === 'lifted'}
+          hero={emphasis === 'hero'}>
+          {!!task.image_url && (
+            <ThemedView style={styles.imageWrapper}>
+              <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+              <View pointerEvents="none" style={[styles.scrim, styles.scrimTop]} />
+              <View pointerEvents="none" style={[styles.scrim, styles.scrimMid]} />
+              <View pointerEvents="none" style={[styles.scrim, styles.scrimBottom]} />
+              {!!task.image_attribution && (
+                <Pressable
+                  accessibilityLabel="Fotoğraf atfı"
+                  accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+                  hitSlop={8}
+                  onLongPress={() => {
+                    Alert.alert(
+                      'Fotoğraf atfı',
+                      task.image_attribution,
+                      task.image_attribution_url
+                        ? [
+                            { text: 'Kapat', style: 'cancel' },
+                            {
+                              text:
+                                task.image_source === 'gemini_nano_banana'
+                                  ? 'Kaynağı aç'
+                                  : 'Unsplash’ta aç',
+                              onPress: () => void Linking.openURL(task.image_attribution_url),
+                            },
+                          ]
+                        : [{ text: 'Kapat', style: 'cancel' }],
+                    );
+                  }}
+                  style={styles.attributionBadge}>
+                  <ThemedText type="smallBold" style={styles.attributionIcon}>
+                    ⓘ
+                  </ThemedText>
+                </Pressable>
+              )}
+            </ThemedView>
           )}
-          {outcome ? (
-            <View style={styles.outcomeRow}>
-              <ThemedText themeColor={outcome.tone}>{outcome.message}</ThemedText>
-              {awardedPoints > 0 ? (
-                <ThemedText type="smallBold" themeColor="tint">
-                  +<CountUpText value={awardedPoints} />
+          <ThemedView
+            style={[
+              styles.cardBody,
+              emphasis === 'muted' ? { backgroundColor: theme.surfaceMuted } : null,
+            ]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitle}>
+                <View style={styles.badgeRow}>
+                  <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
+                  <CategoryBadge label={task.plan_name} variant="points" />
+                </View>
+                <ThemedText type="subtitle" style={styles.taskTitle}>
+                  {task.title}
                 </ThemedText>
-              ) : null}
+                <ThemedText type="small" themeColor="textSecondary">
+                  {task.duration_min} dk
+                  {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
+                </ThemedText>
+              </View>
+              <StatusPill status={task.status} />
             </View>
-          ) : null}
-          {pending ? (
-            <View style={styles.actions}>
-              <TaskButton
-                label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
-                primary
-                busy={busy === `proof:${task.id}`}
-                onPress={onOpenCamera}
-              />
-              <TaskButton
-                label="Mazeret"
-                busy={busy === `excuse:${task.id}`}
-                onPress={onExcuse}
-              />
-              {willpowerTask && iradeActive ? (
+            {!!task.tiny_version && (
+              <ThemedText themeColor="textSecondary">
+                {Copy.daily.tinyPrefix}: {task.tiny_version}
+              </ThemedText>
+            )}
+            {outcome ? (
+              <View style={styles.outcomeRow}>
+                <ThemedText themeColor={outcome.tone}>{outcome.message}</ThemedText>
+                {awardedPoints > 0 ? (
+                  <ThemedText type="smallBold" themeColor="tint">
+                    +<CountUpText value={awardedPoints} />
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : null}
+            {pending ? (
+              <View style={styles.actions}>
                 <TaskButton
-                  label="Hatırlat"
-                  busy={busy === `notification:${task.id}`}
-                  onPress={() => onDeviceAction('notification')}
+                  label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
+                  primary
+                  busy={busy === `proof:${task.id}`}
+                  onPress={onOpenCamera}
                 />
-              ) : null}
-              {willpowerTask ? (
                 <TaskButton
-                  label="Takvime Ekle"
-                  busy={busy === `calendar:${task.id}`}
-                  onPress={() => onDeviceAction('calendar')}
+                  label="Mazeret"
+                  busy={busy === `excuse:${task.id}`}
+                  onPress={onExcuse}
                 />
-              ) : null}
-            </View>
-          ) : null}
-        </ThemedView>
-      </SurfaceCard>
+                {willpowerTask && iradeActive ? (
+                  <TaskButton
+                    label="Hatırlat"
+                    busy={busy === `notification:${task.id}`}
+                    onPress={() => onDeviceAction('notification')}
+                  />
+                ) : null}
+                {willpowerTask ? (
+                  <TaskButton
+                    label="Takvime Ekle"
+                    busy={busy === `calendar:${task.id}`}
+                    onPress={() => onDeviceAction('calendar')}
+                  />
+                ) : null}
+              </View>
+            ) : null}
+          </ThemedView>
+        </SurfaceCard>
+      </Pressable>
       <LeafConfetti active={celebrate && outcome?.tone === 'success'} />
     </View>
   );

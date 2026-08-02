@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, MysticColors, Radii, Shadows, Spacing } from '@/constants/theme';
+import { useAppearance } from '@/providers/appearance-provider';
 
 const DISCLAIMER =
   'Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.';
@@ -19,8 +20,8 @@ export function MysticComingSoon({
   description: string;
 }) {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
+  const { isDark } = useAppearance();
+  const colors = MysticColors[isDark ? 'dark' : 'light'];
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>

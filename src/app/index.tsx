@@ -126,6 +126,8 @@ export default function ChatScreen() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const openHistory = useCallback(() => setHistoryOpen(true), []);
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attaching, setAttaching] = useState(false);
   // Hızlı yanıt çipleri: modelin sorduğu soruya tek dokunuşla cevap (FAZ 7.5)
@@ -216,16 +218,29 @@ export default function ChatScreen() {
     void refreshStreak();
   }, [refreshStreak]);
 
-  // Felsefe Yolları ekranından gelen hazır mesajı giriş kutusuna koy
-  // (otomatik göndermeyiz — kontrol kullanıcıda).
+  // Yeni niyet / yollar dönüşünde oturumu yenile + bekleyen mesajı koy.
+  // (Gemini çağrılmaz — yalnız /chat/session hydrate.)
   useFocusEffect(
     useCallback(() => {
-      const pending = consumePendingChatMessage();
-      if (pending) {
-        setInput(pending);
-        scrollToEnd(true);
-      }
-    }, [scrollToEnd]),
+      let cancelled = false;
+      (async () => {
+        try {
+          const session = await getChatSession();
+          if (!cancelled) await applySession(session);
+        } catch {
+          // Odak yenilemesi sohbeti düşürmez.
+        }
+        if (cancelled) return;
+        const pending = consumePendingChatMessage();
+        if (pending) {
+          setInput(pending);
+          scrollToEnd(true);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [applySession, scrollToEnd]),
   );
 
   useEffect(() => {
@@ -451,7 +466,7 @@ export default function ChatScreen() {
         <ChatHeader
           streakDays={streakDays}
           trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
-          onOpenHistory={() => setHistoryOpen(true)}
+          onOpenHistory={openHistory}
           onSecretGesture={() => {
             // Gizli geçiş: başlığa uzun basmak mistik bölümü açar.
             void trackEvent('mystic_secret_entry', { source: 'chat_header' });
@@ -466,7 +481,7 @@ export default function ChatScreen() {
         <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
           <View style={styles.chatColumn}>
             <ChatWallpaper />
-            <ChatEdgeDrawer onOpen={() => setHistoryOpen(true)}>
+            <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
               {loadingHistory ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={theme.textSecondary} />
@@ -536,7 +551,7 @@ export default function ChatScreen() {
         </KeyboardAwareView>
         <ChatHistorySheet
           visible={historyOpen}
-          onClose={() => setHistoryOpen(false)}
+          onClose={closeHistory}
           subscriptionStatus={subscriptionStatus}
           onProjectChanged={() => void handleProjectChanged()}
         />

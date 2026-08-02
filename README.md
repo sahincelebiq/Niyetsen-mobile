@@ -44,11 +44,12 @@ RevenueCat public key, PostHog key.
 | Konu | Karar |
 |---|---|
 | Yönlendirme | `expo-router` (dosya tabanlı, `src/app/`) |
-| Tema | Tek kaynak: `src/constants/theme.ts` (renk, tipografi, gölge, hareket) |
-| Animasyon | **Yalnız `react-native-reanimated`** |
+| Tema | İlkbahar token'ları: `src/constants/theme.ts` (Fraunces + Manrope; hex hardcode yasak) |
+| Animasyon | **Yalnız `react-native-reanimated`** (`Easing`/`Animated` asla `react-native`'den değil) |
 | Depolama | Oturum: `expo-secure-store` (parçalı), diğer: AsyncStorage — `localStorage` YASAK |
 | API sözleşmesi | `src/lib/api.ts` tipleri backend `app/models/schemas.py` ile birebir eşleşir |
-| Abonelik | RevenueCat (yalnız IAP; harici ödeme linki yasak — App Store kuralı) |
+| Abonelik | RevenueCat (yalnız IAP). PRO modüller: `usePremiumAccess` (trial/active). Customer Center: EAS build |
+| Aktif sprint | Ana depo `docs/PLAYSTORE_GOAL.md` |
 
 ### ⚠️ Kritik kural: `Easing` importu
 
@@ -72,7 +73,7 @@ npx expo lint        # no-restricted-imports dahil
 
 ## Katkı disiplini
 
-- Küçük commit'ler, biçim: `faz7: fal gecmisi ekrani`
+- Küçük commit'ler, biçim: `faz8-ui: <konu>` / `faz8: <konu>`
 - Ekranlar gerçek cihazda test edilir (simülatör tek başına yeterli değil)
 - Ton kuralı: kayıp hissi + kimlik ✅ · suçlama/utandırma ❌
 - Puan/ceza/zincir sayıları ana depodaki `NIYETSEN_MASTER_PLAN.md` §1-2'den

@@ -1,5 +1,4 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -7,18 +6,17 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
-  useColorScheme,
   View,
 } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
 import { useConsentPreferences } from '@/components/consent-gate';
-import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing, SurfaceEdge,
-} from '@/constants/theme';
+import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
+import { ThemedText } from '@/components/themed-text';
+import { Motion, Radii, Spacing } from '@/constants/theme';
+import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
@@ -27,6 +25,7 @@ import {
   type PhotoFortune,
   uploadFortunePhoto,
 } from '@/lib/api';
+import { useProfile } from '@/providers/profile-provider';
 
 type FortuneKind = 'kahve' | 'el';
 
@@ -37,9 +36,9 @@ const KIND_LABELS: Record<FortuneKind, { title: string; hint: string }> = {
 
 export default function FortuneScreen() {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
-  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
+  const { colors } = useMysticColors();
+  const { profile } = useProfile();
+  useRequirePremium();
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -124,101 +123,91 @@ export default function FortuneScreen() {
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.background}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View
-            style={[
-              styles.card,
-              Shadows.lifted ?? {},
-              {
-                backgroundColor: colors.backgroundElement,
-                borderColor: colors.border,
-                borderTopColor: edge,
-              },
-            ]}>
-            <ThemedText style={[styles.symbol, { color: colors.tint }]}>☾</ThemedText>
-            <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
-              Fal
-            </ThemedText>
-            <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-              Kahve telvesi veya avuç içi — fotoğrafını çek, mistik rehber yorumlasın.
-              Fal bir kader değil, bir ayna.
-            </ThemedText>
-
-            {(['kahve', 'el'] as FortuneKind[]).map((target) => (
-              <Pressable
-                key={target}
-                accessibilityRole="button"
-                disabled={busy}
-                onPress={() => void openCamera(target)}
-                style={({ pressed }) => [
-                  styles.kindButton,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor:
-                      pressed || (busy && kind === target)
-                        ? colors.backgroundSelected
-                        : colors.background,
-                  },
-                ]}>
-                <View style={styles.kindText}>
-                  <ThemedText type="subtitle" style={{ color: colors.text }}>
-                    {KIND_LABELS[target].title}
-                  </ThemedText>
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    {KIND_LABELS[target].hint}
-                  </ThemedText>
-                  {rights ? (
-                    <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
-                      {remainingLabel(target)}
-                    </ThemedText>
-                  ) : null}
-                </View>
-                {busy && kind === target ? <ActivityIndicator color={colors.tint} /> : null}
-              </Pressable>
-            ))}
-
-            {result ? (
-              <View style={[styles.resultBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
-                  {KIND_LABELS[result.kind].title.toUpperCase()}
-                </ThemedText>
-                {result.symbols.length > 0 ? (
-                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                    Görülen semboller: {result.symbols.join(' · ')}
-                  </ThemedText>
-                ) : null}
-                <ThemedText style={{ color: colors.text }}>{result.interpretation}</ThemedText>
-                <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                  {result.disclaimer}
-                </ThemedText>
-              </View>
-            ) : null}
-
-            {error ? (
-              <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
-                {error}
-              </ThemedText>
-            ) : null}
-
+    <>
+      <MysticScreenShell
+        symbol="☾"
+        title="Fal"
+        subtitle="Kahve telvesi veya avuç içi — fotoğrafını çek, mistik rehber yorumlasın. Fal bir kader değil, bir ayna."
+        zodiacSign={profile?.zodiac_sign}>
+        {(['kahve', 'el'] as FortuneKind[]).map((target, index) => (
+          <Animated.View
+            key={target}
+            entering={FadeIn.delay(index * Motion.stagger)
+              .duration(Motion.base)
+              .reduceMotion(ReduceMotion.System)}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => router.replace('/mystic')}
-              style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
-              <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                Mistik Keşfe Dön
-              </ThemedText>
+              disabled={busy}
+              onPress={() => void openCamera(target)}
+              style={({ pressed }) => [
+                styles.kindButton,
+                {
+                  borderColor: colors.border,
+                  backgroundColor:
+                    pressed || (busy && kind === target)
+                      ? colors.backgroundSelected
+                      : colors.background,
+                },
+              ]}>
+              <View style={styles.kindText}>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>
+                  {KIND_LABELS[target].title}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  {KIND_LABELS[target].hint}
+                </ThemedText>
+                {rights ? (
+                  <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
+                    {remainingLabel(target)}
+                  </ThemedText>
+                ) : null}
+              </View>
+              {busy && kind === target ? <ActivityIndicator color={colors.tint} /> : null}
             </Pressable>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+          </Animated.View>
+        ))}
+
+        {result ? (
+          <Animated.View
+            entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+            style={[
+              styles.resultBox,
+              { borderColor: colors.border, backgroundColor: colors.background },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
+              {KIND_LABELS[result.kind].title.toUpperCase()}
+            </ThemedText>
+            {result.symbols.length > 0 ? (
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Görülen semboller: {result.symbols.join(' · ')}
+              </ThemedText>
+            ) : null}
+            <ThemedText style={{ color: colors.text }}>{result.interpretation}</ThemedText>
+            <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
+              {result.disclaimer}
+            </ThemedText>
+          </Animated.View>
+        ) : null}
+
+        {error ? (
+          <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
+            {error}
+          </ThemedText>
+        ) : null}
+
+        <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
+          Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
+        </ThemedText>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.replace('/mystic')}
+          style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
+          <ThemedText type="smallBold" style={{ color: colors.tint }}>
+            Mistik Keşfe Dön
+          </ThemedText>
+        </Pressable>
+      </MysticScreenShell>
 
       <Modal
         animationType="slide"
@@ -266,31 +255,11 @@ export default function FortuneScreen() {
           </SafeAreaView>
         </View>
       </Modal>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  background: { ...StyleSheet.absoluteFillObject, opacity: 0.2 },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 620),
-    alignSelf: 'center',
-    justifyContent: 'center',
-    padding: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four, // tab bar altında kalmasın
-  },
-  card: {
-    alignItems: 'stretch',
-    gap: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radii.large,
-    padding: Spacing.five,
-    ...(Shadows.soft ?? {}),
-  },
-  symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
   center: { textAlign: 'center' },
   kindButton: {
     flexDirection: 'row',
@@ -316,7 +285,7 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44, // erişilebilir dokunma hedefi
+    minHeight: 44,
     paddingVertical: Spacing.two,
   },
   cameraShell: { flex: 1, backgroundColor: '#000' },
@@ -340,7 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   cameraText: { color: '#FFF' },
-  cameraHint: { flex: 1, textAlign: 'right' }, // dar ekranda taşma/çakışma önlenir
+  cameraHint: { flex: 1, textAlign: 'right' },
   shutter: {
     width: 74,
     height: 74,

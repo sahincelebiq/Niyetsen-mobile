@@ -10,6 +10,7 @@ import {
 
 import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
+import { ProBadge } from '@/components/pro-badge';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { sproutGlyph, StreakPill } from '@/components/streak-pill';
 import { CategoryBadge } from '@/components/ui/category-badge';
@@ -25,6 +26,7 @@ import {
   Shadows,
   Spacing,
 } from '@/constants/theme';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -41,6 +43,7 @@ function isSproutMilestone(days: number): boolean {
 export default function RankScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { hasPremium } = usePremiumAccess();
   const [state, setState] = useState<StateResponse | null>(null);
   const [recapReady, setRecapReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -52,19 +55,23 @@ export default function RankScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const [nextState, recap] = await Promise.all([
-        getState(),
-        getRecap('14d').catch(() => null),
-      ]);
+      const nextState = await getState();
       setState(nextState);
-      setRecapReady(!!recap && recap.days_in >= 14);
+      if (hasPremium) {
+        const recap = await getRecap('7d').catch(() => null);
+        // Haftalık rapor: en az 7 gün; yoksa da PRO kullanıcıya "hazır" gösterme.
+        setRecapReady(!!recap && recap.days_in >= 7);
+      } else {
+        // Free: banner yine görünsün (PRO etiketiyle), API çağırma.
+        setRecapReady(nextState.streak_len >= 1);
+      }
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Rütbe bilgisi yüklenemedi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [hasPremium]);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,7 +107,16 @@ export default function RankScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Niyetsen raporunu aç"
-                onPress={() => router.push('/rapor' as Href)}
+                accessibilityHint={
+                  hasPremium ? undefined : 'PRO abonelik gerekir'
+                }
+                onPress={() => {
+                  if (!hasPremium) {
+                    router.push('/paywall' as Href);
+                    return;
+                  }
+                  router.push('/rapor' as Href);
+                }}
                 style={[
                   styles.recapBanner,
                   {
@@ -109,15 +125,20 @@ export default function RankScreen() {
                   },
                 ]}>
                 <View style={styles.recapBannerCopy}>
-                  <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                    Raporun hazır ✨
-                  </ThemedText>
+                  <View style={styles.recapTitleRow}>
+                    <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                      Raporun hazır
+                    </ThemedText>
+                    {!hasPremium ? <ProBadge /> : null}
+                  </View>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Son günlerinin hikâyesini story olarak gör
+                    {hasPremium
+                      ? 'Son günlerinin hikâyesini story olarak gör'
+                      : 'PRO ile story raporunu aç'}
                   </ThemedText>
                 </View>
                 <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                  Aç →
+                  {hasPremium ? 'Aç →' : 'PRO'}
                 </ThemedText>
               </Pressable>
             )}
@@ -235,6 +256,12 @@ const styles = StyleSheet.create({
   recapBannerCopy: {
     flex: 1,
     gap: 2,
+  },
+  recapTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   hero: {
     borderRadius: Radii.large,

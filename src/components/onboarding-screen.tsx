@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,17 +30,19 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { useProfile } from '@/providers/profile-provider';
 
-const STEP_TITLES = [
-  'Sana nasıl hitap edelim?',
-  'Cinsiyetin (isteğe bağlı)',
-  'Doğum tarihin',
-  'Hatırlatma saatin',
-  'Gizlilik ve tercihler',
+type OnboardingStepId = 'name' | 'gender' | 'birth' | 'notif' | 'consent';
+
+const ALL_STEPS: { id: OnboardingStepId; title: string }[] = [
+  { id: 'name', title: 'Sana nasıl hitap edelim?' },
+  { id: 'gender', title: 'Cinsiyetin (isteğe bağlı)' },
+  { id: 'birth', title: 'Doğum tarihin' },
+  { id: 'notif', title: 'Hatırlatma saatin' },
+  { id: 'consent', title: 'Gizlilik ve tercihler' },
 ];
 
 export function OnboardingScreen() {
   const theme = useTheme();
-  const { refresh } = useProfile();
+  const { profile, refresh } = useProfile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [gender, setGender] = useState<GenderOption | null>(null);
@@ -57,16 +59,35 @@ export function OnboardingScreen() {
     }
   }, []);
 
+  // Cinsiyet zaten kayıtlıysa bu adımı sorma (B6 — tekrar sorma).
+  const steps = useMemo(
+    () =>
+      profile?.gender
+        ? ALL_STEPS.filter((item) => item.id !== 'gender')
+        : ALL_STEPS,
+    [profile?.gender],
+  );
+  const current = steps[step] ?? steps[0];
+
+  useEffect(() => {
+    if (profile?.gender) setGender(profile.gender);
+    if (profile?.name) setName(profile.name);
+  }, [profile?.gender, profile?.name]);
+
+  useEffect(() => {
+    setStep((value) => Math.min(value, Math.max(steps.length - 1, 0)));
+  }, [steps.length]);
+
   function validateCurrent() {
-    if (step === 0 && !name.trim()) return 'İsmini yazmalısın.';
-    // step 1 (cinsiyet) atlanabilir — zorunlu değil.
-    if (step === 2 && !isValidBirthDateDisplay(birthDate)) {
+    if (current.id === 'name' && !name.trim()) return 'İsmini yazmalısın.';
+    // cinsiyet atlanabilir — zorunlu değil.
+    if (current.id === 'birth' && !isValidBirthDateDisplay(birthDate)) {
       return 'Tarihi gün.ay.yıl olarak yaz (ör. 10.04.1995).';
     }
-    if (step === 3 && notifTime.hour === undefined) {
+    if (current.id === 'notif' && notifTime.hour === undefined) {
       return 'Bildirim saati seçmelisin.';
     }
-    if (step === 4 && !consents.privacy) {
+    if (current.id === 'consent' && !consents.privacy) {
       return 'Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.';
     }
     return null;
@@ -79,7 +100,7 @@ export function OnboardingScreen() {
       return;
     }
     setError(null);
-    if (step < STEP_TITLES.length - 1) {
+    if (step < steps.length - 1) {
       setStep((value) => value + 1);
       return;
     }
@@ -126,9 +147,9 @@ export function OnboardingScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled">
             <View style={styles.progressRow}>
-              {STEP_TITLES.map((_, index) => (
+              {steps.map((item, index) => (
                 <View
-                  key={index}
+                  key={item.id}
                   style={[
                     styles.progress,
                     { backgroundColor: index <= step ? theme.tint : theme.border },
@@ -141,9 +162,9 @@ export function OnboardingScreen() {
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
               <ThemedText type="subtitle" style={styles.stepTitle}>
-                {STEP_TITLES[step]}
+                {current.title}
               </ThemedText>
-              {step === 0 && (
+              {current.id === 'name' && (
                 <>
                   <ThemedText themeColor="textSecondary">
                     Planın ve rehberin sana bu isimle seslenecek.
@@ -151,7 +172,7 @@ export function OnboardingScreen() {
                   <Field value={name} onChangeText={setName} placeholder="İsmin" />
                 </>
               )}
-              {step === 1 && (
+              {current.id === 'gender' && (
                 <>
                   <ThemedText themeColor="textSecondary">
                     İstersen paylaş — yalnız hitabı kişiselleştirmek için. Atlayabilirsin.
@@ -162,6 +183,9 @@ export function OnboardingScreen() {
                       return (
                         <Pressable
                           key={option}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={option}
                           onPress={() => setGender(option)}
                           style={({ pressed }) => [
                             styles.genderChip,
@@ -180,14 +204,22 @@ export function OnboardingScreen() {
                       );
                     })}
                   </View>
-                  <Pressable hitSlop={12} onPress={() => { setGender(null); void next(); }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Cinsiyet sorusunu atla"
+                    hitSlop={12}
+                    onPress={() => {
+                      setGender(null);
+                      setError(null);
+                      setStep((value) => Math.min(value + 1, steps.length - 1));
+                    }}>
                     <ThemedText type="small" themeColor="textSecondary">
                       Şimdilik atla
                     </ThemedText>
                   </Pressable>
                 </>
               )}
-              {step === 2 && (
+              {current.id === 'birth' && (
                 <>
                   <ThemedText themeColor="textSecondary">
                     Burcunu otomatik hesaplamak için kullanılır.
@@ -195,7 +227,7 @@ export function OnboardingScreen() {
                   <BirthDateField value={birthDate} onChangeText={setBirthDate} />
                 </>
               )}
-              {step === 3 && (
+              {current.id === 'notif' && (
                 <>
                   <ThemedText themeColor="textSecondary">
                     Günlük görev hatırlatıcını hangi saatte almak istersin?
@@ -207,7 +239,7 @@ export function OnboardingScreen() {
                   />
                 </>
               )}
-              {step === 4 && (
+              {current.id === 'consent' && (
                 <ConsentChoices value={consents} onChange={setConsents} />
               )}
 
@@ -234,7 +266,7 @@ export function OnboardingScreen() {
                     <ThemedText
                       type="smallBold"
                       style={{ color: theme.onAccent }}>
-                      {step === STEP_TITLES.length - 1 ? 'Niyetini Yazmaya Başla' : 'Devam'}
+                      {step === steps.length - 1 ? 'Niyetini Yazmaya Başla' : 'Devam'}
                     </ThemedText>
                   )}
                 </Pressable>

@@ -229,6 +229,15 @@ export type DailyTaskItem = {
   task: Task;
 };
 
+export type DailyTasksResponse = {
+  items: DailyTaskItem[];
+  needs_extension: boolean;
+  plan_day: number | null;
+  batch_generated_until: number | null;
+  active_plan_name: string;
+  has_active_plan: boolean;
+};
+
 export type GenderOption = 'kadın' | 'erkek' | 'belirtmek istemiyorum';
 
 export const GENDER_OPTIONS: readonly GenderOption[] = [
@@ -453,8 +462,59 @@ export function renameProject(planId: string, name: string): Promise<PlanSummary
   });
 }
 
-export function getDailyTasks(): Promise<DailyTaskItem[]> {
-  return request<DailyTaskItem[]>('/tasks/daily');
+/** FAZ 8.3 — schemas.TaskEditRequest (time yok: title + date). */
+export type TaskEditRequest = {
+  title?: string;
+  date?: string; // YYYY-MM-DD
+};
+
+/** FAZ 8.3 — schemas.TaskCreateRequest */
+export type TaskCreateRequest = {
+  title: string;
+  categories?: Category[];
+  tiny_version?: string;
+  duration_min?: number;
+};
+
+export function editPlanTask(taskId: string, body: TaskEditRequest): Promise<Task> {
+  return request<Task>(`/plan/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export function addPlanTask(date: string, body: TaskCreateRequest): Promise<Task> {
+  return request<Task>(`/plan/days/${encodeURIComponent(date)}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePlanTask(taskId: string): Promise<void> {
+  return request<void>(`/plan/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getDailyTasks(): Promise<DailyTasksResponse> {
+  const raw = await request<DailyTasksResponse | DailyTaskItem[]>('/tasks/daily');
+  // Eski backend dizi döndürebilir — geri uyum.
+  if (Array.isArray(raw)) {
+    return {
+      items: raw,
+      needs_extension: false,
+      plan_day: null,
+      batch_generated_until: null,
+      active_plan_name: '',
+      has_active_plan: raw.length > 0,
+    };
+  }
+  return raw;
+}
+
+/** Bugünün günü üretilmemişse sonraki partiyi üretir (Gemini — yalnız kullanıcı CTA). */
+export function ensureTodayPlan(): Promise<Plan> {
+  return request<Plan>('/plan/ensure-today', { method: 'POST' }, { timeoutMs: PlanTimeoutMs });
 }
 
 export function getProfile(): Promise<UserProfile> {
@@ -645,7 +705,7 @@ export type Horoscope = {
 };
 
 export type RecapCard = {
-  kind: 'intro' | 'tasks' | 'trait' | 'streak' | 'closing';
+  kind: 'intro' | 'journey' | 'tasks' | 'trait' | 'streak' | 'closing';
   title: string;
   headline: string;
   subtitle: string;
@@ -662,7 +722,7 @@ export type Recap = {
   cards: RecapCard[];
 };
 
-export function getRecap(period: '14d' | '30d' = '14d'): Promise<Recap> {
+export function getRecap(period: '7d' | '14d' | '30d' = '7d'): Promise<Recap> {
   return request<Recap>(`/me/recap?period=${period}`);
 }
 

@@ -7,31 +7,50 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader } from '@/components/ui/screen-header';
+import { ProBadge } from '@/components/pro-badge';
+import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import {
+  BottomTabInset,
+  Fonts,
+  MaxContentWidth,
+  Motion,
+  Radii,
+  Spacing,
+  SurfaceEdge,
+} from '@/constants/theme';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getPhilosophyPaths, isPaywallError, type PhilosophyPath } from '@/lib/api';
 import { setPendingChatMessage } from '@/lib/pending-chat';
 
 /**
- * Felsefe Yolları (İdol Modu, Dalga 4.2).
- * "Bir filmden, bir kitaptan, bir insandan ilham aldın" anını sisteme çevirir:
- * yol seçilir → sohbet, hazır mesajla açılır → rehber yolu niyete işler.
- * İlke: taklit değil, tercüme. Kişi adları yalnız ilham kaynağı olarak geçer.
+ * Felsefe Yolları (İdol Modu) — İlkbahar paleti (mistik mor DEĞİL).
+ * Yeşil yaprak + mercan CTA; kişi adları yalnız ilham notunda.
  */
 export default function PhilosophyPathsScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
+  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
   const router = useRouter();
+  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
   const [paths, setPaths] = useState<PhilosophyPath[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
+    if (premiumLoading) return;
+    if (!hasPremium) {
+      router.replace('/paywall' as Href);
+      return;
+    }
     let mounted = true;
     getPhilosophyPaths()
       .then((result) => {
@@ -40,7 +59,6 @@ export default function PhilosophyPathsScreen() {
       .catch((value) => {
         if (!mounted) return;
         if (isPaywallError(value)) {
-          // Felsefe Yolları premium — free kullanıcı pakete yönlendirilir.
           router.replace('/paywall' as Href);
           return;
         }
@@ -52,11 +70,10 @@ export default function PhilosophyPathsScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [hasPremium, premiumLoading, router]);
 
   function startWithPath(path: PhilosophyPath) {
     void trackEvent('mystic_secret_entry', { module: 'felsefe_yolu', path: path.name });
-    // Otomatik göndermiyoruz: mesaj giriş kutusuna konur, kontrol kullanıcıda.
     setPendingChatMessage(
       `${path.name} ile ilerlemek istiyorum — ${path.tagline}. Bu yolu niyetime işler misin?`,
     );
@@ -67,10 +84,30 @@ export default function PhilosophyPathsScreen() {
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ScreenHeader
-            title="Felsefe Yolları"
-            subtitle="Bir insandan, bir filmden, bir kitaptan ilham aldın. O anı söndürme — bir yola çevir."
-          />
+          <Animated.View
+            entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+            style={styles.hero}>
+            <View
+              style={[
+                styles.sproutBadge,
+                { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+              ]}>
+              <ThemedText style={styles.sproutEmoji}>{sproutGlyph(3)}</ThemedText>
+              <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                İlham → Yol
+              </ThemedText>
+            </View>
+            <View style={styles.titleRow}>
+              <ThemedText type="title" style={[styles.title, { fontFamily: Fonts.serif }]}>
+                Felsefe Yolları
+              </ThemedText>
+              {!premiumLoading && !hasPremium ? <ProBadge /> : null}
+            </View>
+            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+              Bir insandan, bir filmden, bir kitaptan ilham aldın. O anı söndürme —
+              ilkbahar gibi yeşerten bir yola çevir.
+            </ThemedText>
+          </Animated.View>
 
           {paths === null ? (
             <ActivityIndicator color={theme.tint} style={styles.loader} />
@@ -79,50 +116,82 @@ export default function PhilosophyPathsScreen() {
               {error ?? 'Henüz tanımlı yol yok.'}
             </ThemedText>
           ) : (
-            paths.map((path) => {
+            paths.map((path, index) => {
               const isOpen = expanded === path.name;
               return (
-                <View
+                <Animated.View
                   key={path.name}
-                  style={[
-                    styles.card,
-                    { borderColor: theme.border, backgroundColor: theme.backgroundElement },
-                  ]}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${path.name}: ${path.tagline}`}
-                    onPress={() => setExpanded(isOpen ? null : path.name)}
-                    style={styles.cardHeader}>
-                    <View style={styles.cardTitle}>
-                      <ThemedText type="subtitle">{path.name}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {path.tagline}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="smallBold" themeColor="tint">
-                      {isOpen ? '−' : '+'}
-                    </ThemedText>
-                  </Pressable>
-
-                  {isOpen ? (
-                    <>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {path.philosophy}
-                      </ThemedText>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => startWithPath(path)}
-                        style={({ pressed }) => [
-                          styles.startButton,
-                          { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
-                        ]}>
-                        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                          Bu yolla sohbete başla
+                  entering={FadeIn.delay(index * Motion.stagger)
+                    .duration(Motion.base)
+                    .reduceMotion(ReduceMotion.System)}>
+                  <SurfaceCard
+                    elevated
+                    style={{
+                      ...styles.card,
+                      borderTopColor: edge,
+                    }}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${path.name}: ${path.tagline}`}
+                      accessibilityState={{ expanded: isOpen }}
+                      onPress={() => setExpanded(isOpen ? null : path.name)}
+                      style={styles.cardHeader}>
+                      <View style={styles.cardTitle}>
+                        <View style={styles.pathNameRow}>
+                          <View
+                            style={[
+                              styles.pathDot,
+                              { backgroundColor: theme.tint },
+                            ]}
+                          />
+                          <ThemedText type="subtitle" style={{ fontFamily: Fonts.serifMedium }}>
+                            {path.name}
+                          </ThemedText>
+                        </View>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {path.tagline}
                         </ThemedText>
-                      </Pressable>
-                    </>
-                  ) : null}
-                </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.expandChip,
+                          {
+                            backgroundColor: isOpen
+                              ? theme.backgroundSelected
+                              : theme.surfaceMuted,
+                            borderColor: theme.border,
+                          },
+                        ]}>
+                        <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                          {isOpen ? '−' : '+'}
+                        </ThemedText>
+                      </View>
+                    </Pressable>
+
+                    {isOpen ? (
+                      <View style={styles.openBody}>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {path.philosophy}
+                        </ThemedText>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${path.name} ile sohbete başla`}
+                          onPress={() => startWithPath(path)}
+                          style={({ pressed }) => [
+                            styles.startButton,
+                            {
+                              backgroundColor: theme.accentWarm,
+                              opacity: pressed ? 0.88 : 1,
+                            },
+                          ]}>
+                          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                            Bu yolla sohbete başla
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </SurfaceCard>
+                </Animated.View>
               );
             })
           )}
@@ -148,12 +217,33 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.four,
   },
+  hero: {
+    gap: Spacing.two,
+    paddingBottom: Spacing.two,
+  },
+  sproutBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  sproutEmoji: { fontSize: 16, lineHeight: 20 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  title: { flexShrink: 1 },
+  subtitle: { maxWidth: 560 },
   loader: { marginTop: Spacing.six },
   center: { textAlign: 'center' },
   card: {
     gap: Spacing.two,
-    borderWidth: 1,
-    borderRadius: Radii.large,
     padding: Spacing.four,
   },
   cardHeader: {
@@ -163,7 +253,29 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     minHeight: 44,
   },
-  cardTitle: { flex: 1, gap: 2 },
+  cardTitle: { flex: 1, gap: 4 },
+  pathNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  pathDot: {
+    width: 8,
+    height: 8,
+    borderRadius: Radii.pill,
+  },
+  expandChip: {
+    minWidth: 36,
+    minHeight: 36,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  openBody: {
+    gap: Spacing.three,
+    paddingTop: Spacing.two,
+  },
   startButton: {
     minHeight: 48,
     borderRadius: Radii.pill,

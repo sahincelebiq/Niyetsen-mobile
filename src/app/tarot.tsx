@@ -1,36 +1,32 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
-  useColorScheme,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FlipInEasyY } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
+import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
-import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing, SurfaceEdge,
-} from '@/constants/theme';
+import { Motion, Radii, Spacing } from '@/constants/theme';
+import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, drawTarot, getFortuneRights, type TarotDraw } from '@/lib/api';
+import { useProfile } from '@/providers/profile-provider';
 
 export default function TarotScreen() {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
-  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
+  const { colors } = useMysticColors();
+  const { profile } = useProfile();
+  useRequirePremium();
   const [busy, setBusy] = useState(false);
   const [draw, setDraw] = useState<TarotDraw | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    // Bugün zaten çekilmişse kayıtlı sonucu göster (backend idempotent).
     void getFortuneRights()
       .then((rights) => {
         if (mounted && rights.rights.tarot.used > 0) return drawTarot();
@@ -67,160 +63,121 @@ export default function TarotScreen() {
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.background}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View
-            style={[
-              styles.card,
-              Shadows.lifted ?? {},
-              {
-                backgroundColor: colors.backgroundElement,
-                borderColor: colors.border,
-                borderTopColor: edge,
-              },
-            ]}>
-            <ThemedText style={[styles.symbol, { color: colors.tint }]}>◈</ThemedText>
-            <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
-              Günlük Tarot
-            </ThemedText>
-            <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-              Her gün tek çekim: geçmiş · şimdi · niyetinin yönü. Kart bir kader değil, bir ayna.
-            </ThemedText>
-
-            {draw === null ? (
-              <>
-                {/* Deste: yüzü kapalı üç kart — çekim öncesi sahne */}
-                <View style={styles.deckRow}>
-                  {[0, 1, 2].map((index) => (
-                    <Animated.View
-                      key={index}
-                      entering={FadeInDown.delay(index * 120).duration(400)}
-                      style={[
-                        styles.deckCard,
-                        {
-                          backgroundColor: colors.backgroundSelected,
-                          borderColor: colors.tint,
-                        },
-                      ]}>
-                      <ThemedText style={[styles.deckSymbol, { color: colors.tint }]}>
-                        ◈
-                      </ThemedText>
-                    </Animated.View>
-                  ))}
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={busy}
-                  onPress={() => void handleDraw()}
-                  style={({ pressed }) => [
-                    styles.button,
-                    { backgroundColor: colors.tint, opacity: pressed || busy ? 0.75 : 1 },
-                  ]}>
-                  {busy ? (
-                    <ActivityIndicator color={colors.background} />
-                  ) : (
-                    <ThemedText type="smallBold" style={{ color: colors.background }}>
-                      Günün Kartlarını Çek
-                    </ThemedText>
-                  )}
-                </Pressable>
-              </>
-            ) : (
-              <>
-                {draw.already_drawn_today ? (
-                  <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
-                    <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                      BUGÜNKÜ ÇEKİMİN
-                    </ThemedText>
-                  </View>
-                ) : null}
-                {/* Kartlar sırayla çevrilir; yorum en sonda belirir */}
-                {draw.cards.map((card, index) => (
-                  <Animated.View
-                    key={`${card.position}-${card.name}`}
-                    entering={FlipInEasyY.delay(index * 450).duration(600)}
-                    style={[
-                      styles.cardRow,
-                      { borderColor: colors.tint, backgroundColor: colors.background },
-                    ]}>
-                    <View style={styles.cardTopRow}>
-                      <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
-                        {card.position.toUpperCase()}
-                      </ThemedText>
-                      <ThemedText style={[styles.cardGlyph, { color: colors.tint }]}>
-                        {card.reversed ? '▽' : '△'}
-                      </ThemedText>
-                    </View>
-                    <ThemedText type="subtitle" style={{ color: colors.text }}>
-                      {card.name}
-                      {card.reversed ? ' (ters)' : ''}
-                    </ThemedText>
-                    {card.meaning ? (
-                      <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                        {card.meaning}
-                      </ThemedText>
-                    ) : null}
-                  </Animated.View>
-                ))}
-                <Animated.View entering={FadeIn.delay(draw.cards.length * 450 + 300).duration(600)}>
-                  <ThemedText style={{ color: colors.text }}>{draw.interpretation}</ThemedText>
-                  <ThemedText
-                    type="small"
-                    style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                    {draw.disclaimer}
-                  </ThemedText>
-                </Animated.View>
-              </>
-            )}
-
-            {error ? (
-              <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
-                {error}
-              </ThemedText>
-            ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.replace('/mystic')}
-              style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
-              <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                Mistik Keşfe Dön
-              </ThemedText>
-            </Pressable>
+    <MysticScreenShell
+      symbol="◈"
+      title="Günlük Tarot"
+      subtitle="Her gün tek çekim: geçmiş · şimdi · niyetinin yönü. Kart bir kader değil, bir ayna."
+      zodiacSign={profile?.zodiac_sign}>
+      {draw === null ? (
+        <>
+          <View style={styles.deckRow}>
+            {[0, 1, 2].map((index) => (
+              <Animated.View
+                key={index}
+                entering={FadeIn.delay(index * Motion.stagger)
+                  .duration(Motion.base)
+                  .reduceMotion(ReduceMotion.System)}
+                style={[
+                  styles.deckCard,
+                  {
+                    backgroundColor: colors.backgroundSelected,
+                    borderColor: colors.tint,
+                  },
+                ]}>
+                <ThemedText style={[styles.deckSymbol, { color: colors.tint }]}>
+                  ◈
+                </ThemedText>
+              </Animated.View>
+            ))}
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => void handleDraw()}
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.tint, opacity: pressed || busy ? 0.75 : 1 },
+            ]}>
+            {busy ? (
+              <ActivityIndicator color={colors.background} />
+            ) : (
+              <ThemedText type="smallBold" style={{ color: colors.background }}>
+                Günün Kartlarını Çek
+              </ThemedText>
+            )}
+          </Pressable>
+        </>
+      ) : (
+        <>
+          {draw.already_drawn_today ? (
+            <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
+              <ThemedText type="smallBold" style={{ color: colors.tint }}>
+                BUGÜNKÜ ÇEKİMİN
+              </ThemedText>
+            </View>
+          ) : null}
+          {draw.cards.map((card, index) => (
+            <Animated.View
+              key={`${card.position}-${card.name}`}
+              entering={FadeIn.delay(index * Motion.stagger)
+                .duration(Motion.base)
+                .reduceMotion(ReduceMotion.System)}
+              style={[
+                styles.cardRow,
+                { borderColor: colors.tint, backgroundColor: colors.background },
+              ]}>
+              <View style={styles.cardTopRow}>
+                <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
+                  {card.position.toUpperCase()}
+                </ThemedText>
+                <ThemedText style={[styles.cardGlyph, { color: colors.tint }]}>
+                  {card.reversed ? '▽' : '△'}
+                </ThemedText>
+              </View>
+              <ThemedText type="subtitle" style={{ color: colors.text }}>
+                {card.name}
+                {card.reversed ? ' (ters)' : ''}
+              </ThemedText>
+              {card.meaning ? (
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  {card.meaning}
+                </ThemedText>
+              ) : null}
+            </Animated.View>
+          ))}
+          <Animated.View
+            entering={FadeIn.delay(draw.cards.length * Motion.stagger + Motion.base)
+              .duration(Motion.slow)
+              .reduceMotion(ReduceMotion.System)}>
+            <ThemedText style={{ color: colors.text }}>{draw.interpretation}</ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.disclaimer, { color: colors.textSecondary }]}>
+              {draw.disclaimer}
+            </ThemedText>
+          </Animated.View>
+        </>
+      )}
+
+      {error ? (
+        <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
+          {error}
+        </ThemedText>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.replace('/mystic')}
+        style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
+        <ThemedText type="smallBold" style={{ color: colors.tint }}>
+          Mistik Keşfe Dön
+        </ThemedText>
+      </Pressable>
+    </MysticScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  background: { ...StyleSheet.absoluteFillObject, opacity: 0.2 },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 620),
-    alignSelf: 'center',
-    justifyContent: 'center',
-    padding: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four, // tab bar altında kalmasın
-  },
-  card: {
-    alignItems: 'stretch',
-    gap: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radii.large,
-    padding: Spacing.five,
-    ...(Shadows.soft ?? {}),
-  },
   cardRow: {
     gap: 4,
     borderWidth: 1.5,
@@ -248,7 +205,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   deckSymbol: { fontSize: 30, lineHeight: 36 },
-  symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
   badge: {
     alignSelf: 'center',
     borderRadius: Radii.pill,
@@ -271,7 +227,7 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44, // erişilebilir dokunma hedefi
+    minHeight: 44,
     paddingVertical: Spacing.two,
   },
 });

@@ -1,29 +1,27 @@
-import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
-  useColorScheme,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
+import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
-import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing, SurfaceEdge,
-} from '@/constants/theme';
+import { Motion, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph } from '@/constants/zodiac';
+import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getDailyHoroscope, type Horoscope } from '@/lib/api';
+import { useProfile } from '@/providers/profile-provider';
 
 export default function AstrologyScreen() {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
-  const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
+  const { colors } = useMysticColors();
+  const { profile } = useProfile();
+  useRequirePremium();
   const [loading, setLoading] = useState(true);
   const [horoscope, setHoroscope] = useState<Horoscope | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,142 +54,98 @@ export default function AstrologyScreen() {
   }, [load, period]);
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.background}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View
+    <MysticScreenShell
+      symbol="✦"
+      title={period === 'weekly' ? 'Haftalık Burç' : 'Günlük Burç'}
+      zodiacSign={profile?.zodiac_sign}>
+      <View style={styles.periodRow}>
+        {(['daily', 'weekly'] as const).map((target) => (
+          <Pressable
+            key={target}
+            accessibilityRole="button"
+            disabled={loading}
+            onPress={() => setPeriod(target)}
             style={[
-              styles.card,
-              Shadows.lifted ?? {},
+              styles.periodButton,
               {
-                backgroundColor: colors.backgroundElement,
-                borderColor: colors.border,
-                borderTopColor: edge,
+                borderColor: colors.tint,
+                backgroundColor: period === target ? colors.tint : 'transparent',
               },
             ]}>
-            <ThemedText style={[styles.symbol, { color: colors.tint }]}>✦</ThemedText>
-            <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
-              {period === 'weekly' ? 'Haftalık Burç' : 'Günlük Burç'}
+            <ThemedText
+              type="smallBold"
+              style={{ color: period === target ? colors.background : colors.tint }}>
+              {target === 'daily' ? 'Bugün' : 'Bu Hafta'}
             </ThemedText>
+          </Pressable>
+        ))}
+      </View>
 
-            <View style={styles.periodRow}>
-              {(['daily', 'weekly'] as const).map((target) => (
-                <Pressable
-                  key={target}
-                  accessibilityRole="button"
-                  disabled={loading}
-                  onPress={() => setPeriod(target)}
-                  style={[
-                    styles.periodButton,
-                    {
-                      borderColor: colors.tint,
-                      backgroundColor:
-                        period === target ? colors.tint : 'transparent',
-                    },
-                  ]}>
-                  <ThemedText
-                    type="smallBold"
-                    style={{ color: period === target ? colors.background : colors.tint }}>
-                    {target === 'daily' ? 'Bugün' : 'Bu Hafta'}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-
-            {loading ? (
-              <ActivityIndicator color={colors.tint} />
-            ) : horoscope ? (
-              <>
-                <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
-                  <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                    {getZodiacGlyph(horoscope.sign)} {horoscope.sign.toUpperCase()} · {horoscope.day}
-                  </ThemedText>
-                </View>
-                <ThemedText style={{ color: colors.text }}>
-                  {horoscope.interpretation}
-                </ThemedText>
-                <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-                  {horoscope.disclaimer}
-                </ThemedText>
-              </>
-            ) : needsProfile ? (
-              <>
-                <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-                  Burcunu bilmem için doğum tarihine ihtiyacım var.
-                </ThemedText>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => router.push('/settings' as Href)}
-                  style={({ pressed }) => [
-                    styles.button,
-                    { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
-                  ]}>
-                  <ThemedText type="smallBold" style={{ color: colors.background }}>
-                    Profili Tamamla
-                  </ThemedText>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
-                  {error}
-                </ThemedText>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => void load(period)}
-                  style={({ pressed }) => [
-                    styles.button,
-                    { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
-                  ]}>
-                  <ThemedText type="smallBold" style={{ color: colors.background }}>
-                    Tekrar Dene
-                  </ThemedText>
-                </Pressable>
-              </>
-            )}
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.replace('/mystic')}
-              style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
-              <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                Mistik Keşfe Dön
-              </ThemedText>
-            </Pressable>
+      {loading ? (
+        <ActivityIndicator color={colors.tint} />
+      ) : horoscope ? (
+        <Animated.View
+          entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+          style={styles.resultBlock}>
+          <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
+            <ThemedText type="smallBold" style={{ color: colors.tint }}>
+              {getZodiacGlyph(horoscope.sign)} {horoscope.sign.toUpperCase()} · {horoscope.day}
+            </ThemedText>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+          <ThemedText style={{ color: colors.text }}>{horoscope.interpretation}</ThemedText>
+          <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
+            {horoscope.disclaimer}
+          </ThemedText>
+        </Animated.View>
+      ) : needsProfile ? (
+        <>
+          <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
+            Burcunu bilmem için doğum tarihine ihtiyacım var.
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/settings' as Href)}
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.background }}>
+              Profili Tamamla
+            </ThemedText>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
+            {error}
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void load(period)}
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.background }}>
+              Tekrar Dene
+            </ThemedText>
+          </Pressable>
+        </>
+      )}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.replace('/mystic')}
+        style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
+        <ThemedText type="smallBold" style={{ color: colors.tint }}>
+          Mistik Keşfe Dön
+        </ThemedText>
+      </Pressable>
+    </MysticScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  background: { ...StyleSheet.absoluteFillObject, opacity: 0.2 },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 620),
-    alignSelf: 'center',
-    justifyContent: 'center',
-    padding: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four, // tab bar altında kalmasın
-  },
-  card: {
-    alignItems: 'stretch',
-    gap: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Radii.large,
-    padding: Spacing.five,
-    ...(Shadows.soft ?? {}),
-  },
-  symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
   periodRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -206,6 +160,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
+  resultBlock: { gap: Spacing.three },
   badge: {
     alignSelf: 'center',
     borderRadius: Radii.pill,
@@ -228,7 +183,7 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44, // erişilebilir dokunma hedefi
+    minHeight: 44,
     paddingVertical: Spacing.two,
   },
 });

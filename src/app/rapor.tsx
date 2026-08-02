@@ -33,11 +33,12 @@ import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { Motion, Radii, Spacing } from '@/constants/theme';
+import { useRequirePremium } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import { getRecap, type Recap, type RecapCard } from '@/lib/api';
 
 const STORY_MS = 5200;
-type RecapPeriod = '14d' | '30d';
+type RecapPeriod = '7d' | '30d';
 
 function streakDaysFromHeadline(headline: string): number {
   const match = headline.match(/(\d+)/);
@@ -47,7 +48,8 @@ function streakDaysFromHeadline(headline: string): number {
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [period, setPeriod] = useState<RecapPeriod>('14d');
+  const { hasPremium, loading: premiumLoading } = useRequirePremium();
+  const [period, setPeriod] = useState<RecapPeriod>('7d');
   const [recap, setRecap] = useState<Recap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -71,8 +73,9 @@ export default function RecapScreen() {
   }, [period]);
 
   useEffect(() => {
+    if (premiumLoading || !hasPremium) return;
     void load(period);
-  }, [load, period]);
+  }, [load, period, hasPremium, premiumLoading]);
 
   const selectPeriod = (next: RecapPeriod) => {
     if (next === period) return;
@@ -180,8 +183,8 @@ export default function RecapScreen() {
             { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
           ]}>
           {([
-            { id: '14d' as const, label: '14 gün' },
-            { id: '30d' as const, label: '30 gün' },
+            { id: '7d' as const, label: 'Haftalık' },
+            { id: '30d' as const, label: 'Aylık' },
           ]).map((option) => {
             const active = period === option.id;
             return (
@@ -208,7 +211,7 @@ export default function RecapScreen() {
       <View style={styles.progressRow}>
         {cards.map((c, i) => (
           <View
-            key={c.kind}
+            key={`${c.kind}-${i}`}
             style={[styles.progressTrack, { backgroundColor: theme.progressTrack }]}>
             {i < index ? (
               <View style={[styles.progressFill, { backgroundColor: theme.tint, width: '100%' }]} />

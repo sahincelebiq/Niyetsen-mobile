@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -9,47 +9,59 @@ type ChatEdgeDrawerProps = {
   enabled?: boolean;
 };
 
-const EDGE_WIDTH = 72;
-const OPEN_DISTANCE = 40;
+/** Sol kenar şeridi — sohbet kaydırmasıyla çakışmayı önlemek için dar tutulur. */
+const EDGE_WIDTH = 28;
+const OPEN_DISTANCE = 36;
 
-/** Sol kenardan sağa kaydırınca niyet geçmişi panelini açar. */
+/**
+ * Sol kenardan sağa kaydırınca bağlam panelini açar.
+ * Jest yalnızca kenar şeridinde yakalanır; FlatList dikey scroll'u bozulmaz.
+ */
 export function ChatEdgeDrawer({ children, onOpen, enabled = true }: ChatEdgeDrawerProps) {
-  const pan = Gesture.Pan()
-    .enabled(enabled)
-    .manualActivation(true)
-    .onTouchesDown((event, state) => {
-      const touch = event.allTouches[0];
-      const startX = touch?.absoluteX ?? touch?.x ?? Number.POSITIVE_INFINITY;
-      if (startX <= EDGE_WIDTH) {
-        state.activate();
-      } else {
-        state.fail();
-      }
-    })
-    .activeOffsetX(10)
-    .failOffsetY([-32, 32])
-    .onEnd((event) => {
-      const shouldOpen =
-        event.translationX > OPEN_DISTANCE ||
-        (event.translationX > 20 && event.velocityX > 120);
-      if (shouldOpen) {
-        runOnJS(onOpen)();
-      }
-    });
-
-  if (!enabled) {
-    return <View style={styles.container}>{children}</View>;
-  }
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(enabled)
+        .activeOffsetX(14)
+        .failOffsetY([-20, 20])
+        .onEnd((event) => {
+          const shouldOpen =
+            event.translationX > OPEN_DISTANCE ||
+            (event.translationX > 18 && event.velocityX > 140);
+          if (shouldOpen) {
+            runOnJS(onOpen)();
+          }
+        }),
+    [enabled, onOpen],
+  );
 
   return (
-    <GestureDetector gesture={pan}>
-      <View style={styles.container}>{children}</View>
-    </GestureDetector>
+    <View style={styles.container}>
+      {children}
+      {enabled ? (
+        <GestureDetector gesture={pan}>
+          <View
+            style={styles.edgeHit}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="box-only"
+          />
+        </GestureDetector>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  edgeHit: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: EDGE_WIDTH,
+    zIndex: 2,
   },
 });
