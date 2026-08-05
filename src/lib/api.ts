@@ -6,6 +6,7 @@
  * Expo'da AsyncStorage/SecureStore kullan.
  */
 import { supabase } from '@/lib/supabase';
+import { getApiLocale } from '@/lib/api-locale';
 import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
@@ -79,6 +80,8 @@ async function request<T>(
       headers: {
         ...(!isMultipart && { 'Content-Type': 'application/json' }),
         Authorization: `Bearer ${accessToken}`,
+        'X-App-Locale': getApiLocale(),
+        'Accept-Language': getApiLocale(),
         ...(init?.headers ?? {}),
       },
     });
@@ -252,6 +255,8 @@ export type UserProfile = {
   zodiac_sign: string | null;
   gender: GenderOption | null;
   timezone: string;
+  /** BCP-47 benzeri: tr | en-US | en-GB | de | fr | ar */
+  preferred_language: string | null;
   notif_hour: number;
   notif_minute: number;
   irade_modu_active: boolean;
@@ -282,6 +287,7 @@ export type ProfileUpdate = {
   name: string;
   birth_date: string;
   timezone: string;
+  preferred_language?: string | null;
   notif_hour: number;
   notif_minute: number;
   kvkk_consent?: boolean;
@@ -721,6 +727,23 @@ export type Recap = {
   top_category: string;
   cards: RecapCard[];
 };
+
+/** FAZ 8.9 — İdol/Felsefe Yolu detay ekranı (PRO). */
+export type PathDetailSection = { key: string; value: string | string[] };
+
+export type PathDetail = {
+  slug: string;
+  name: string;
+  tagline: string;
+  category: string;
+  philosophy: string;
+  source_note: string;
+  sections: PathDetailSection[];
+};
+
+export function getPathDetail(slug: string): Promise<PathDetail> {
+  return request<PathDetail>(`/paths/${encodeURIComponent(slug)}`);
+}
 
 export function getRecap(period: '7d' | '14d' | '30d' = '7d'): Promise<Recap> {
   return request<Recap>(`/me/recap?period=${period}`);

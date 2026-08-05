@@ -4,7 +4,6 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ProBadge } from '@/components/pro-badge';
 import { ThemedText } from '@/components/themed-text';
 import {
   BottomTabInset,
@@ -17,7 +16,6 @@ import {
   SurfaceEdge,
 } from '@/constants/theme';
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
-import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useProfile } from '@/providers/profile-provider';
 
@@ -53,16 +51,14 @@ export default function MysticHubScreen() {
   const colors = MysticColors[isDark ? 'dark' : 'light'];
   const edge = isDark ? SurfaceEdge.dark : SurfaceEdge.light;
   const { profile } = useProfile();
-  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
   const zodiac = profile?.zodiac_sign;
   const glyph = getZodiacGlyph(zodiac);
   const label = zodiacLabel(zodiac);
 
+  // KİLİTLİ KARAR (FAZ 7 / algoritma §5): fal ÜCRETSİZ katmanda paywall'suz
+  // çalışır — günlük hak sayaçları sunucuda; premium yalnız EK hak açar.
+  // Buradaki eski paywall yönlendirmesi "mistik çalışmıyor" hatasının kökü idi.
   function openModule(href: Href) {
-    if (!premiumLoading && !hasPremium) {
-      router.push('/paywall' as Href);
-      return;
-    }
     router.push(href);
   }
 
@@ -88,7 +84,7 @@ export default function MysticHubScreen() {
                 Mistik Keşif
                 {glyph ? ` ${glyph}` : ''}
               </ThemedText>
-              {!premiumLoading && !hasPremium ? <ProBadge tone="mystic" /> : null}
+              {null}
             </View>
             {label ? (
               <View style={[styles.zodiacBadge, { backgroundColor: colors.backgroundSelected }]}>
@@ -113,9 +109,7 @@ export default function MysticHubScreen() {
                 style={styles.cardWrap}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityHint={
-                    hasPremium ? undefined : 'PRO abonelik gerekir; paywall açılır'
-                  }
+                  accessibilityHint="Günlük hakların dahilinde ücretsiz"
                   onPress={() => openModule(module.href)}
                   style={({ pressed }) => [
                     styles.card,
@@ -132,7 +126,7 @@ export default function MysticHubScreen() {
                     <ThemedText style={[styles.symbol, { color: colors.tint }]}>
                       {module.symbol}
                     </ThemedText>
-                    {!premiumLoading && !hasPremium ? <ProBadge tone="mystic" /> : null}
+                    {null}
                   </View>
                   <ThemedText type="subtitle" style={{ color: colors.text }}>
                     {module.title}
@@ -141,7 +135,7 @@ export default function MysticHubScreen() {
                     {module.description}
                   </ThemedText>
                   <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                    {hasPremium ? 'Keşfet' : 'PRO ile aç'}
+                    Keşfet
                   </ThemedText>
                 </Pressable>
               </Animated.View>
@@ -159,7 +153,7 @@ export default function MysticHubScreen() {
               <ThemedText type="smallBold" style={{ color: colors.tint }}>
                 ☾ Fal Geçmişin
               </ThemedText>
-              {!premiumLoading && !hasPremium ? <ProBadge tone="mystic" /> : null}
+              {null}
             </View>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
               Önceki çekimlerine ve yorumlarına dön
