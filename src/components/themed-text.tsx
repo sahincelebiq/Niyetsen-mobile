@@ -35,9 +35,10 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 }
 
 const styles = StyleSheet.create({
-  // UI cilası v2: okuma ritmi — gövde satır yüksekliği açıldı, küçük metinlerde
-  // hafif harf aralığı (küçük puntoda okunurluk), serif başlıklarda daha sıkı
-  // optik aralık. Punto ölçeği DEĞİŞMEDİ; düzen kaymaz.
+  // UI v3.1 MİNİMAL ölçek (2026-08-05, Şahin: "çok hantal, çok kalın, çok
+  // büyük"). Başlıklar web değil APP hiyerarşisine indi: title 44→32,
+  // subtitle 30→18, screenTitle 28→22. Gövde/small değişmedi. Bu ölçek
+  // KİLİTLİ — büyütme; vurgu gerekiyorsa boşluk ve renkle ver, puntoyla değil.
   small: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
@@ -58,21 +59,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: Fonts.serif,
-    fontSize: 44,
-    lineHeight: 48,
-    letterSpacing: -0.8,
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
   },
   screenTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.45,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontFamily: Fonts.serifMedium,
-    fontSize: 30,
-    lineHeight: 38,
-    letterSpacing: -0.3,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.15,
   },
   link: {
     fontFamily: Fonts.sansMedium,

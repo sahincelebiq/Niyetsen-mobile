@@ -33,7 +33,7 @@ import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-import { useRequirePremium } from '@/hooks/use-premium-access';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import { getRecap, type Recap, type RecapCard } from '@/lib/api';
 
@@ -48,7 +48,9 @@ function streakDaysFromHeadline(headline: string): number {
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { hasPremium, loading: premiumLoading } = useRequirePremium();
+  // FAZ 8.10 "KAPI İÇERİDE" (Şahin kuralı): ücretsiz kullanıcı bu ekranı
+  // GÖRÜR — dışarı atılmaz; içeride kilitli önizleme + PRO daveti gösterilir.
+  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
   const [period, setPeriod] = useState<RecapPeriod>('7d');
   const [recap, setRecap] = useState<Recap | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +232,41 @@ export default function RecapScreen() {
         ))}
       </View>
 
-      {!recap && !error && <ActivityIndicator color={theme.tint} style={styles.center} />}
+      {!premiumLoading && !hasPremium ? (
+        <View style={styles.center}>
+          <View
+            style={[
+              styles.lockCard,
+              { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+            ]}>
+            <ThemedText style={styles.lockGlyph}>🌱</ThemedText>
+            <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
+              Yolculuğunun hikâyesi burada
+            </ThemedText>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={{ textAlign: 'center' }}>
+              Kaç görev tamamladın, hangi yönün gelişti, zincirin nereye
+              uzandı — haftalık ve aylık story raporun PRO ile açılır.
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/paywall')}
+              style={({ pressed }) => [
+                styles.lockCta,
+                { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                PRO ile aç
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+      {(premiumLoading || hasPremium) && !recap && !error && (
+        <ActivityIndicator color={theme.tint} style={styles.center} />
+      )}
       {error && (
         <View style={styles.center}>
           <ThemedText themeColor="danger">{error}</ThemedText>
@@ -374,6 +410,23 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
   retry: { padding: Spacing.two },
+  lockCard: {
+    marginHorizontal: Spacing.four,
+    padding: Spacing.four,
+    borderRadius: Radii.large,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: Spacing.three,
+    maxWidth: 420,
+  },
+  lockGlyph: { fontSize: 40, lineHeight: 48 },
+  lockCta: {
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    borderRadius: Radii.pill,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   cardArea: {
     flex: 1,
     alignItems: 'center',
