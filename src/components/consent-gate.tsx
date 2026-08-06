@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -28,6 +29,24 @@ type ConsentContextValue = {
 };
 
 const ConsentContext = createContext<ConsentContextValue | null>(null);
+
+// Cache anahtarı yasal sürümlere bağlı: herhangi bir metin sürümü artarsa
+// anahtar değişir → eski "tamam" cache'i otomatik geçersizleşir, gate döner.
+const CONSENT_OK_KEY = `niyetsen.consent.ok.${Object.values(LEGAL_VERSIONS).join('|')}`;
+const CONSENT_OK_VALUE = '1';
+
+/** Cache'li hızlı yolda, sunucu yanıtı gelene dek geçerli iyimser durum. */
+function optimisticGrantedStatus(): ConsentStatus {
+  const now = new Date().toISOString();
+  return {
+    privacy_policy: { version: LEGAL_VERSIONS.privacyPolicy, accepted: true, decided_at: now },
+    kvkk_explicit_consent: { version: LEGAL_VERSIONS.kvkkConsent, accepted: true, decided_at: now },
+    ai_chat_processing: { version: LEGAL_VERSIONS.aiChatConsent, accepted: true, decided_at: now },
+    proof_photo_processing: { version: LEGAL_VERSIONS.proofPhotoConsent, accepted: true, decided_at: now },
+    marketing_communications: { version: LEGAL_VERSIONS.marketingConsent, accepted: true, decided_at: now },
+    needs_reconsent: false,
+  } as ConsentStatus;
+}
 
 function hasCurrentDecisions(status: ConsentStatus): boolean {
   return (
@@ -61,23 +80,56 @@ export function ConsentGate({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // FAZ 8.11: onaylar bir kez verildiyse her açılışta ağ BEKLENMEZ — cache'ten
+  // hemen geçilir, sunucu arka planda doğrulanır (versiyon değişirse gate döner).
+  const [cachedOk, setCachedOk] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    if (!background) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const nextStatus = await getConsentStatus();
       setStatus(nextStatus);
       setChoices(choicesFromStatus(nextStatus));
+      const ok = hasCurrentDecisions(nextStatus);
+      setCachedOk(ok);
+      void AsyncStorage.setItem(CONSENT_OK_KEY, ok ? CONSENT_OK_VALUE : '');
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Rıza tercihleri yüklenemedi.');
+      // Arka plan doğrulaması sessiz düşer; cache'li kullanıcı engellenmez.
+      if (!background) {
+        setError(value instanceof Error ? value.message : 'Rıza tercihleri yüklenemedi.');
+      }
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(CONSENT_OK_KEY);
+        if (cancelled) return;
+        if (cached === CONSENT_OK_VALUE) {
+          // Hızlı yol: son bilinen durum "tamam" — uygulamayı hemen aç,
+          // sunucuyla arka planda senkronize ol.
+          setCachedOk(true);
+          setLoading(false);
+          void load(true);
+          return;
+        }
+      } catch {
+        // Cache okunamazsa normal (bloklu) yol.
+      }
+      if (!cancelled) void load();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const saveChoices = useCallback(async (nextChoices: ConsentChoicesValue) => {
@@ -105,12 +157,15 @@ export function ConsentGate({ children }: PropsWithChildren) {
     }
   }, []);
 
+  // Sunucu yanıtı yoksa ama cache "tamam" diyorsa iyimser durumla ilerle —
+  // kullanıcı beklemez; sunucu farklı derse gate kendiliğinden geri gelir.
+  const effectiveStatus = status ?? (cachedOk ? optimisticGrantedStatus() : null);
   const contextValue = useMemo(
-    () => (status ? { status, saveChoices } : null),
-    [saveChoices, status],
+    () => (effectiveStatus ? { status: effectiveStatus, saveChoices } : null),
+    [saveChoices, effectiveStatus],
   );
 
-  if (loading) {
+  if (loading && !cachedOk) {
     return (
       <ThemedView style={styles.center}>
         <ActivityIndicator color={theme.tint} />
@@ -119,7 +174,7 @@ export function ConsentGate({ children }: PropsWithChildren) {
     );
   }
 
-  if (status && hasCurrentDecisions(status) && contextValue) {
+  if (effectiveStatus && hasCurrentDecisions(effectiveStatus) && contextValue) {
     return <ConsentContext.Provider value={contextValue}>{children}</ConsentContext.Provider>;
   }
 
