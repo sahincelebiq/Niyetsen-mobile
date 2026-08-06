@@ -9,12 +9,17 @@ import {
   type SubscriptionInfo,
 } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import {
+  readCachedSubscription,
+  writeCachedSubscription,
+} from '@/lib/boot-cache';
 import { subscribeToPurchaseUpdates } from '@/lib/purchases';
 
 type SubscriptionContextValue = {
   status: SubscriptionInfo | null;
   loading: boolean;
   error: string | null;
+  offline: boolean;
   refresh: () => Promise<void>;
 };
 
@@ -29,6 +34,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [status, setStatus] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
   const previousStatus = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -46,19 +52,23 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
       previousStatus.current = next.status;
       setStatus(next);
+      setOffline(false);
+      void writeCachedSubscription(next);
       if (next.show_paywall) {
         void trackEvent('paywall_shown', { status: next.status });
       }
     } catch (value) {
       if (shouldUseLegacyFallback(value)) {
         setStatus(DEFAULT_SUBSCRIPTION);
+        setOffline(false);
+        setError(null);
         return;
       }
-      setError(
-        value instanceof ApiError
-          ? value.message
-          : 'Abonelik durumu yüklenemedi.',
-      );
+      const cached = await readCachedSubscription();
+      // FAZ 8.11.0: ağ yokken paywall / kilit ekranına düşürme — önbellek veya güvenli varsayılan.
+      setStatus(cached ?? DEFAULT_SUBSCRIPTION);
+      setOffline(true);
+      setError(null);
     } finally {
       setLoading(false);
     }
@@ -76,8 +86,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ status, loading, error, refresh }),
-    [status, loading, error, refresh],
+    () => ({ status, loading, error, offline, refresh }),
+    [status, loading, error, offline, refresh],
   );
 
   return (

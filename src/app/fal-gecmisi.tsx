@@ -15,7 +15,6 @@ import { ThemedText } from '@/components/themed-text';
 import {
   BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
 } from '@/constants/theme';
-import { useRequirePremium } from '@/hooks/use-premium-access';
 import { getFortuneHistory, type FortuneHistoryItem } from '@/lib/api';
 
 const TYPE_META: Record<FortuneHistoryItem['type'], { symbol: string; label: string }> = {
@@ -33,7 +32,6 @@ function formatDay(iso: string): string {
 
 export default function FortuneHistoryScreen() {
   const router = useRouter();
-  useRequirePremium();
   const scheme = useColorScheme();
   const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
   const [items, setItems] = useState<FortuneHistoryItem[] | null>(null);

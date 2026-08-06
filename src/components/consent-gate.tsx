@@ -174,6 +174,25 @@ export function ConsentGate({ children }: PropsWithChildren) {
     );
   }
 
+  // FAZ 8.11.0: ağ yok + cache yok → formu dayatma; nazik retry (crash yok).
+  if (error && !effectiveStatus && !cachedOk) {
+    return (
+      <ThemedView style={styles.center}>
+        <ThemedText themeColor="danger">{error}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+          Bağlantı kurulamadı — tekrar dene.
+        </ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={() => void load()}
+          style={{ minHeight: 44, justifyContent: 'center' }}>
+          <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+        </Pressable>
+      </ThemedView>
+    );
+  }
+
   if (effectiveStatus && hasCurrentDecisions(effectiveStatus) && contextValue) {
     return <ConsentContext.Provider value={contextValue}>{children}</ConsentContext.Provider>;
   }
@@ -264,7 +283,7 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   header: { gap: Spacing.two },
-  title: { fontSize: 36, lineHeight: 42 },
+  title: { fontSize: 32, lineHeight: 38 },
   card: {
     borderWidth: 1,
     borderRadius: Radii.large,

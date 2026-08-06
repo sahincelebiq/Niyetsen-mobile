@@ -18,7 +18,7 @@ import {
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Copy } from '@/constants/copy';
+import { useLocale } from '@/providers/locale-provider';
 import { CountUpText } from '@/components/count-up-text';
 import { ErrorBanner } from '@/components/error-banner';
 import { LeafConfetti } from '@/components/leaf-confetti';
@@ -66,6 +66,7 @@ type Outcome = { tone: 'success' | 'danger'; message: string };
 type DailyTask = Task & { plan_name: string };
 
 export default function DailyTasksScreen() {
+  const { t } = useLocale();
   const theme = useTheme();
   const router = useRouter();
   const { profile } = useProfile();
@@ -298,7 +299,7 @@ export default function DailyTasksScreen() {
             onDeviceAction={(action) => void runDeviceAction(task, action)}
             onLongPressEdit={() => {
               if (!isTaskEditable(task)) {
-                showAlert(Copy.plan.taskActionsTitle, Copy.plan.notEditable);
+                showAlert(t.plan.taskActionsTitle, t.plan.notEditable);
                 return;
               }
               setEditTarget({ task });
@@ -308,7 +309,7 @@ export default function DailyTasksScreen() {
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission, tasks],
+    [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission, tasks, t],
   );
 
   const doneCount = tasks.filter((t) => t.status === 'done').length;
@@ -317,8 +318,8 @@ export default function DailyTasksScreen() {
   const listHeader = (
     <View style={styles.headerBlock}>
       <ScreenHeader
-        title={Copy.daily.title}
-        subtitle={Copy.daily.subtitle}
+        title={t.daily.title}
+        subtitle={t.daily.subtitle}
         trailing={
           <Pressable
             accessibilityRole="link"
@@ -350,8 +351,8 @@ export default function DailyTasksScreen() {
       {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
       {!loading && !error && tasks.length === 0 ? (
         <SurfaceCard elevated>
-          <ThemedText type="subtitle">{Copy.daily.emptyTitle}</ThemedText>
-          <ThemedText themeColor="textSecondary">{Copy.daily.emptyBody}</ThemedText>
+          <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
+          <ThemedText themeColor="textSecondary">{t.daily.emptyBody}</ThemedText>
           {needsExtension ? (
             <Pressable
               accessibilityRole="button"
@@ -365,7 +366,7 @@ export default function DailyTasksScreen() {
                 <ActivityIndicator color={theme.onAccent} />
               ) : (
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  {Copy.daily.extendCta}
+                  {t.daily.extendCta}
                 </ThemedText>
               )}
             </Pressable>
@@ -384,7 +385,7 @@ export default function DailyTasksScreen() {
             <ThemedText
               type="smallBold"
               style={{ color: needsExtension ? theme.text : theme.onAccent }}>
-              {Copy.daily.emptyCta}
+              {t.daily.emptyCta}
             </ThemedText>
           </Pressable>
         </SurfaceCard>
@@ -506,6 +507,7 @@ const TaskCard = memo(function TaskCard({
   onLongPressEdit: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const pending = task.status === 'pending';
   const willpowerTask = supportsWillpowerReminder(task);
   const celebrate = outcome?.tone === 'success' || task.status === 'done';
@@ -586,7 +588,7 @@ const TaskCard = memo(function TaskCard({
             </View>
             {!!task.tiny_version && (
               <ThemedText themeColor="textSecondary">
-                {Copy.daily.tinyPrefix}: {task.tiny_version}
+                {t.daily.tinyPrefix}: {task.tiny_version}
               </ThemedText>
             )}
             {outcome ? (
@@ -602,7 +604,7 @@ const TaskCard = memo(function TaskCard({
             {pending ? (
               <View style={styles.actions}>
                 <TaskButton
-                  label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : Copy.daily.addProof}
+                  label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : t.daily.addProof}
                   primary
                   busy={busy === `proof:${task.id}`}
                   onPress={onOpenCamera}

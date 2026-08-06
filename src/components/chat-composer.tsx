@@ -6,9 +6,9 @@ import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset, Fonts, MaxContentWidth, Radii, Shadows, Spacing,
 } from '@/constants/theme';
-import { Copy } from '@/constants/copy';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 export type PendingAttachment = {
   filename: string;
@@ -41,6 +41,7 @@ export function ChatComposer({
   attaching = false,
 }: ChatComposerProps) {
   const theme = useTheme();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   const keyboardOpen = keyboardHeight > 0;
@@ -94,7 +95,7 @@ export function ChatComposer({
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            placeholder={Copy.chat.inputPlaceholder}
+            placeholder={t.chat.inputPlaceholder}
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline

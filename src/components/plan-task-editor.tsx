@@ -15,7 +15,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Copy } from '@/constants/copy';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,6 +37,7 @@ import {
   todayIsoLocal,
 } from '@/lib/plan-dates';
 import { showAlert, showConfirm } from '@/lib/web-alert';
+import { useLocale } from '@/providers/locale-provider';
 
 type SheetMode = 'actions' | 'move' | 'edit' | 'add' | null;
 
@@ -89,6 +89,7 @@ export function isTaskEditable(
 
 export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTaskEditorProps) {
   const theme = useTheme();
+  const { t } = useLocale();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const visible = target !== null || !!addDate;
@@ -166,9 +167,9 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
 
   function confirmDelete() {
     if (!target) return;
-    showConfirm(Copy.plan.deleteConfirmTitle, Copy.plan.deleteConfirmBody, {
-      cancelLabel: Copy.plan.cancel,
-      confirmLabel: Copy.plan.deleteConfirmAction,
+    showConfirm(t.plan.deleteConfirmTitle, t.plan.deleteConfirmBody, {
+      cancelLabel: t.plan.cancel,
+      confirmLabel: t.plan.deleteConfirmAction,
       onConfirm: () => {
         void run(async () => {
           await deletePlanTask(target.task.id);
@@ -181,7 +182,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
     if (!target) return;
     const title = titleDraft.trim();
     if (!title) {
-      showAlert(Copy.plan.editTitle, 'Başlık boş olamaz.');
+      showAlert(t.plan.editTitle, t.plan.titleRequired);
       return;
     }
     void run(async () => {
@@ -192,7 +193,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
   function saveMove() {
     if (!target) return;
     if (isPastIso(selectedDate, today)) {
-      showAlert(Copy.plan.moveTitle, Copy.plan.pastDayBlocked);
+      showAlert(t.plan.moveTitle, t.plan.pastDayBlocked);
       return;
     }
     void run(async () => {
@@ -204,11 +205,11 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
     if (!addDate) return;
     const title = titleDraft.trim();
     if (!title) {
-      showAlert(Copy.plan.addTaskTitle, 'Başlık boş olamaz.');
+      showAlert(t.plan.addTaskTitle, t.plan.titleRequired);
       return;
     }
     if (isPastIso(addDate, today)) {
-      showAlert(Copy.plan.addTaskTitle, Copy.plan.pastDayBlocked);
+      showAlert(t.plan.addTaskTitle, t.plan.pastDayBlocked);
       return;
     }
     const body: TaskCreateRequest = {
@@ -247,38 +248,38 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
           ]}>
           {mode === 'actions' && target ? (
             <>
-              <ThemedText type="subtitle">{Copy.plan.taskActionsTitle}</ThemedText>
+              <ThemedText type="subtitle">{t.plan.taskActionsTitle}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
                 {target.task.title}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {Copy.plan.taskActionsHint}
+                {t.plan.taskActionsHint}
               </ThemedText>
               <ActionRow
-                label={Copy.plan.move}
+                label={t.plan.move}
                 onPress={() => setMode('move')}
                 disabled={busy}
               />
               <ActionRow
-                label={Copy.plan.edit}
+                label={t.plan.edit}
                 onPress={() => setMode('edit')}
                 disabled={busy}
               />
               <ActionRow
-                label={Copy.plan.delete}
+                label={t.plan.delete}
                 tone="danger"
                 onPress={confirmDelete}
                 disabled={busy}
               />
-              <ActionRow label={Copy.plan.cancel} muted onPress={close} disabled={busy} />
+              <ActionRow label={t.plan.cancel} muted onPress={close} disabled={busy} />
             </>
           ) : null}
 
           {mode === 'move' ? (
             <>
-              <ThemedText type="subtitle">{Copy.plan.moveTitle}</ThemedText>
+              <ThemedText type="subtitle">{t.plan.moveTitle}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {Copy.plan.moveHint}
+                {t.plan.moveHint}
               </ThemedText>
               <DateGrid
                 year={cursor.year}
@@ -305,20 +306,20 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
                 Seçili: {formatTrDate(selectedDate)}
               </ThemedText>
               <PrimaryButton label="Taşı" busy={busy} onPress={saveMove} />
-              <ActionRow label={Copy.plan.cancel} muted onPress={() => setMode('actions')} disabled={busy} />
+              <ActionRow label={t.plan.cancel} muted onPress={() => setMode('actions')} disabled={busy} />
             </>
           ) : null}
 
           {mode === 'edit' ? (
             <>
-              <ThemedText type="subtitle">{Copy.plan.editTitle}</ThemedText>
+              <ThemedText type="subtitle">{t.plan.editTitle}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {Copy.plan.editHint}
+                {t.plan.editHint}
               </ThemedText>
               <TextInput
                 value={titleDraft}
                 onChangeText={setTitleDraft}
-                placeholder={Copy.plan.titlePlaceholder}
+                placeholder={t.plan.titlePlaceholder}
                 placeholderTextColor={theme.textSecondary}
                 maxLength={200}
                 autoFocus
@@ -332,16 +333,16 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
                   },
                 ]}
               />
-              <PrimaryButton label={Copy.plan.save} busy={busy} onPress={saveTitle} />
-              <ActionRow label={Copy.plan.cancel} muted onPress={() => setMode('actions')} disabled={busy} />
+              <PrimaryButton label={t.plan.save} busy={busy} onPress={saveTitle} />
+              <ActionRow label={t.plan.cancel} muted onPress={() => setMode('actions')} disabled={busy} />
             </>
           ) : null}
 
           {mode === 'add' ? (
             <>
-              <ThemedText type="subtitle">{Copy.plan.addTaskTitle}</ThemedText>
+              <ThemedText type="subtitle">{t.plan.addTaskTitle}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {Copy.plan.addTaskHint}
+                {t.plan.addTaskHint}
               </ThemedText>
               {addDate ? (
                 <ThemedText type="smallBold" themeColor="tint">
@@ -351,7 +352,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
               <TextInput
                 value={titleDraft}
                 onChangeText={setTitleDraft}
-                placeholder={Copy.plan.titlePlaceholder}
+                placeholder={t.plan.titlePlaceholder}
                 placeholderTextColor={theme.textSecondary}
                 maxLength={200}
                 autoFocus
@@ -365,8 +366,8 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
                   },
                 ]}
               />
-              <PrimaryButton label={Copy.plan.addTaskAction} busy={busy} onPress={saveAdd} />
-              <ActionRow label={Copy.plan.cancel} muted onPress={close} disabled={busy} />
+              <PrimaryButton label={t.plan.addTaskAction} busy={busy} onPress={saveAdd} />
+              <ActionRow label={t.plan.cancel} muted onPress={close} disabled={busy} />
             </>
           ) : null}
         </View>

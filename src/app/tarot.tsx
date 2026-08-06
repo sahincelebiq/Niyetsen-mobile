@@ -11,7 +11,6 @@ import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, drawTarot, getFortuneRights, type TarotDraw } from '@/lib/api';
 import { useProfile } from '@/providers/profile-provider';
@@ -20,7 +19,6 @@ export default function TarotScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
-  useRequirePremium();
   const [busy, setBusy] = useState(false);
   const [draw, setDraw] = useState<TarotDraw | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -12,27 +12,29 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { BottomTabInset, MaxContentWidth, Shadows, Spacing } from '@/constants/theme';
+import { useI18n } from '@/providers/locale-provider';
 
 export default function AppTabs() {
+  const { t } = useI18n();
   return (
     <Tabs>
       <TabSlot style={{ height: '100%', paddingBottom: BottomTabInset }} />
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
-            <TabButton>Sohbet</TabButton>
+            <TabButton>{t.tabs.chat}</TabButton>
           </TabTrigger>
           <TabTrigger name="daily" href="/daily" asChild>
-            <TabButton>Bugün</TabButton>
+            <TabButton>{t.tabs.today}</TabButton>
           </TabTrigger>
           <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Planım</TabButton>
+            <TabButton>{t.tabs.plan}</TabButton>
           </TabTrigger>
           <TabTrigger name="rank" href="/rank" asChild>
-            <TabButton>Zincir</TabButton>
+            <TabButton>{t.tabs.chain}</TabButton>
           </TabTrigger>
           <TabTrigger name="settings" href="/settings" asChild>
-            <TabButton>Profil</TabButton>
+            <TabButton>{t.tabs.profile}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>

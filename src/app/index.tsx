@@ -29,7 +29,7 @@ import { ChatHistorySheet } from '@/components/project-sheets';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Copy } from '@/constants/copy';
+import { useLocale } from '@/providers/locale-provider';
 import {
   MaxContentWidth,
   Motion,
@@ -104,6 +104,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
 });
 
 export default function ChatScreen() {
+  const { t } = useLocale();
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -382,7 +383,7 @@ export default function ChatScreen() {
         return;
       }
       if (e instanceof ApiError && e.status === 409) {
-        setError(Copy.plan.alreadyExists);
+        setError(t.plan.alreadyExists);
         setPlanHasContent(true);
         setReadyForPlan(false);
         return;
@@ -452,7 +453,7 @@ export default function ChatScreen() {
             <ActivityIndicator size="small" color={theme.onAccent} />
           ) : (
             <ThemedText style={{ color: theme.onAccent }} type="smallBold">
-              {Copy.chat.planCta}
+              {t.chat.planCta}
             </ThemedText>
           )}
         </Pressable>
@@ -512,8 +513,8 @@ export default function ChatScreen() {
 
             {showQuickReplies ? (
               <ChatQuickReplies
-                invite={showEmptyInvite ? Copy.chat.emptyInvite : undefined}
-                suggestions={dynamicSuggestions ?? Copy.chat.suggestions}
+                invite={showEmptyInvite ? t.chat.emptyInvite : undefined}
+                suggestions={dynamicSuggestions ?? t.chat.suggestions}
                 onSelect={(label) => {
                   if (dynamicSuggestions) {
                     // Dinamik çip = hazır cevap: tek dokunuşla gönder.

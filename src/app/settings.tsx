@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
-import { ProBadge } from '@/components/pro-badge';
+import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -24,6 +24,8 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph, zodiacFromBirthDate, zodiacLabel } from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
+import { regionById } from '@/i18n/regions';
+import type { RegionId } from '@/i18n/types';
 import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
 import type { LegalDocumentId } from '@/constants/legal';
@@ -41,12 +43,14 @@ import {
 import { restorePurchases } from '@/lib/purchases';
 import { useAuth } from '@/providers/auth-provider';
 import { useAppearance } from '@/providers/appearance-provider';
+import { useI18n } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const appearance = useAppearance();
+  const { t, regionId, setRegion, timezone, locale } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const auth = useAuth();
@@ -115,16 +119,42 @@ export default function SettingsScreen() {
       await updateProfile({
         name: name.trim(),
         birth_date: isoBirthDate,
-        timezone: profile.timezone,
+        timezone,
+        preferred_language: locale,
         notif_hour: notifTime.hour,
         notif_minute: notifTime.minute,
         irade_modu_active: iradeMode,
         gender,
       });
       await refresh();
-      setMessage('Ayarların kaydedildi.');
+      setMessage(t.common.done);
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Ayarlar kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.common.errorGeneric);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function changeRegion(next: RegionId) {
+    await setRegion(next);
+    if (!profile?.name || !profile.birth_date) return;
+    setBusy('locale');
+    setError(null);
+    try {
+      const region = regionById(next);
+      await updateProfile({
+        name: profile.name,
+        birth_date: profile.birth_date,
+        timezone: region.timezone,
+        preferred_language: region.locale,
+        notif_hour: profile.notif_hour ?? 8,
+        notif_minute: profile.notif_minute ?? 0,
+        irade_modu_active: profile.irade_modu_active ?? false,
+        gender: profile.gender,
+      });
+      await refresh();
+    } catch (value) {
+      setError(value instanceof Error ? value.message : t.common.errorGeneric);
     } finally {
       setBusy(null);
     }
@@ -170,7 +200,8 @@ export default function SettingsScreen() {
       await updateProfile({
         name: profile.name,
         birth_date: profile.birth_date,
-        timezone: profile.timezone,
+        timezone,
+        preferred_language: locale,
         notif_hour: profile.notif_hour ?? 8,
         notif_minute: profile.notif_minute ?? 0,
         irade_modu_active: nextValue,
@@ -179,7 +210,7 @@ export default function SettingsScreen() {
       await refresh();
     } catch (value) {
       setIradeMode(!nextValue);
-      setError(value instanceof Error ? value.message : 'İrade Modu kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.common.errorGeneric);
     } finally {
       setBusy(null);
     }
@@ -298,7 +329,7 @@ export default function SettingsScreen() {
                       key={option}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
-                      accessibilityLabel={option}
+                      accessibilityLabel={t.gender[option]}
                       onPress={() => setGender(option)}
                       style={({ pressed }) => [
                         styles.genderChip,
@@ -313,7 +344,7 @@ export default function SettingsScreen() {
                       <ThemedText
                         type="smallBold"
                         themeColor={selected ? 'tint' : 'text'}>
-                        {option}
+                        {t.gender[option]}
                       </ThemedText>
                     </Pressable>
                   );
@@ -328,7 +359,7 @@ export default function SettingsScreen() {
             {error && <ThemedText themeColor="danger">{error}</ThemedText>}
             {message && <ThemedText themeColor="success">{message}</ThemedText>}
             <ActionButton
-              label="Kaydet"
+              label={t.common.save}
               busy={busy === 'save'}
               onPress={() => void save()}
             />
@@ -408,19 +439,19 @@ export default function SettingsScreen() {
             <View style={styles.toggleRow}>
               <View style={styles.toggleCopy}>
                 <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-                  GÖRÜNÜM
+                  {t.profile.appearance}
                 </ThemedText>
                 <ThemedText themeColor="textSecondary">
-                  {appearance.isDark ? 'Karanlık' : 'Açık'}
+                  {appearance.isDark ? t.profile.dark : t.profile.light}
                 </ThemedText>
               </View>
               <View style={styles.themeSwitchWrap}>
                 <ThemedText type="smallBold" themeColor="textSecondary">
-                  {appearance.isDark ? 'Karanlık' : 'Açık'}
+                  {appearance.isDark ? t.profile.dark : t.profile.light}
                 </ThemedText>
                 <Switch
-                  accessibilityLabel="Karanlık mod"
-                  accessibilityHint="Açık ve karanlık tema arasında geçer"
+                  accessibilityLabel={t.profile.dark}
+                  accessibilityHint={t.profile.appearance}
                   value={appearance.isDark}
                   onValueChange={(value) => appearance.toggleDark(value)}
                   trackColor={{ false: theme.border, true: theme.tint }}
@@ -428,6 +459,22 @@ export default function SettingsScreen() {
                 />
               </View>
             </View>
+          </ThemedView>
+
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.card, { borderColor: theme.border }]}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+              {t.profile.language}
+            </ThemedText>
+            <RegionLanguageSheet
+              value={regionId}
+              onChange={(id) => void changeRegion(id)}
+              busy={busy === 'locale'}
+            />
+            {busy === 'locale' ? (
+              <ActivityIndicator color={theme.tint} style={{ marginTop: Spacing.two }} />
+            ) : null}
           </ThemedView>
 
           <ThemedView
@@ -550,22 +597,14 @@ export default function SettingsScreen() {
             <ThemedText style={styles.mysticCardGlyph}>☾</ThemedText>
             <View style={styles.mysticCardCopy}>
               <View style={styles.mysticTitleRow}>
-                <ThemedText type="smallBold">Mistik Keşif</ThemedText>
-                {subscriptionStatus?.status !== 'trial'
-                  && subscriptionStatus?.status !== 'active' ? <ProBadge /> : null}
+                <ThemedText type="smallBold">{t.profile.mystic}</ThemedText>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
-                {subscriptionStatus?.status === 'trial'
-                  || subscriptionStatus?.status === 'active'
-                  ? 'Tarot, burç ve fal — dokunarak aç'
-                  : 'PRO ile tarot, burç ve fal açılır'}
+                {t.profile.mysticHintFree}
               </ThemedText>
             </View>
             <ThemedText type="smallBold" themeColor="tint">
-              {subscriptionStatus?.status === 'trial'
-                || subscriptionStatus?.status === 'active'
-                ? 'Aç →'
-                : 'PRO'}
+              {t.profile.open}
             </ThemedText>
           </Pressable>
 

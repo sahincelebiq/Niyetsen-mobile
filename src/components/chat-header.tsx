@@ -3,9 +3,9 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
-import { Copy } from '@/constants/copy';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type ChatHeaderProps = {
   streakDays: number;
@@ -29,6 +29,7 @@ export function ChatHeader({
   onSecretGesture,
 }: ChatHeaderProps) {
   const theme = useTheme();
+  const { t } = useLocale();
   const showTrial =
     typeof trialDaysRemaining === 'number' &&
     trialDaysRemaining > 0 &&
@@ -55,9 +56,9 @@ export function ChatHeader({
           accessibilityRole="header"
           delayLongPress={700}
           onLongPress={onSecretGesture}>
-          <ThemedText type="screenTitle">{Copy.chat.title}</ThemedText>
+          <ThemedText type="screenTitle">{t.chat.title}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {Copy.chat.subtitle}
+            {t.chat.subtitle}
           </ThemedText>
         </Pressable>
         <View style={styles.rightCluster} pointerEvents="box-none">
@@ -121,9 +122,9 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   mysticButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 4,

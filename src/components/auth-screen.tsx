@@ -13,18 +13,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RegionPicker } from '@/components/region-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
 import { useAuth } from '@/providers/auth-provider';
+import { useI18n } from '@/providers/locale-provider';
 
 type Mode = 'sign-in' | 'sign-up';
 
 export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
+  const { t, regionId, setRegion } = useI18n();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +42,7 @@ export function AuthScreen() {
     try {
       await action();
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Giriş işlemi başarısız.');
+      setError(value instanceof Error ? value.message : t.common.errorGeneric);
     } finally {
       setBusy(null);
     }
@@ -47,18 +50,18 @@ export function AuthScreen() {
 
   function submitEmail() {
     if ((!auth.recovery && !email.trim()) || password.length < 6) {
-      setError('Geçerli bir e-posta ve en az 6 karakterli şifre gir.');
+      setError(t.auth.invalidCredentials);
       return;
     }
     void run('email', async () => {
       if (auth.recovery) {
         await auth.updatePassword(password);
-        setMessage('Şifren güncellendi.');
+        setMessage(t.auth.passwordUpdated);
       } else if (mode === 'sign-in') {
         await auth.signInWithEmail(email.trim(), password);
       } else {
         await auth.signUpWithEmail(email.trim(), password);
-        setMessage('Doğrulama bağlantısı e-posta adresine gönderildi.');
+        setMessage(t.auth.verifySent);
       }
     });
   }
@@ -80,19 +83,28 @@ export function AuthScreen() {
               />
               <ThemedText type="title">Niyetsen</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.center}>
-                Niyetini görünür bir plana, planını kalıcı bir zincire dönüştür.
+                {t.auth.hero}
               </ThemedText>
             </View>
 
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                {t.auth.languageRegion}
+              </ThemedText>
+              <RegionPicker
+                compact
+                value={regionId}
+                onChange={(id) => void setRegion(id)}
+              />
+
               <ThemedText type="subtitle">
                 {auth.recovery
-                  ? 'Yeni şifreni belirle'
+                  ? t.auth.newPassword
                   : mode === 'sign-in'
-                    ? 'Tekrar hoş geldin'
-                    : 'Yolculuğunu başlat'}
+                    ? t.auth.welcomeBack
+                    : t.auth.startJourney}
               </ThemedText>
 
               {!auth.recovery && (
@@ -101,7 +113,7 @@ export function AuthScreen() {
                   autoComplete="email"
                   inputMode="email"
                   keyboardType="email-address"
-                  placeholder="E-posta"
+                  placeholder={t.auth.email}
                   placeholderTextColor={theme.textSecondary}
                   value={email}
                   onChangeText={setEmail}
@@ -122,7 +134,7 @@ export function AuthScreen() {
                     ? 'current-password'
                     : 'new-password'
                 }
-                placeholder="Şifre"
+                placeholder={t.auth.password}
                 placeholderTextColor={theme.textSecondary}
                 secureTextEntry
                 value={password}
@@ -144,10 +156,10 @@ export function AuthScreen() {
               <AuthButton
                 label={
                   auth.recovery
-                    ? 'Şifreyi Güncelle'
+                    ? t.common.save
                     : mode === 'sign-in'
-                      ? 'Giriş Yap'
-                      : 'Hesap Oluştur'
+                      ? t.auth.signIn
+                      : t.auth.signUp
                 }
                 busy={busy === 'email'}
                 onPress={submitEmail}
@@ -198,8 +210,8 @@ export function AuthScreen() {
                     }}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
                       {mode === 'sign-in'
-                        ? 'Hesabın yok mu? Kayıt ol'
-                        : 'Zaten hesabın var mı? Giriş yap'}
+                        ? t.auth.switchToSignUp
+                        : t.auth.switchToSignIn}
                     </ThemedText>
                   </Pressable>
                 </>

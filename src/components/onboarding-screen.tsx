@@ -18,6 +18,7 @@ import {
   ConsentChoicesValue,
   EMPTY_CONSENT_CHOICES,
 } from '@/components/consent-choices';
+import { RegionPicker } from '@/components/region-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
@@ -28,20 +29,14 @@ import {
   isValidBirthDateDisplay,
 } from '@/lib/birth-date';
 import { trackEvent } from '@/lib/analytics';
+import { useI18n } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
-type OnboardingStepId = 'name' | 'gender' | 'birth' | 'notif' | 'consent';
-
-const ALL_STEPS: { id: OnboardingStepId; title: string }[] = [
-  { id: 'name', title: 'Sana nasıl hitap edelim?' },
-  { id: 'gender', title: 'Cinsiyetin (isteğe bağlı)' },
-  { id: 'birth', title: 'Doğum tarihin' },
-  { id: 'notif', title: 'Hatırlatma saatin' },
-  { id: 'consent', title: 'Gizlilik ve tercihler' },
-];
+type OnboardingStepId = 'region' | 'name' | 'gender' | 'birth' | 'notif' | 'consent';
 
 export function OnboardingScreen() {
   const theme = useTheme();
+  const { t, regionId, setRegion, timezone, locale } = useI18n();
   const { profile, refresh } = useProfile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -51,22 +46,19 @@ export function OnboardingScreen() {
   const [consents, setConsents] = useState<ConsentChoicesValue>(EMPTY_CONSENT_CHOICES);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timezone = useMemo(() => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
-    } catch {
-      return 'Europe/Istanbul';
-    }
-  }, []);
 
-  // Cinsiyet zaten kayıtlıysa bu adımı sorma (B6 — tekrar sorma).
-  const steps = useMemo(
-    () =>
-      profile?.gender
-        ? ALL_STEPS.filter((item) => item.id !== 'gender')
-        : ALL_STEPS,
-    [profile?.gender],
-  );
+  const steps = useMemo(() => {
+    const all: { id: OnboardingStepId; title: string }[] = [
+      { id: 'region', title: t.onboarding.regionTitle },
+      { id: 'name', title: t.onboarding.nameTitle },
+      { id: 'gender', title: t.onboarding.genderTitle },
+      { id: 'birth', title: t.onboarding.birthTitle },
+      { id: 'notif', title: t.onboarding.notifTitle },
+      { id: 'consent', title: t.onboarding.consentTitle },
+    ];
+    // Cinsiyet zaten kayıtlıysa bu adımı sorma (B6 — tekrar sorma).
+    return profile?.gender ? all.filter((item) => item.id !== 'gender') : all;
+  }, [profile?.gender, t]);
   const current = steps[step] ?? steps[0];
 
   useEffect(() => {
@@ -79,16 +71,16 @@ export function OnboardingScreen() {
   }, [steps.length]);
 
   function validateCurrent() {
-    if (current.id === 'name' && !name.trim()) return 'İsmini yazmalısın.';
+    if (current.id === 'name' && !name.trim()) return t.onboarding.nameRequired;
     // cinsiyet atlanabilir — zorunlu değil.
     if (current.id === 'birth' && !isValidBirthDateDisplay(birthDate)) {
-      return 'Tarihi gün.ay.yıl olarak yaz (ör. 10.04.1995).';
+      return t.onboarding.birthInvalid;
     }
     if (current.id === 'notif' && notifTime.hour === undefined) {
-      return 'Bildirim saati seçmelisin.';
+      return t.onboarding.notifRequired;
     }
     if (current.id === 'consent' && !consents.privacy) {
-      return 'Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.';
+      return t.onboarding.consentRequired;
     }
     return null;
   }
@@ -108,7 +100,7 @@ export function OnboardingScreen() {
     try {
       const isoBirthDate = birthDateIsoFromDisplay(birthDate);
       if (!isoBirthDate) {
-        setError('Geçerli bir doğum tarihi gir.');
+        setError(t.onboarding.birthSaveInvalid);
         setBusy(false);
         return;
       }
@@ -116,6 +108,7 @@ export function OnboardingScreen() {
         name: name.trim(),
         birth_date: isoBirthDate,
         timezone,
+        preferred_language: locale,
         notif_hour: notifTime.hour,
         notif_minute: notifTime.minute,
         kvkk_consent: true,
@@ -131,7 +124,7 @@ export function OnboardingScreen() {
       await refresh();
       void trackEvent('onboarding_complete');
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Profil kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.onboarding.profileSaveFailed);
     } finally {
       setBusy(false);
     }
@@ -164,6 +157,17 @@ export function OnboardingScreen() {
               <ThemedText type="subtitle" style={styles.stepTitle}>
                 {current.title}
               </ThemedText>
+              {current.id === 'region' && (
+                <>
+                  <ThemedText themeColor="textSecondary">
+                    {t.onboarding.regionHint}
+                  </ThemedText>
+                  <RegionPicker
+                    value={regionId}
+                    onChange={(id) => void setRegion(id)}
+                  />
+                </>
+              )}
               {current.id === 'name' && (
                 <>
                   <ThemedText themeColor="textSecondary">
@@ -198,7 +202,7 @@ export function OnboardingScreen() {
                             },
                           ]}>
                           <ThemedText type="smallBold" themeColor={selected ? 'tint' : 'text'}>
-                            {option}
+                            {t.gender[option]}
                           </ThemedText>
                         </Pressable>
                       );
@@ -250,7 +254,7 @@ export function OnboardingScreen() {
                   <Pressable
                     hitSlop={12}
                     onPress={() => setStep((value) => value - 1)}>
-                    <ThemedText themeColor="tint">Geri</ThemedText>
+                    <ThemedText themeColor="tint">{t.common.back}</ThemedText>
                   </Pressable>
                 )}
                 <Pressable
@@ -266,7 +270,7 @@ export function OnboardingScreen() {
                     <ThemedText
                       type="smallBold"
                       style={{ color: theme.onAccent }}>
-                      {step === steps.length - 1 ? 'Niyetini Yazmaya Başla' : 'Devam'}
+                      {step === steps.length - 1 ? t.common.done : t.common.continue}
                     </ThemedText>
                   )}
                 </Pressable>

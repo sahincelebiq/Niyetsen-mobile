@@ -26,7 +26,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
+import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 
 import { sproutGlyph } from '@/components/streak-pill';
@@ -45,6 +45,23 @@ function streakDaysFromHeadline(headline: string): number {
   return match ? Number(match[1]) : 0;
 }
 
+function journeyEndDay(headline: string): number {
+  const match = headline.match(/Gün\s*(\d+)\s*$/i) || headline.match(/→\s*Gün\s*(\d+)/i);
+  if (match) return Number(match[1]);
+  const any = headline.match(/(\d+)/g);
+  return any?.length ? Number(any[any.length - 1]) : 1;
+}
+
+function traitPeriodCount(subtitle: string): number | null {
+  const match = subtitle.match(/Bu dönem\s+(\d+)\s+görev/i);
+  return match ? Number(match[1]) : null;
+}
+
+function multiPlanCount(subtitle: string): number | null {
+  const match = subtitle.match(/(\d+)\s+niyeti birden/i);
+  return match ? Number(match[1]) : null;
+}
+
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -61,7 +78,7 @@ export default function RecapScreen() {
   const progress = useSharedValue(0);
   const advanceAtRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remainingMsRef = useRef(STORY_MS);
-  const shotRef = useRef<ViewShotRef>(null);
+  const shotRef = useRef<ViewShot>(null);
 
   const load = useCallback(async (nextPeriod: RecapPeriod = period) => {
     setError(null);
@@ -344,6 +361,9 @@ export default function RecapScreen() {
 function StoryCardBody({ card }: { card: RecapCard }) {
   const theme = useTheme();
   const streakDays = streakDaysFromHeadline(card.headline);
+  const journeyDay = card.kind === 'journey' ? journeyEndDay(card.headline) : 1;
+  const periodCount = card.kind === 'trait' ? traitPeriodCount(card.subtitle) : null;
+  const planCount = card.kind === 'intro' ? multiPlanCount(card.subtitle) : null;
 
   return (
     <View style={styles.cardBody}>
@@ -351,11 +371,46 @@ function StoryCardBody({ card }: { card: RecapCard }) {
         {card.title}
       </ThemedText>
 
+      {card.kind === 'intro' && planCount && planCount > 1 ? (
+        <View
+          style={[
+            styles.planBadge,
+            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+          ]}>
+          <ThemedText type="smallBold" themeColor="tint">
+            {planCount} niyet
+          </ThemedText>
+        </View>
+      ) : null}
+
       {card.kind === 'trait' && (
-        <View style={styles.traitBadge}>
+        <View style={styles.traitRow}>
           <CategoryBadge label={card.headline} />
+          {periodCount != null ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {periodCount} görev bu dönem
+            </ThemedText>
+          ) : null}
         </View>
       )}
+
+      {card.kind === 'journey' ? (
+        <View style={styles.journeyTrack}>
+          <View style={styles.journeyRow}>
+            <View style={[styles.journeyDot, { backgroundColor: theme.tint }]} />
+            <View style={[styles.journeyLine, { backgroundColor: theme.border }]} />
+            <View style={[styles.journeyDot, { backgroundColor: theme.accentWarm }]} />
+          </View>
+          <View style={styles.journeyLabels}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              Gün 1
+            </ThemedText>
+            <ThemedText type="smallBold" themeColor="tint">
+              Gün {journeyDay}
+            </ThemedText>
+          </View>
+        </View>
+      ) : null}
 
       {card.kind === 'streak' && (
         <ThemedText style={styles.sproutEmoji}>{sproutGlyph(streakDays)}</ThemedText>
@@ -449,9 +504,46 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cardTitle: { textTransform: 'uppercase', letterSpacing: 1.2 },
-  traitBadge: { marginBottom: Spacing.one },
+  planBadge: {
+    borderWidth: 1,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
+  traitRow: {
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginBottom: Spacing.one,
+  },
+  journeyTrack: {
+    width: '88%',
+    maxWidth: 280,
+    gap: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  journeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  journeyLine: {
+    flex: 1,
+    height: 2,
+    borderRadius: Radii.pill,
+    marginHorizontal: Spacing.one,
+  },
+  journeyDot: {
+    width: 12,
+    height: 12,
+    borderRadius: Radii.pill,
+  },
+  journeyLabels: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   sproutEmoji: { fontSize: 56, lineHeight: 64, textAlign: 'center' },
-  headline: { fontSize: 44, lineHeight: 52, fontWeight: '700', textAlign: 'center' },
+  headline: { fontSize: 32, lineHeight: 38, fontWeight: '700', textAlign: 'center' },
   subtitle: { textAlign: 'center', fontSize: 16, lineHeight: 24 },
   shareBtn: {
     position: 'absolute',

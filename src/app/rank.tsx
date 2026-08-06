@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 
-import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
 import { ProBadge } from '@/components/pro-badge';
 import { ScreenScaffold } from '@/components/screen-scaffold';
@@ -28,6 +27,7 @@ import {
 } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 import {
   ApiError,
   CATEGORIES,
@@ -42,6 +42,7 @@ function isSproutMilestone(days: number): boolean {
 
 export default function RankScreen() {
   const theme = useTheme();
+  const { t } = useLocale();
   const router = useRouter();
   const { hasPremium } = usePremiumAccess();
   const [state, setState] = useState<StateResponse | null>(null);
@@ -91,8 +92,8 @@ export default function RankScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
         }>
         <ScreenHeader
-          title={Copy.chain.title}
-          subtitle={Copy.chain.subtitle}
+          title={t.chain.title}
+          subtitle={t.chain.subtitle}
           trailing={
             state && !loading ? <StreakPill streakDays={state.streak_len} /> : undefined
           }
@@ -111,10 +112,7 @@ export default function RankScreen() {
                   hasPremium ? undefined : 'PRO abonelik gerekir'
                 }
                 onPress={() => {
-                  if (!hasPremium) {
-                    router.push('/paywall' as Href);
-                    return;
-                  }
+                  // Kapı içeride: free de /rapor'a gider (kilitli önizleme + CTA).
                   router.push('/rapor' as Href);
                 }}
                 style={[
@@ -127,18 +125,18 @@ export default function RankScreen() {
                 <View style={styles.recapBannerCopy}>
                   <View style={styles.recapTitleRow}>
                     <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                      Raporun hazır
+                      {t.chain.reportReady}
                     </ThemedText>
                     {!hasPremium ? <ProBadge /> : null}
                   </View>
                   <ThemedText type="small" themeColor="textSecondary">
                     {hasPremium
-                      ? 'Son günlerinin hikâyesini story olarak gör'
-                      : 'PRO ile story raporunu aç'}
+                      ? t.chain.reportReadyHint
+                      : t.chain.reportProHint}
                   </ThemedText>
                 </View>
                 <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                  {hasPremium ? 'Aç →' : 'PRO'}
+                  {hasPremium ? t.chain.reportOpen : 'PRO'}
                 </ThemedText>
               </Pressable>
             )}
@@ -149,7 +147,7 @@ export default function RankScreen() {
                 milestoneGlow ? Shadows.clay ?? {} : Shadows.soft ?? {},
               ]}>
               <ThemedText type="smallBold" style={[styles.heroLabel, { color: theme.onAccent }]}>
-                {Copy.chain.heroLabel.toUpperCase()}
+                {t.chain.heroLabel.toUpperCase()}
               </ThemedText>
               <View style={styles.heroRow}>
                 <View style={[styles.sproutRing, { borderColor: theme.onAccent }]}>
@@ -168,13 +166,13 @@ export default function RankScreen() {
                 </View>
               </View>
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
-                {Copy.chain.heroHint}
+                {t.chain.heroHint}
               </ThemedText>
             </View>
 
             <SurfaceCard>
               <ThemedText type="smallBold" themeColor="textSecondary">
-                {Copy.chain.overallRank}
+                {t.chain.overallRank}
               </ThemedText>
               <ThemedText type="title" style={styles.centerText}>
                 {state.overall_rank}
@@ -186,9 +184,9 @@ export default function RankScreen() {
             </SurfaceCard>
 
             <View style={styles.sectionHeader}>
-              <ThemedText type="subtitle">{Copy.chain.categories}</ThemedText>
+              <ThemedText type="subtitle">{t.chain.categories}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {Copy.chain.pointsFloor}
+                {t.chain.pointsFloor}
               </ThemedText>
             </View>
             <SurfaceCard style={styles.categoryList} elevated>
@@ -207,7 +205,7 @@ export default function RankScreen() {
             </SurfaceCard>
 
             <SurfaceCard style={styles.totalRow} elevated hero={milestoneGlow}>
-              <ThemedText>{Copy.chain.totalPoints}</ThemedText>
+              <ThemedText>{t.chain.totalPoints}</ThemedText>
               <CountUpText
                 grouped
                 value={CATEGORIES.reduce((sum, cat) => sum + state.points[cat], 0)}
@@ -216,7 +214,7 @@ export default function RankScreen() {
             </SurfaceCard>
 
             <SurfaceCard>
-              <ThemedText type="smallBold">{Copy.chain.gameState}</ThemedText>
+              <ThemedText type="smallBold">{t.chain.gameState}</ThemedText>
               <ThemedText themeColor="textSecondary">
                 {state.excuse_count} mazeret · {state.silent_miss_streak} ardışık sessiz kaçırma
               </ThemedText>
@@ -298,8 +296,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   heroCount: {
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 32,
+    lineHeight: 38,
     fontFamily: Fonts.serif,
   },
   heroUnit: {
@@ -352,9 +350,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   totalValue: {
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 32,
+    lineHeight: 38,
     fontFamily: Fonts.serif,
-    letterSpacing: -0.8,
+    letterSpacing: -0.5,
   },
 });

@@ -808,6 +808,7 @@ export function getFortuneHistory(limit = 30): Promise<FortuneHistoryItem[]> {
 
 // ---------- Felsefe Yolları (İdol Modu, Dalga 4.2) ----------
 export type PhilosophyPath = {
+  slug?: string;
   name: string;
   tagline: string;
   philosophy: string;

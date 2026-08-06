@@ -31,8 +31,24 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
-        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium"
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app"
+      }
+    },
+    "play-internal": {
+      "channel": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app"
       }
     }
   },

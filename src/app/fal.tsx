@@ -16,7 +16,6 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
@@ -38,7 +37,6 @@ export default function FortuneScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
-  useRequirePremium();
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();

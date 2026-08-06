@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 
-import { Copy } from '@/constants/copy';
 import { ErrorBanner } from '@/components/error-banner';
 import {
   isTaskEditable,
@@ -32,6 +31,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ApiError, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
 import { addDaysIso } from '@/lib/plan-dates';
 import { showAlert } from '@/lib/web-alert';
+import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
 function calendarDayNumber(startDate: string): number {
@@ -42,6 +42,7 @@ function calendarDayNumber(startDate: string): number {
 }
 
 export default function PlanScreen() {
+  const { t } = useLocale();
   const { status: subscriptionStatus } = useSubscription();
   const theme = useTheme();
   const router = useRouter();
@@ -92,15 +93,15 @@ export default function PlanScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
         }>
         <ScreenHeader
-          title={Copy.plan.title}
-          subtitle={Copy.plan.subtitle}
+          title={t.plan.title}
+          subtitle={t.plan.subtitle}
           trailing={
             <Pressable
               accessibilityRole="button"
               onPress={() => setPickerOpen(true)}
               style={({ pressed }) => [styles.switchPlan, pressed && styles.pressed]}>
               <ThemedText type="smallBold" themeColor="accentWarm">
-                {Copy.plan.switchPlan}
+                {t.plan.switchPlan}
               </ThemedText>
             </Pressable>
           }
@@ -141,7 +142,7 @@ export default function PlanScreen() {
         {!loading && !error && !plan && (
           <SurfaceCard elevated style={styles.emptyState}>
             <ThemedText style={styles.centerText} themeColor="textSecondary">
-              {Copy.plan.emptyBody}
+              {t.plan.emptyBody}
             </ThemedText>
             <Pressable
               onPress={() => router.push('/')}
@@ -151,7 +152,7 @@ export default function PlanScreen() {
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                {Copy.plan.startChat}
+                {t.plan.startChat}
               </ThemedText>
             </Pressable>
           </SurfaceCard>
@@ -265,6 +266,7 @@ function DaySection({
   onAddTask: (date: string) => void;
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const dayDate = addDaysIso(plan.start_date, day.day - 1);
   return (
     <ThemedView style={[styles.daySection, relation === 'past' ? { opacity: 0.72 } : null]}>
@@ -294,7 +296,7 @@ function DaySection({
       {relation !== 'past' ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={Copy.plan.addTask}
+          accessibilityLabel={t.plan.addTask}
           onPress={() => onAddTask(dayDate)}
           style={({ pressed }) => [
             styles.addTaskButton,
@@ -305,7 +307,7 @@ function DaySection({
             },
           ]}>
           <ThemedText type="smallBold" themeColor="tint">
-            + {Copy.plan.addTask}
+            + {t.plan.addTask}
           </ThemedText>
         </Pressable>
       ) : null}
@@ -323,6 +325,7 @@ function VisionTaskCard({
   onLongPressEdit: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const scheme = useColorScheme();
   const scrim = scheme === 'dark' ? ImageScrim.dark : ImageScrim.light;
   const editable = isTaskEditable(task, planStartDate);
@@ -334,7 +337,7 @@ function VisionTaskCard({
       delayLongPress={380}
       onLongPress={() => {
         if (!editable) {
-          showAlert(Copy.plan.taskActionsTitle, Copy.plan.notEditable);
+          showAlert(t.plan.taskActionsTitle, t.plan.notEditable);
           return;
         }
         onLongPressEdit();
@@ -392,7 +395,7 @@ function VisionTaskCard({
           ) : null}
           {!!task.tiny_version && (
             <ThemedText type="small" themeColor="textSecondary">
-              {Copy.daily.tinyPrefix}: {task.tiny_version}
+              {t.daily.tinyPrefix}: {task.tiny_version}
             </ThemedText>
           )}
           <ThemedView style={styles.tagRow}>

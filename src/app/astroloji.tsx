@@ -12,7 +12,6 @@ import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-s
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph } from '@/constants/zodiac';
-import { useRequirePremium } from '@/hooks/use-premium-access';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getDailyHoroscope, type Horoscope } from '@/lib/api';
 import { useProfile } from '@/providers/profile-provider';
@@ -21,7 +20,6 @@ export default function AstrologyScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
-  useRequirePremium();
   const [loading, setLoading] = useState(true);
   const [horoscope, setHoroscope] = useState<Horoscope | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Copy } from '@/constants/copy';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -16,6 +15,7 @@ import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
 import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases';
+import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
 const FALLBACK_MONTHLY = '450 TL / ay';
@@ -24,6 +24,7 @@ const YEARLY_EQUIV = 'Ayda ~300 TL';
 
 export default function PaywallScreen() {
   const theme = useTheme();
+  const { t } = useLocale();
   const router = useRouter();
   const { status, refresh } = useSubscription();
   const [busy, setBusy] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
@@ -109,13 +110,13 @@ export default function PaywallScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
           <ThemedView style={styles.hero}>
-            <ThemedText type="title">{Copy.paywall.title}</ThemedText>
+            <ThemedText type="title">{t.paywall.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
-              {Copy.paywall.body}
+              {t.paywall.body}
             </ThemedText>
             {status?.trial_days_remaining === 0 && status.status === 'trial' ? (
               <ThemedText type="smallBold" themeColor="accentWarm">
-                {Copy.paywall.trialEnded}
+                {t.paywall.trialEnded}
               </ThemedText>
             ) : null}
           </ThemedView>
@@ -194,7 +195,7 @@ export default function PaywallScreen() {
           </ThemedView>
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.renewal}>
-            {Copy.paywall.renewalNote}
+            {t.paywall.renewalNote}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>

@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   header: { gap: Spacing.two },
-  title: { fontSize: 38, lineHeight: 44 },
+  title: { fontSize: 32, lineHeight: 38 },
   identityCard: {
     borderWidth: 1,
     borderRadius: Radii.medium,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   section: { gap: Spacing.two },
-  sectionTitle: { fontSize: 24, lineHeight: 31 },
+  sectionTitle: { fontSize: 18, lineHeight: 24 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   bulletText: { flex: 1 },
   linkGrid: {

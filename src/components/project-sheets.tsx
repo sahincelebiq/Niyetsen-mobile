@@ -443,14 +443,11 @@ export function ChatHistorySheet({
             accessibilityHint={
               canUseProModules(subscriptionStatus)
                 ? undefined
-                : 'PRO abonelik gerekir'
+                : 'Önizleme açık; PRO ile tam içerik'
             }
             onPress={() => {
               onClose();
-              if (!canUseProModules(subscriptionStatus)) {
-                router.push('/paywall');
-                return;
-              }
+              // FAZ 8.10 kapı içeride — paywall'a atma; yollar ekranı kilit kartı gösterir.
               router.push('/yollar');
             }}
             style={({ pressed }) => [
@@ -470,7 +467,7 @@ export function ChatHistorySheet({
             <ThemedText type="small" themeColor="textSecondary">
               {canUseProModules(subscriptionStatus)
                 ? 'İlkbahar tonlarında ilham → yola çevir'
-                : 'PRO ile felsefe yollarını aç'}
+                : 'Önizle — PRO ile yolları aç'}
             </ThemedText>
           </Pressable>
 

@@ -14,14 +14,15 @@ import {
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
 import { Slot, usePathname, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, StyleSheet, useColorScheme,
+  ActivityIndicator, Pressable, StyleSheet, useColorScheme, View,
 } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { AuthScreen } from '@/components/auth-screen';
+import { ConnectivityBanner } from '@/components/connectivity-banner';
 import { ConsentGate } from '@/components/consent-gate';
 import { OnboardingScreen } from '@/components/onboarding-screen';
 import { SubscriptionGate } from '@/components/subscription-gate';
@@ -37,6 +38,8 @@ import { pingHealth } from '@/lib/api';
 import { initSentry } from '@/lib/sentry';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
+import { isAppLocale } from '@/i18n/catalog';
+import { LocaleProvider, useI18n } from '@/providers/locale-provider';
 import { ProfileProvider, useProfile } from '@/providers/profile-provider';
 import { SubscriptionProvider } from '@/providers/subscription-provider';
 
@@ -59,7 +62,9 @@ export default function TabLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <AppearanceProvider>
-        <RootNavigation pathname={pathname} />
+        <LocaleProvider>
+          <RootNavigation pathname={pathname} />
+        </LocaleProvider>
       </AppearanceProvider>
     </GestureHandlerRootView>
   );
@@ -102,27 +107,57 @@ function AuthenticatedApp() {
 }
 
 function ProfileGate() {
-  const { profile, loading, error, refresh } = useProfile();
+  const { profile, loading, error, offline, refresh } = useProfile();
   const theme = useTheme();
+  const { t, setLocale } = useI18n();
+  const [retrying, setRetrying] = useState(false);
 
-  if (loading) {
+  useEffect(() => {
+    const lang = profile?.preferred_language;
+    if (!isAppLocale(lang)) return;
+    void setLocale(lang).catch(() => undefined);
+  }, [profile?.preferred_language, setLocale]);
+
+  async function retry() {
+    setRetrying(true);
+    try {
+      await refresh();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  // FAZ 8.11.0: önbellek varsa spinner/error engeli yok — uygulama açılır.
+  if (loading && !profile) {
     return (
       <ThemedView style={styles.loading}>
         <ActivityIndicator color={theme.tint} />
       </ThemedView>
     );
   }
-  if (error) {
+  if (error && !profile) {
     return (
       <ThemedView style={styles.loading}>
         <ThemedText themeColor="danger">{error}</ThemedText>
-        <Pressable onPress={() => void refresh()}>
-          <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+          Bağlantı kurulamadı — tekrar dene.
+        </ThemedText>
+        <Pressable onPress={() => void retry()} hitSlop={12} style={styles.retryHit}>
+          <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
         </Pressable>
       </ThemedView>
     );
   }
-  return profile?.onboarding_complete ? (
+
+  if (!profile) {
+    return (
+      <ThemedView style={styles.loading}>
+        <ActivityIndicator color={theme.tint} />
+      </ThemedView>
+    );
+  }
+
+  const body = profile.onboarding_complete ? (
     <ConsentGate>
       <SubscriptionProvider>
         <SubscriptionGate>
@@ -134,6 +169,20 @@ function ProfileGate() {
   ) : (
     <OnboardingScreen />
   );
+
+  return (
+    <View style={styles.root}>
+      {/* Onboarding yolunda SubscriptionGate yok — banner burada. */}
+      {!profile.onboarding_complete ? (
+        <ConnectivityBanner
+          visible={offline}
+          onRetry={() => void retry()}
+          retrying={retrying}
+        />
+      ) : null}
+      {body}
+    </View>
+  );
 }
 
 function NotificationRouter() {
@@ -142,8 +191,9 @@ function NotificationRouter() {
   useEffect(() => {
     initSentry();
     void trackEvent('app_open');
-    void pingHealth();
-    void openLastNotificationResponse(router);
+    // Sağlık ping'i açılışı düşürmez — hata yutulur.
+    void pingHealth().catch(() => undefined);
+    void openLastNotificationResponse(router).catch(() => undefined);
     const subscription = addNotificationResponseListener(router);
     return () => subscription?.remove();
   }, [router]);
@@ -161,5 +211,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     padding: 24,
+  },
+  retryHit: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
 });

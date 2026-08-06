@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.niyetsen.app",
+      "package": "com.niyetsenai",
       "adaptiveIcon": {
         "backgroundColor": "#DA9B7C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

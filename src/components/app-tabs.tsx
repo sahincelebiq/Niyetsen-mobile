@@ -3,6 +3,7 @@ import { Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useI18n } from '@/providers/locale-provider';
 
 /**
  * Tab ikonları: SF Symbols web'de çizilmez. VectorIcon (MaterialCommunityIcons)
@@ -11,6 +12,7 @@ import { Colors } from '@/constants/theme';
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = scheme === 'dark' ? Colors.dark : Colors.light;
+  const { t } = useI18n();
 
   return (
     <NativeTabs
@@ -25,27 +27,27 @@ export default function AppTabs() {
         selected: colors.accentWarm,
       }}>
       <NativeTabs.Trigger name="index">
-        <Label>Sohbet</Label>
+        <Label>{t.tabs.chat}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="chat" />} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="daily">
-        <Label>Bugün</Label>
+        <Label>{t.tabs.today}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="check-circle" />} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore">
-        <Label>Planım</Label>
+        <Label>{t.tabs.plan}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="calendar-blank" />} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="rank">
-        <Label>Zincir</Label>
+        <Label>{t.tabs.chain}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="link-variant" />} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings">
-        <Label>Profil</Label>
+        <Label>{t.tabs.profile}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="account-circle" />} />
       </NativeTabs.Trigger>
 
@@ -58,6 +60,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="fal" hidden />
       <NativeTabs.Trigger name="fal-gecmisi" hidden />
       <NativeTabs.Trigger name="yollar" hidden />
+      <NativeTabs.Trigger name="yol-detay" hidden />
     </NativeTabs>
   );
 }
