@@ -1,7 +1,9 @@
-import { StyleSheet, View } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { chainEvolution } from '@/constants/chain-animals';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -10,7 +12,11 @@ type StreakPillProps = {
   compact?: boolean;
 };
 
-/** İlkbahar filiz kademesi: 🌱→🌿→🌳 (3 / 7 / 30 gün). */
+/**
+ * İlkbahar filiz kademesi: 🌱→🌿→🌳 (3 / 7 / 30 gün).
+ * rapor/yollar ekranlarında DEKORATİF olarak kullanılmaya devam eder;
+ * zincir kimliği artık chain-animals.ts'tir.
+ */
 export function sproutGlyph(streakDays: number): string {
   if (streakDays >= 30) return '🌳';
   if (streakDays >= 7) return '🌿';
@@ -18,9 +24,14 @@ export function sproutGlyph(streakDays: number): string {
   return '🌱';
 }
 
+/**
+ * faz8.13/6: filiz emojisi → 12 hayvanlı evrim ikonu (chain-animals.ts tek
+ * gerçek kaynak; rank hero'suyla tam senkron). Emoji değil vektör ikon.
+ */
 export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
   const theme = useTheme();
-  const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni filiz';
+  const { animal } = chainEvolution(streakDays);
+  const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni yoldaş';
 
   return (
     <ThemedView
@@ -30,9 +41,7 @@ export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
         compact && styles.pillCompact,
         { borderColor: theme.border },
       ]}>
-      <ThemedText type="smallBold" style={styles.glyph}>
-        {sproutGlyph(streakDays)}
-      </ThemedText>
+      <MaterialCommunityIcons name={animal.icon} size={14} color={theme.tint} />
       <ThemedText type="smallBold" style={{ color: theme.text }}>
         {label}
       </ThemedText>
@@ -53,9 +62,5 @@ const styles = StyleSheet.create({
   pillCompact: {
     paddingHorizontal: Spacing.two,
     paddingVertical: 6,
-  },
-  glyph: {
-    fontSize: 13,
-    lineHeight: 16,
   },
 });

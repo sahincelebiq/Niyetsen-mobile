@@ -8,10 +8,11 @@ import {
   View,
 } from 'react-native';
 
+import { ChainCompanion, ChainCompanionCaption } from '@/components/chain-companion';
 import { ErrorBanner } from '@/components/error-banner';
 import { ProBadge } from '@/components/pro-badge';
 import { ScreenScaffold } from '@/components/screen-scaffold';
-import { sproutGlyph, StreakPill } from '@/components/streak-pill';
+import { StreakPill } from '@/components/streak-pill';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -150,11 +151,8 @@ export default function RankScreen() {
                 {t.chain.heroLabel.toUpperCase()}
               </ThemedText>
               <View style={styles.heroRow}>
-                <View style={[styles.sproutRing, { borderColor: theme.onAccent }]}>
-                  <ThemedText style={styles.sproutEmoji}>
-                    {sproutGlyph(state.streak_len)}
-                  </ThemedText>
-                </View>
+                {/* faz8.13/6: filiz → 12 hayvanlı evrim (bebek/genç/yetişkin). */}
+                <ChainCompanion streakDays={state.streak_len} color={theme.onAccent} />
                 <View style={styles.heroNumbers}>
                   <CountUpText
                     value={state.streak_len}
@@ -165,6 +163,7 @@ export default function RankScreen() {
                   </ThemedText>
                 </View>
               </View>
+              <ChainCompanionCaption streakDays={state.streak_len} color={theme.onAccent} />
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
                 {t.chain.heroHint}
               </ThemedText>
@@ -277,18 +276,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
     marginTop: Spacing.one,
-  },
-  sproutRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sproutEmoji: {
-    fontSize: 30,
-    lineHeight: 36,
   },
   heroNumbers: {
     flexDirection: 'row',
