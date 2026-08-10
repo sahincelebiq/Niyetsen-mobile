@@ -1,5 +1,5 @@
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import type { SubscriptionInfo } from '@/lib/api';
 import { useSubscription } from '@/providers/subscription-provider';
@@ -16,8 +16,8 @@ export function canUseProModules(
 }
 
 /**
- * Trial + active = PRO modül erişimi. Free/expired → paywall.
- * Dev hesabı backend'de status=active (+ has_premium_access) döner.
+ * Trial + active = PRO modül erişimi.
+ * Free kullanıcıyı ekrandan DIŞARI ATMA — kapı içeride (rapor/yollar/yol-detay).
  */
 export function usePremiumAccess() {
   const { status, loading, refresh } = useSubscription();
@@ -31,18 +31,14 @@ export function usePremiumAccess() {
   };
 }
 
-/** Ekran açılınca PRO değilse paywall'a atar (deep link koruması). */
-export function useRequirePremium(enabled = true) {
+/**
+ * @deprecated Kapı-içeride: otomatik paywall yönlendirmesi YOK.
+ * Eski useRequirePremium(replace) kaldırıldı — PRO yüzeyler kilit kartı gösterir.
+ * CTA için openPaywall kullan.
+ */
+export function useRequirePremium(_enabled = true) {
   const router = useRouter();
-  const { hasPremium, loading, refresh, status } = usePremiumAccess();
-
-  useEffect(() => {
-    // status henüz hydrate olmadan (null) paywall'a atma — rapor "açılmıyor" bug'ı.
-    if (!enabled || loading || status == null) return;
-    if (!hasPremium) {
-      router.replace('/paywall' as Href);
-    }
-  }, [enabled, hasPremium, loading, router, status]);
+  const { hasPremium, loading, refresh } = usePremiumAccess();
 
   const openPaywall = useCallback(() => {
     router.push('/paywall' as Href);
