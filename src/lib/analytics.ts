@@ -21,7 +21,8 @@ export type AnalyticsEvent =
   | 'subscription_started'
   | 'subscription_cancelled'
   | 'notification_opened'
-  | 'mystic_secret_entry';
+  | 'mystic_secret_entry'
+  | 'mystic_chat_message';
 
 let distinctId: string | null = null;
 

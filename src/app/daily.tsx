@@ -32,6 +32,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
+import { MysticPanel, useMysticPanel } from '@/components/mystic-panel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -87,6 +88,8 @@ export default function DailyTasksScreen() {
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
+  // faz8.13/2a: mistiğin yeni evi — Bugün başlığındaki ☾ rozeti bu paneli açar.
+  const mysticPanel = useMysticPanel();
   const screenInsets = useScreenInsets();
 
   const load = useCallback(async (refresh = false) => {
@@ -324,6 +327,19 @@ export default function DailyTasksScreen() {
         subtitle={t.daily.subtitle}
         trailing={
           <View style={styles.headerLinks}>
+            {/* faz8.13/2a: mistiğin yeni evi Bugün — ☾ panel buradan açılır. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mistik paneli aç"
+              onPress={mysticPanel.open}
+              style={({ pressed }) => [
+                styles.bonusLink,
+                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                ☾
+              </ThemedText>
+            </Pressable>
             {/* faz8.13/3: rapor girişi Bugün'den de görünür (kapı-içeride). */}
             <Pressable
               accessibilityRole="link"
@@ -498,6 +514,9 @@ export default function DailyTasksScreen() {
         onClose={() => setEditTarget(null)}
         onChanged={() => void load(true)}
       />
+
+      {/* faz8.13/2a: mistik panel — Bugün ile senkron bottom sheet. */}
+      <MysticPanel visible={mysticPanel.visible} onClose={mysticPanel.close} />
     </ThemedView>
   );
 }

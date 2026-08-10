@@ -785,24 +785,45 @@ export function getDailyHoroscope(period: 'daily' | 'weekly' = 'daily'): Promise
 
 export async function uploadFortunePhoto(
   kind: 'kahve' | 'el',
-  photoUri: string,
+  photoUri: string | string[],
 ): Promise<PhotoFortune> {
+  // faz8.13/2d: kahve falında fincanın farklı açıları için en fazla 3 kare.
+  const uris = (Array.isArray(photoUri) ? photoUri : [photoUri]).slice(0, 3);
   const body = new FormData();
-  const fileName = `fortune-${kind}-${Date.now()}.jpg`;
-  if (Platform.OS === 'web') {
-    const blob = await fetch(photoUri).then((response) => response.blob());
-    body.append('photo', blob, fileName);
-  } else {
-    body.append('photo', {
-      uri: photoUri,
-      name: fileName,
-      type: 'image/jpeg',
-    } as unknown as Blob);
+  const field = uris.length > 1 ? 'photos' : 'photo';
+  for (const [index, uri] of uris.entries()) {
+    const fileName = `fortune-${kind}-${Date.now()}-${index}.jpg`;
+    if (Platform.OS === 'web') {
+      const blob = await fetch(uri).then((response) => response.blob());
+      body.append(field, blob, fileName);
+    } else {
+      body.append(field, {
+        uri,
+        name: fileName,
+        type: 'image/jpeg',
+      } as unknown as Blob);
+    }
   }
   return request<PhotoFortune>(`/fortune/photo/${kind}`, {
     method: 'POST',
     body,
   }, { timeoutMs: ProofTimeoutMs });
+}
+
+/** faz8.13/2b — mistik rehber sohbeti (/chat'ten ayrı; mistik hafızalı). */
+export type MysticChatMessage = { role: 'user' | 'assistant'; content: string };
+
+export type MysticChatReply = {
+  reply: string;
+  crisis: boolean;
+  disclaimer: string;
+};
+
+export function sendMysticChat(messages: MysticChatMessage[]): Promise<MysticChatReply> {
+  return request<MysticChatReply>('/fortune/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+  }, { timeoutMs: ChatTimeoutMs });
 }
 
 export type FortuneHistoryItem = {

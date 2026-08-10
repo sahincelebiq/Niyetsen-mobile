@@ -26,6 +26,13 @@ const MODULES: {
   href: Href;
 }[] = [
   {
+    // faz8.13/2b: merkez ekran — rehberle serbest sohbet + fal kısayolları.
+    title: 'Mistik Sohbet',
+    symbol: '✶',
+    description: 'Rehberinle konuş; kartlarını ve fallarını birlikte yorumlayın.',
+    href: '/mistik-sohbet' as Href,
+  },
+  {
     title: 'Astroloji',
     symbol: '✦',
     description: 'Doğum haritan ve günlük gökyüzü rehberin.',

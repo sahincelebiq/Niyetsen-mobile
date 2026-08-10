@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,7 +41,9 @@ export default function FortuneScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
-  const [kind, setKind] = useState<FortuneKind>('kahve');
+  // faz8.13/2b: mistik sohbet kısayolundan ?kind=el ile doğrudan gelinebilir.
+  const params = useLocalSearchParams<{ kind?: string }>();
+  const [kind, setKind] = useState<FortuneKind>(params.kind === 'el' ? 'el' : 'kahve');
   const [rights, setRights] = useState<FortuneRights | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
