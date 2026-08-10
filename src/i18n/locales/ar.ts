@@ -86,6 +86,13 @@ export const ar: Messages = {
       'أريد أن أصبح أكثر انضباطًا',
       'أريد إعادة بناء صحتي',
     ],
+    openHistory: 'افتح نافذة السياق',
+    openHistoryHint: 'يعرض المحادثات والنيّات',
+    mysticOpen: 'استكشاف صوفي',
+    mysticOpenHint: 'يفتح الطالع والأبراج',
+    trialDaysLeft: (days) => `تجربة: متبقي ${days} يوماً`,
+    sendMessage: 'إرسال الرسالة',
+    attachFile: 'إرفاق ملف',
   },
   daily: {
     title: 'اليوم',

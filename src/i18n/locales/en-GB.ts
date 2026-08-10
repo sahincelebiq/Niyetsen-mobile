@@ -86,6 +86,13 @@ export const enGB: Messages = {
       'I want to be more disciplined',
       'I want to rebuild my health',
     ],
+    openHistory: 'Open context window',
+    openHistoryHint: 'Lists chats and intentions',
+    mysticOpen: 'Mystic explore',
+    mysticOpenHint: 'Opens fortune and zodiac',
+    trialDaysLeft: (days) => `Trial: ${days} days left`,
+    sendMessage: 'Send message',
+    attachFile: 'Attach file',
   },
   daily: {
     title: 'Today',

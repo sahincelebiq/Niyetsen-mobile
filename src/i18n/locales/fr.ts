@@ -86,6 +86,13 @@ export const fr: Messages = {
       'Je veux être plus discipliné',
       'Je veux retrouver ma santé',
     ],
+    openHistory: 'Ouvrir le contexte',
+    openHistoryHint: 'Liste les chats et intentions',
+    mysticOpen: 'Exploration mystique',
+    mysticOpenHint: 'Ouvre le divinatoire et le zodiaque',
+    trialDaysLeft: (days) => `Essai : ${days} jours restants`,
+    sendMessage: 'Envoyer le message',
+    attachFile: 'Joindre un fichier',
   },
   daily: {
     title: "Aujourd'hui",

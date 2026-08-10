@@ -41,8 +41,8 @@ export function ChatHeader({
         {onOpenHistory ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Bağlam penceresini aç"
-            accessibilityHint="Sohbetleri ve niyetleri listeler"
+            accessibilityLabel={t.chat.openHistory}
+            accessibilityHint={t.chat.openHistoryHint}
             onPress={onOpenHistory}
             hitSlop={HIT_SLOP_44}
             style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}>
@@ -65,8 +65,8 @@ export function ChatHeader({
           {onSecretGesture ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Mistik keşif"
-              accessibilityHint="Fal ve burç bölümünü açar"
+              accessibilityLabel={t.chat.mysticOpen}
+              accessibilityHint={t.chat.mysticOpenHint}
               onPress={onSecretGesture}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
               style={({ pressed }) => [
@@ -82,7 +82,7 @@ export function ChatHeader({
       {showTrial ? (
         <View style={styles.trialChip}>
           <ThemedText type="smallBold" themeColor="accentWarm">
-            Deneme: {trialDaysRemaining} gün kaldı
+            {t.chat.trialDaysLeft(trialDaysRemaining ?? 0)}
           </ThemedText>
         </View>
       ) : null}

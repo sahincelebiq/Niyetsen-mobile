@@ -93,6 +93,13 @@ export type Messages = {
     planReadyHint: string;
     emptyInvite: string;
     suggestions: string[];
+    openHistory: string;
+    openHistoryHint: string;
+    mysticOpen: string;
+    mysticOpenHint: string;
+    trialDaysLeft: (days: number) => string;
+    sendMessage: string;
+    attachFile: string;
   };
   daily: {
     title: string;

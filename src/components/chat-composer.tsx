@@ -85,7 +85,7 @@ export function ChatComposer({
           {onAttach ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Dosya ekle"
+              accessibilityLabel={t.chat.attachFile}
               onPress={onAttach}
               disabled={disabled || attaching}
               style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}>
@@ -108,7 +108,7 @@ export function ChatComposer({
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Mesajı gönder"
+            accessibilityLabel={t.chat.sendMessage}
             onPress={onSubmit}
             disabled={!canSend}
             style={({ pressed }) => [

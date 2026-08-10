@@ -86,6 +86,13 @@ export const de: Messages = {
       'Ich will disziplinierter werden',
       'Ich will meine Gesundheit aufbauen',
     ],
+    openHistory: 'Kontextfenster öffnen',
+    openHistoryHint: 'Listet Chats und Absichten',
+    mysticOpen: 'Mystik entdecken',
+    mysticOpenHint: 'Öffnet Orakel und Sternzeichen',
+    trialDaysLeft: (days) => `Testzeit: noch ${days} Tage`,
+    sendMessage: 'Nachricht senden',
+    attachFile: 'Datei anhängen',
   },
   daily: {
     title: 'Heute',

@@ -86,6 +86,13 @@ export const tr: Messages = {
       'Daha disiplinli olmak istiyorum',
       'Sağlığımı toparlamak istiyorum',
     ],
+    openHistory: 'Bağlam penceresini aç',
+    openHistoryHint: 'Sohbetleri ve niyetleri listeler',
+    mysticOpen: 'Mistik keşif',
+    mysticOpenHint: 'Fal ve burç bölümünü açar',
+    trialDaysLeft: (days) => `Deneme: ${days} gün kaldı`,
+    sendMessage: 'Mesajı gönder',
+    attachFile: 'Dosya ekle',
   },
   daily: {
     title: 'Bugün',
