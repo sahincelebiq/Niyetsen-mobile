@@ -717,6 +717,22 @@ export type RecapCard = {
   subtitle: string;
 };
 
+/** faz8.13/3 — gerçek KPI dashboard'u (ilk günden bugüne, tüm planlar). */
+export type RecapDashboard = {
+  total_tasks: number;
+  completed_tasks: number;
+  proofed_tasks: number;
+  completion_rate: number;
+  category_counts: Record<string, number>;
+  points: Record<string, number>;
+  total_points: number;
+  streak_len: number;
+  best_streak: number;
+  days_in: number;
+  plans_count: number;
+  weekly_completed: number[];
+};
+
 export type Recap = {
   period: string;
   start_date: string;
@@ -726,6 +742,7 @@ export type Recap = {
   total_points: number;
   top_category: string;
   cards: RecapCard[];
+  dashboard?: RecapDashboard | null;
 };
 
 /** FAZ 8.9 — İdol/Felsefe Yolu detay ekranı (PRO). */

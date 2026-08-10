@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   Share,
   StyleSheet,
   View,
@@ -35,10 +36,11 @@ import { CategoryBadge } from '@/components/ui/category-badge';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
-import { getRecap, type Recap, type RecapCard } from '@/lib/api';
+import { getRecap, type Recap, type RecapCard, type RecapDashboard } from '@/lib/api';
 
 const STORY_MS = 5200;
 type RecapPeriod = '7d' | '30d';
+type RecapMode = 'story' | 'panel';
 
 function streakDaysFromHeadline(headline: string): number {
   const match = headline.match(/(\d+)/);
@@ -69,6 +71,8 @@ export default function RecapScreen() {
   // GÖRÜR — dışarı atılmaz; içeride kilitli önizleme + PRO daveti gösterilir.
   const { hasPremium, loading: premiumLoading } = usePremiumAccess();
   const [period, setPeriod] = useState<RecapPeriod>('7d');
+  // faz8.13/3: story'nin yanına gerçek KPI paneli.
+  const [mode, setMode] = useState<RecapMode>('story');
   const [recap, setRecap] = useState<Recap | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -137,7 +141,7 @@ export default function RecapScreen() {
       clearTimeout(advanceAtRef.current);
       advanceAtRef.current = null;
     }
-    if (!card || reduceMotion) return;
+    if (!card || reduceMotion || mode !== 'story') return;
     if (paused) {
       cancelAnimation(progress);
       return;
@@ -161,7 +165,7 @@ export default function RecapScreen() {
       remainingMsRef.current = Math.max(0, duration - (Date.now() - started));
       cancelAnimation(progress);
     };
-  }, [advance, card, index, paused, progress, reduceMotion]);
+  }, [advance, card, index, paused, progress, reduceMotion, mode]);
 
   const fillStyle = useAnimatedStyle(() => ({
     width: `${Math.min(Math.max(progress.value, 0), 1) * 100}%`,
@@ -225,9 +229,38 @@ export default function RecapScreen() {
             );
           })}
         </View>
+        <View
+          style={[
+            styles.periodSegment,
+            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+          ]}>
+          {([
+            { id: 'story' as const, label: 'Hikâye' },
+            { id: 'panel' as const, label: 'Panel' },
+          ]).map((option) => {
+            const active = mode === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setMode(option.id)}
+                style={[
+                  styles.periodChip,
+                  active && { backgroundColor: theme.accentWarm },
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: active ? theme.onAccent : theme.textSecondary }}>
+                  {option.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <View style={styles.progressRow}>
+      <View style={[styles.progressRow, mode !== 'story' && styles.hidden]}>
         {cards.map((c, i) => (
           <View
             key={`${c.kind}-${i}`}
@@ -293,7 +326,11 @@ export default function RecapScreen() {
         </View>
       )}
 
-      {card && (
+      {mode === 'panel' && hasPremium && recap?.dashboard ? (
+        <DashboardPanel dashboard={recap.dashboard} />
+      ) : null}
+
+      {mode === 'story' && card && (
         <Animated.View
           key={`${card.kind}-${index}`}
           entering={
@@ -313,7 +350,7 @@ export default function RecapScreen() {
         </Animated.View>
       )}
 
-      {isClosing && Platform.OS !== 'web' && (
+      {mode === 'story' && isClosing && Platform.OS !== 'web' && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Raporu paylaş"
@@ -332,7 +369,9 @@ export default function RecapScreen() {
         </Pressable>
       )}
 
-      <View style={styles.tapZones} pointerEvents="box-none">
+      <View
+        style={[styles.tapZones, mode !== 'story' && styles.hidden]}
+        pointerEvents={mode === 'story' ? 'box-none' : 'none'}>
         <Pressable
           style={styles.tapZone}
           onPress={() => advance(-1)}
@@ -355,6 +394,134 @@ export default function RecapScreen() {
         <ThemedText themeColor="textSecondary">Kapat ✕</ThemedText>
       </Pressable>
     </SafeAreaView>
+  );
+}
+
+/**
+ * faz8.13/3: gerçek KPI dashboard'u — ilk günden bugüne toplamlar, 6 kategori
+ * dağılımı, gelişim eğrisi (haftalık mini barlar), zincir istatistikleri.
+ * Wrapped kuralı geçerli: kaçırılan görevler gösterilmez.
+ */
+function DashboardPanel({ dashboard }: { dashboard: RecapDashboard }) {
+  const theme = useTheme();
+  const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
+  const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
+
+  return (
+    <ScrollView
+      style={styles.panelScroll}
+      contentContainerStyle={styles.panelContent}
+      showsVerticalScrollIndicator={false}>
+      <View style={styles.kpiGrid}>
+        <KpiTile label="Tamamlanan görev" value={`${dashboard.completed_tasks}`} />
+        <KpiTile label="Verilen görev" value={`${dashboard.total_tasks}`} />
+        <KpiTile label="Tamamlama" value={`%${dashboard.completion_rate}`} />
+        <KpiTile label="Fotoğraflı kanıt" value={`${dashboard.proofed_tasks}`} />
+        <KpiTile label="Toplam puan" value={`${dashboard.total_points}`} />
+        <KpiTile label="Niyetsen'de gün" value={`${Math.max(dashboard.days_in, 1)}`} />
+      </View>
+
+      <View
+        style={[
+          styles.panelCard,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+        ]}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+          GELİŞİM EĞRİSİ · SON 8 HAFTA
+        </ThemedText>
+        <View style={styles.weeklyRow}>
+          {dashboard.weekly_completed.map((count, i) => (
+            <View key={i} style={styles.weeklyCol}>
+              <View style={[styles.weeklyTrack, { backgroundColor: theme.progressTrack }]}>
+                <View
+                  style={[
+                    styles.weeklyFill,
+                    {
+                      backgroundColor:
+                        i === dashboard.weekly_completed.length - 1
+                          ? theme.accentWarm
+                          : theme.tint,
+                      height: `${Math.max((count / maxWeekly) * 100, count > 0 ? 8 : 0)}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.weeklyCount}>
+                {count}
+              </ThemedText>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.panelCard,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+        ]}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+          KAZANILAN YÖNLER
+        </ThemedText>
+        {Object.entries(dashboard.category_counts).map(([category, count]) => (
+          <View key={category} style={styles.categoryRow}>
+            <ThemedText type="small" style={styles.categoryLabel} numberOfLines={1}>
+              {category}
+            </ThemedText>
+            <View style={[styles.categoryTrack, { backgroundColor: theme.progressTrack }]}>
+              <View
+                style={[
+                  styles.categoryFill,
+                  {
+                    backgroundColor: theme.tint,
+                    width: `${Math.max((count / maxCategory) * 100, count > 0 ? 6 : 0)}%`,
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText type="smallBold" themeColor="tint" style={styles.categoryCount}>
+              {count}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+
+      <View
+        style={[
+          styles.panelCard,
+          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+        ]}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+          ZİNCİR
+        </ThemedText>
+        <View style={styles.kpiGrid}>
+          <KpiTile label="Şu anki zincir" value={`${dashboard.streak_len} gün`} />
+          <KpiTile label="En uzun zincir" value={`${dashboard.best_streak} gün`} />
+        </View>
+        {dashboard.plans_count > 1 ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {dashboard.plans_count} niyeti birden yürütüyorsun.
+          </ThemedText>
+        ) : null}
+      </View>
+    </ScrollView>
+  );
+}
+
+function KpiTile({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={[
+        styles.kpiTile,
+        { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+      ]}>
+      <ThemedText type="screenTitle" style={{ color: theme.tint }}>
+        {value}
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        {label}
+      </ThemedText>
+    </View>
   );
 }
 
@@ -432,8 +599,85 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
     zIndex: 2,
   },
+  hidden: { display: 'none' },
+  panelScroll: { flex: 1, zIndex: 1 },
+  panelContent: {
+    padding: Spacing.three,
+    paddingBottom: Spacing.six,
+    gap: Spacing.three,
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  kpiTile: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 96,
+    borderWidth: 1,
+    borderRadius: Radii.medium,
+    padding: Spacing.three,
+    gap: 2,
+  },
+  panelCard: {
+    borderWidth: 1,
+    borderRadius: Radii.large,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  panelCardTitle: {
+    letterSpacing: 0.8,
+    fontSize: 11,
+  },
+  weeklyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.two,
+    height: 96,
+  },
+  weeklyCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    height: '100%',
+  },
+  weeklyTrack: {
+    flex: 1,
+    width: '100%',
+    borderRadius: Radii.small,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  weeklyFill: {
+    width: '100%',
+    borderRadius: Radii.small,
+  },
+  weeklyCount: { fontSize: 11, lineHeight: 14 },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 24,
+  },
+  categoryLabel: { width: 84 },
+  categoryTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: Radii.pill,
+    overflow: 'hidden',
+  },
+  categoryFill: {
+    height: 8,
+    borderRadius: Radii.pill,
+  },
+  categoryCount: { width: 28, textAlign: 'right' },
   periodSegment: {
     flexDirection: 'row',
     borderRadius: Radii.pill,

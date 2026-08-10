@@ -323,17 +323,32 @@ export default function DailyTasksScreen() {
         title={t.daily.title}
         subtitle={t.daily.subtitle}
         trailing={
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => router.push('/bonus' as Href)}
-            style={({ pressed }) => [
-              styles.bonusLink,
-              { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
-            ]}>
-            <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
-              Bonus
-            </ThemedText>
-          </Pressable>
+          <View style={styles.headerLinks}>
+            {/* faz8.13/3: rapor girişi Bugün'den de görünür (kapı-içeride). */}
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Raporum"
+              onPress={() => router.push('/rapor' as Href)}
+              style={({ pressed }) => [
+                styles.bonusLink,
+                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.tint }}>
+                Rapor
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => router.push('/bonus' as Href)}
+              style={({ pressed }) => [
+                styles.bonusLink,
+                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
+                Bonus
+              </ThemedText>
+            </Pressable>
+          </View>
         }
       />
       {!loading && tasks.length > 0 ? (
@@ -723,6 +738,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerLinks: {
+    flexDirection: 'row',
+    gap: Spacing.one,
   },
   bonusLink: {
     minHeight: 40,
