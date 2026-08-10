@@ -21,14 +21,13 @@ import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SurfaceCard } from '@/components/ui/surface-card';
-import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph, zodiacFromBirthDate, zodiacLabel } from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
 import { regionById } from '@/i18n/regions';
 import type { RegionId } from '@/i18n/types';
 import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
-import type { LegalDocumentId } from '@/constants/legal';
 import {
   birthDateDisplayFromIso,
   birthDateIsoFromDisplay,
@@ -258,8 +257,8 @@ export default function SettingsScreen() {
   return (
     <ThemedView style={styles.flex}>
       <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
-        <ScreenScaffold scrollable>
-        {/* Kompakt mobil hiyerarşi: kimlik satırı önce, web-doc başlık yok */}
+        <ScreenScaffold scrollable contentStyle={styles.scaffoldTight}>
+        {/* Kimlik → mistik → hesap → tercihler; uzun kart yığını yok */}
         <SurfaceCard>
           <View style={styles.profileRow}>
             <View
@@ -299,331 +298,284 @@ export default function SettingsScreen() {
         <ThemedView
           type="backgroundElement"
           style={[styles.card, { borderColor: theme.border }]}>
+          <SettingsRow
+            label={`☾  ${t.profile.mystic}`}
+            value={t.profile.open}
+            onPress={() => router.push('/mystic' as Href)}
+          />
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
           <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
             HESAP
           </ThemedText>
-            <Field label="İsim" value={name} onChangeText={setName} />
-            <View style={styles.field}>
-              <ThemedText type="smallBold">Doğum tarihi</ThemedText>
-              <BirthDateField value={birthDate} onChangeText={setBirthDate} />
-              {previewZodiac ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Burç: {zodiacLabel(previewZodiac)}
-                </ThemedText>
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Burç doğum tarihinden hesaplanır.
-                </ThemedText>
-              )}
-            </View>
-            <View style={styles.field}>
-              <ThemedText type="smallBold">Cinsiyet</ThemedText>
+          <Field label="İsim" value={name} onChangeText={setName} />
+          <View style={styles.field}>
+            <ThemedText type="smallBold">Doğum tarihi</ThemedText>
+            <BirthDateField value={birthDate} onChangeText={setBirthDate} />
+            {previewZodiac ? (
               <ThemedText type="small" themeColor="textSecondary">
-                İsteğe bağlı — yalnız hitap için.
+                Burç: {zodiacLabel(previewZodiac)}
               </ThemedText>
-              <View style={styles.genderRow}>
-                {GENDER_OPTIONS.map((option) => {
-                  const selected = gender === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={t.gender[option]}
-                      onPress={() => setGender(option)}
-                      style={({ pressed }) => [
-                        styles.genderChip,
-                        {
-                          borderColor: selected ? theme.tint : theme.border,
-                          backgroundColor: selected
-                            ? theme.backgroundSelected
-                            : theme.surfaceMuted,
-                          opacity: pressed ? 0.85 : 1,
-                        },
-                      ]}>
-                      <ThemedText
-                        type="smallBold"
-                        themeColor={selected ? 'tint' : 'text'}>
-                        {t.gender[option]}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <TimeOfDayField
-              label="Bildirim saati"
-              value={notifTime}
-              onChange={setNotifTime}
-            />
-            {error && <ThemedText themeColor="danger">{error}</ThemedText>}
-            {message && <ThemedText themeColor="success">{message}</ThemedText>}
-            <ActionButton
-              label={t.common.save}
-              busy={busy === 'save'}
-              onPress={() => void save()}
-            />
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-              ABONELİK
-            </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              {subscriptionStatus?.status === 'active'
-                ? 'Premium aktif — zincirine kesintisiz devam edebilirsin.'
-                : subscriptionStatus?.status === 'trial'
-                  ? `Deneme süresi — ${subscriptionStatus.trial_days_remaining} gün kaldı.`
-                  : subscriptionStatus?.show_paywall
-                    ? 'Deneme bitti — devam etmek için abonelik gerekli.'
-                    : 'Durum yükleniyor veya ücretsiz erişim.'}
-            </ThemedText>
-            {subscriptionStatus?.show_paywall
-              || (subscriptionStatus
-                && subscriptionStatus.status !== 'trial'
-                && subscriptionStatus.status !== 'active') ? (
-              <ActionButton
-                label="PRO'ya Geç"
-                onPress={() => router.push('/paywall' as Href)}
-              />
             ) : null}
-            <ActionButton
-              label="Aboneliği Yönet"
-              busy={busy === 'customer-center'}
-              onPress={() => {
-                void (async () => {
-                  setBusy('customer-center');
-                  setError(null);
-                  setMessage(null);
-                  const result = await presentCustomerCenter({
-                    onRestoreCompleted: () => {
-                      void refreshSubscription();
-                    },
-                  });
-                  setBusy(null);
-                  if (!result.ok) {
-                    setError(result.message);
-                    return;
-                  }
-                  await refreshSubscription();
-                  setMessage('Abonelik merkezi kapatıldı.');
-                })();
-              }}
-            />
-            <ActionButton
-              label="Satın Alımları Geri Yükle"
-              busy={busy === 'restore'}
-              onPress={() => {
-                void (async () => {
-                  setBusy('restore');
-                  setError(null);
-                  setMessage(null);
-                  const result = await restorePurchases();
-                  await refreshSubscription();
-                  setBusy(null);
-                  if (!result.ok) {
-                    setError(result.message);
-                    return;
-                  }
-                  setMessage('Satın alımlar geri yüklendi — PRO özellikler açıldı.');
-                })();
-              }}
-            />
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleCopy}>
-                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-                  {t.profile.appearance}
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  {appearance.isDark ? t.profile.dark : t.profile.light}
-                </ThemedText>
-              </View>
-              <View style={styles.themeSwitchWrap}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {appearance.isDark ? t.profile.dark : t.profile.light}
-                </ThemedText>
-                <Switch
-                  accessibilityLabel={t.profile.dark}
-                  accessibilityHint={t.profile.appearance}
-                  value={appearance.isDark}
-                  onValueChange={(value) => appearance.toggleDark(value)}
-                  trackColor={{ false: theme.border, true: theme.tint }}
-                  thumbColor={theme.backgroundElement}
-                />
-              </View>
+          </View>
+          <View style={styles.field}>
+            <ThemedText type="smallBold">Cinsiyet</ThemedText>
+            <View style={styles.genderRow}>
+              {GENDER_OPTIONS.map((option) => {
+                const selected = gender === option;
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={t.gender[option]}
+                    onPress={() => setGender(option)}
+                    style={({ pressed }) => [
+                      styles.genderChip,
+                      {
+                        borderColor: selected ? theme.tint : theme.border,
+                        backgroundColor: selected
+                          ? theme.backgroundSelected
+                          : theme.surfaceMuted,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}>
+                    <ThemedText
+                      type="smallBold"
+                      themeColor={selected ? 'tint' : 'text'}>
+                      {t.gender[option]}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
             </View>
-          </ThemedView>
+          </View>
+          <TimeOfDayField
+            label="Bildirim saati"
+            value={notifTime}
+            onChange={setNotifTime}
+          />
+          {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+          {message && <ThemedText themeColor="success">{message}</ThemedText>}
+          <ActionButton
+            label={t.common.save}
+            busy={busy === 'save'}
+            onPress={() => void save()}
+          />
+        </ThemedView>
 
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            TERCİHLER
+          </ThemedText>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <ThemedText type="smallBold">{t.profile.appearance}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {appearance.isDark ? t.profile.dark : t.profile.light}
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel={t.profile.dark}
+              accessibilityHint={t.profile.appearance}
+              value={appearance.isDark}
+              onValueChange={(value) => appearance.toggleDark(value)}
+              trackColor={{ false: theme.border, true: theme.tint }}
+              thumbColor={theme.backgroundElement}
+            />
+          </View>
+          <View style={styles.langRow}>
+            <ThemedText type="smallBold" style={styles.rowLabel}>
               {t.profile.language}
             </ThemedText>
-            <RegionLanguageSheet
-              value={regionId}
-              onChange={(id) => void changeRegion(id)}
-              busy={busy === 'locale'}
-            />
-            {busy === 'locale' ? (
-              <ActivityIndicator color={theme.tint} style={{ marginTop: Spacing.two }} />
-            ) : null}
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleCopy}>
-                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-                  BİLDİRİMLER
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Günlük görev ve bonus görev haberlerini al. İzin yalnız bu anahtarı kendin
-                  açtığında istenir; tarot bildirimi gönderilmez.
-                </ThemedText>
-              </View>
-              <Switch
-                accessibilityLabel="Push bildirimleri"
-                value={pushStatus?.enabled ?? false}
-                disabled={pushBusy || pushStatus?.supported === false}
-                onValueChange={(value) => void changePushPreference(value)}
-                trackColor={{ false: theme.border, true: theme.tint }}
-                thumbColor={theme.background}
+            <View style={styles.langSheet}>
+              <RegionLanguageSheet
+                value={regionId}
+                onChange={(id) => void changeRegion(id)}
+                busy={busy === 'locale'}
               />
             </View>
-            {!pushStatus && !pushError && <ActivityIndicator color={theme.tint} />}
-            {pushStatus?.message && (
+          </View>
+          {busy === 'locale' ? <ActivityIndicator color={theme.tint} /> : null}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <ThemedText type="smallBold">Bildirimler</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {pushStatus.message}
+                Günlük görev ve bonus haberleri
               </ThemedText>
-            )}
-            {pushError && <ThemedText themeColor="danger">{pushError}</ThemedText>}
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleCopy}>
-                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-                  İRADE MODU
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  İrade ve Disiplin görevlerinde yerel hatırlatıcı kurmanı sağlar. Gerçek bir sistem
-                  alarmı değildir; izinler yalnız hatırlatıcı istediğinde sorulur.
-                </ThemedText>
-              </View>
-              <Switch
-                accessibilityLabel="İrade Modu"
-                value={iradeMode}
-                disabled={busy === 'irade'}
-                onValueChange={(value) => void changeIradeMode(value)}
-                trackColor={{ false: theme.border, true: theme.tint }}
-                thumbColor={theme.background}
-              />
             </View>
-            {busy === 'irade' ? <ActivityIndicator color={theme.tint} /> : null}
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-              GİZLİLİK VE RIZA
-            </ThemedText>
+            <Switch
+              accessibilityLabel="Push bildirimleri"
+              value={pushStatus?.enabled ?? false}
+              disabled={pushBusy || pushStatus?.supported === false}
+              onValueChange={(value) => void changePushPreference(value)}
+              trackColor={{ false: theme.border, true: theme.tint }}
+              thumbColor={theme.background}
+            />
+          </View>
+          {!pushStatus && !pushError && <ActivityIndicator color={theme.tint} />}
+          {pushStatus?.message ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Aydınlatma metni sürümü: {consentStatus.privacy_policy.version}
+              {pushStatus.message}
             </ThemedText>
-            <ConsentSwitch
-              label="AI sohbeti ve kişiselleştirme"
-              detail="Kapatırsan sohbet ve kişisel plan özellikleri kullanılamaz."
-              value={consentStatus.ai_chat_processing.accepted}
-              disabled={consentBusy}
-              onValueChange={(value) => void changeConsent('ai', value)}
-            />
-            <ConsentSwitch
-              label="Kanıt fotoğrafı işleme"
-              detail="Kapalıysa görev kanıtı fotoğrafı gönderilemez."
-              value={consentStatus.proof_photo_processing.accepted}
-              disabled={consentBusy}
-              onValueChange={(value) => void changeConsent('proofPhoto', value)}
-            />
-            <ConsentSwitch
-              label="Pazarlama iletişimi"
-              detail="Varsayılan kapalıdır; pazarlama gönderimi şu anda aktif değildir."
-              value={consentStatus.marketing_communications.accepted}
-              disabled={consentBusy}
-              onValueChange={(value) => void changeConsent('marketing', value)}
-            />
-            {consentError && <ThemedText themeColor="danger">{consentError}</ThemedText>}
-            <View style={styles.legalLinks}>
-              <LegalLink documentId="privacy" label="Gizlilik Politikası" />
-              <LegalLink documentId="kvkk" label="KVKK Aydınlatma" />
-              <LegalLink documentId="consent" label="Açık Rıza Metni" />
-              <LegalLink documentId="terms" label="Kullanım Koşulları" />
-            </View>
-          </ThemedView>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ThemedText type="subtitle">Oturum</ThemedText>
-            <ThemedText themeColor="textSecondary">{auth.user?.email}</ThemedText>
-            <ActionButton label="Çıkış Yap" onPress={() => void auth.signOut()} />
-          </ThemedView>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mistik keşif"
-            accessibilityHint="Fal ve burç bölümünü açar"
-            hitSlop={12}
-            onPress={() => router.push('/mystic' as Href)}
-            style={({ pressed }) => [
-              styles.mysticCard,
-              {
-                backgroundColor: theme.backgroundElement,
-                borderColor: theme.border,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}>
-            <ThemedText style={styles.mysticCardGlyph}>☾</ThemedText>
-            <View style={styles.mysticCardCopy}>
-              <View style={styles.mysticTitleRow}>
-                <ThemedText type="smallBold">{t.profile.mystic}</ThemedText>
-              </View>
+          ) : null}
+          {pushError ? <ThemedText themeColor="danger">{pushError}</ThemedText> : null}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <ThemedText type="smallBold">İrade Modu</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {t.profile.mysticHintFree}
+                Yerel hatırlatıcı (sistem alarmı değil)
               </ThemedText>
             </View>
-            <ThemedText type="smallBold" themeColor="tint">
-              {t.profile.open}
-            </ThemedText>
-          </Pressable>
-
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.danger }]}>
-            <ThemedText type="subtitle" themeColor="danger">
-              Tehlikeli alan
-            </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              Hesabını silmek tüm verilerini ve gelecekteki erişimini kalıcı olarak kaldırır.
-            </ThemedText>
-            <ActionButton
-              label="Hesabımı Sil"
-              busy={busy === 'delete'}
-              danger
-              onPress={confirmDelete}
+            <Switch
+              accessibilityLabel="İrade Modu"
+              value={iradeMode}
+              disabled={busy === 'irade'}
+              onValueChange={(value) => void changeIradeMode(value)}
+              trackColor={{ false: theme.border, true: theme.tint }}
+              thumbColor={theme.background}
             />
-          </ThemedView>
+          </View>
+          {busy === 'irade' ? <ActivityIndicator color={theme.tint} /> : null}
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            ABONELİK
+          </ThemedText>
+          <SettingsRow
+            label="Durum"
+            value={
+              subscriptionStatus?.status === 'active'
+                ? 'Premium'
+                : subscriptionStatus?.status === 'trial'
+                  ? `Deneme · ${subscriptionStatus.trial_days_remaining}g`
+                  : subscriptionStatus?.show_paywall
+                    ? 'Bitti'
+                    : '…'
+            }
+          />
+          {subscriptionStatus?.show_paywall
+            || (subscriptionStatus
+              && subscriptionStatus.status !== 'trial'
+              && subscriptionStatus.status !== 'active') ? (
+            <SettingsRow
+              label="PRO'ya Geç"
+              onPress={() => router.push('/paywall' as Href)}
+            />
+          ) : null}
+          <SettingsRow
+            label="Aboneliği Yönet"
+            busy={busy === 'customer-center'}
+            onPress={() => {
+              void (async () => {
+                setBusy('customer-center');
+                setError(null);
+                setMessage(null);
+                const result = await presentCustomerCenter({
+                  onRestoreCompleted: () => {
+                    void refreshSubscription();
+                  },
+                });
+                setBusy(null);
+                if (!result.ok) {
+                  setError(result.message);
+                  return;
+                }
+                await refreshSubscription();
+                setMessage('Abonelik merkezi kapatıldı.');
+              })();
+            }}
+          />
+          <SettingsRow
+            label="Satın Alımları Geri Yükle"
+            busy={busy === 'restore'}
+            onPress={() => {
+              void (async () => {
+                setBusy('restore');
+                setError(null);
+                setMessage(null);
+                const result = await restorePurchases();
+                await refreshSubscription();
+                setBusy(null);
+                if (!result.ok) {
+                  setError(result.message);
+                  return;
+                }
+                setMessage('Satın alımlar geri yüklendi — PRO özellikler açıldı.');
+              })();
+            }}
+          />
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            YASAL
+          </ThemedText>
+          <ConsentSwitch
+            label="AI sohbeti"
+            detail="Kapalıysa sohbet/plan kilitlenir"
+            value={consentStatus.ai_chat_processing.accepted}
+            disabled={consentBusy}
+            onValueChange={(value) => void changeConsent('ai', value)}
+          />
+          <ConsentSwitch
+            label="Kanıt fotoğrafı"
+            detail="Kapalıysa kanıt yok"
+            value={consentStatus.proof_photo_processing.accepted}
+            disabled={consentBusy}
+            onValueChange={(value) => void changeConsent('proofPhoto', value)}
+          />
+          <ConsentSwitch
+            label="Pazarlama"
+            detail="Varsayılan kapalı"
+            value={consentStatus.marketing_communications.accepted}
+            disabled={consentBusy}
+            onValueChange={(value) => void changeConsent('marketing', value)}
+          />
+          {consentError && <ThemedText themeColor="danger">{consentError}</ThemedText>}
+          <SettingsRow
+            label="Gizlilik Politikası"
+            onPress={() => void openLegalDocument('privacy')}
+          />
+          <SettingsRow
+            label="KVKK Aydınlatma"
+            onPress={() => void openLegalDocument('kvkk')}
+          />
+          <SettingsRow
+            label="Açık Rıza Metni"
+            onPress={() => void openLegalDocument('consent')}
+          />
+          <SettingsRow
+            label="Kullanım Koşulları"
+            onPress={() => void openLegalDocument('terms')}
+          />
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.card, { borderColor: theme.border }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+            OTURUM
+          </ThemedText>
+          <SettingsRow label="Hesap" value={auth.user?.email ?? '—'} />
+          <SettingsRow label="Çıkış Yap" onPress={() => void auth.signOut()} />
+          <SettingsRow
+            label="Hesabımı Sil"
+            danger
+            busy={busy === 'delete'}
+            onPress={confirmDelete}
+          />
+        </ThemedView>
         </ScreenScaffold>
       </KeyboardAwareView>
     </ThemedView>
@@ -664,23 +616,52 @@ function ConsentSwitch({
   );
 }
 
-function LegalLink({
-  documentId,
+function SettingsRow({
   label,
+  value,
+  onPress,
+  busy = false,
+  danger = false,
 }: {
-  documentId: LegalDocumentId;
   label: string;
+  value?: string;
+  onPress?: () => void;
+  busy?: boolean;
+  danger?: boolean;
 }) {
+  const theme = useTheme();
+  const clickable = !!onPress;
   return (
     <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`${label} sayfasını aç`}
-      hitSlop={8}
-      onPress={() => void openLegalDocument(documentId)}
-      style={({ pressed }) => pressed && { opacity: 0.6 }}>
-      <ThemedText type="smallBold" themeColor="tint">
+      accessibilityRole={clickable ? 'button' : 'text'}
+      disabled={!clickable || busy}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.settingsRow,
+        { borderBottomColor: theme.border, opacity: pressed && clickable ? 0.75 : 1 },
+      ]}>
+      <ThemedText
+        type="smallBold"
+        style={[styles.rowLabel, danger ? { color: theme.danger } : null]}
+        numberOfLines={1}>
         {label}
       </ThemedText>
+      {busy ? (
+        <ActivityIndicator color={theme.tint} />
+      ) : (
+        <View style={styles.rowTrailing}>
+          {value ? (
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.rowValue}>
+              {value}
+            </ThemedText>
+          ) : null}
+          {clickable ? (
+            <ThemedText type="smallBold" themeColor={danger ? 'danger' : 'textSecondary'}>
+              ›
+            </ThemedText>
+          ) : null}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -749,55 +730,51 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
-  /** Mistik giriş — net etiketli kart (web tıklaması için yeterli hit alanı). */
-  mysticCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.four,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-  },
-  mysticCardGlyph: {
-    fontSize: 22,
-    lineHeight: 26,
-    opacity: 0.9,
-  },
-  mysticCardCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  mysticTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+  scaffoldTight: {
     gap: Spacing.two,
+    paddingTop: Spacing.one,
   },
-  header: { gap: Spacing.one, paddingVertical: Spacing.two },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 44,
+  },
+  langSheet: { flex: 1, minWidth: 0 },
+  settingsRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rowLabel: { flexShrink: 1 },
+  rowTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    flexShrink: 1,
+    maxWidth: '55%',
+  },
+  rowValue: { flexShrink: 1, textAlign: 'right' },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarLetter: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
   },
   profileMeta: {
     flex: 1,
@@ -810,13 +787,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   profileName: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 21,
     flexShrink: 1,
   },
   zodiacGlyph: {
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 22,
   },
   sectionLabel: {
     letterSpacing: 0.8,
@@ -824,7 +801,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderRadius: Spacing.four,
+    borderRadius: Radii.medium,
     padding: Spacing.three,
     gap: Spacing.two,
   },
@@ -846,30 +823,21 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
   toggleCopy: {
     flex: 1,
-    gap: Spacing.one,
-  },
-  themeSwitchWrap: {
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.three,
+    gap: 2,
   },
   input: {
-    minHeight: 50,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
   },
   button: {
-    minHeight: 48,
+    minHeight: 44,
     borderRadius: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
