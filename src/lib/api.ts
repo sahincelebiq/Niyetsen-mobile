@@ -810,6 +810,37 @@ export async function uploadFortunePhoto(
   }, { timeoutMs: ProofTimeoutMs });
 }
 
+// ---------- faz8.13/4 — Online rekabet (opt-in takma adlı lig) ----------
+export type LeagueMember = {
+  alias: string;
+  score: number;
+  streak: number;
+  rank: number;
+  is_me: boolean;
+};
+
+export type League = {
+  opted_in: boolean;
+  alias: string | null;
+  my_rank: number | null;
+  members: LeagueMember[];
+};
+
+export function getLeague(): Promise<League> {
+  return request<League>('/league');
+}
+
+export function joinLeague(alias: string): Promise<League> {
+  return request<League>('/league/join', {
+    method: 'POST',
+    body: JSON.stringify({ alias }),
+  });
+}
+
+export function leaveLeague(): Promise<League> {
+  return request<League>('/league/leave', { method: 'POST' });
+}
+
 /** faz8.13/2b — mistik rehber sohbeti (/chat'ten ayrı; mistik hafızalı). */
 export type MysticChatMessage = { role: 'user' | 'assistant'; content: string };
 
