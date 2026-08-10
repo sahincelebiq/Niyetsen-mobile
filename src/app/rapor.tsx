@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     maxWidth: 420,
   },
-  lockGlyph: { fontSize: 40, lineHeight: 48 },
+  lockGlyph: { fontSize: 28, lineHeight: 34 },
   lockCta: {
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  sproutEmoji: { fontSize: 56, lineHeight: 64, textAlign: 'center' },
+  sproutEmoji: { fontSize: 32, lineHeight: 38, textAlign: 'center' },
   headline: { fontSize: 32, lineHeight: 38, fontWeight: '700', textAlign: 'center' },
   subtitle: { textAlign: 'center', fontSize: 16, lineHeight: 24 },
   shareBtn: {

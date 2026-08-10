@@ -124,7 +124,7 @@ export default function PaywallScreen() {
           <ThemedView
             style={[styles.card, { borderColor: theme.border }, Shadows.soft ?? {}]}>
             <ThemedText type="subtitle">Aylık</ThemedText>
-            <ThemedText type="title">{monthlyPrice}</ThemedText>
+            <ThemedText type="screenTitle">{monthlyPrice}</ThemedText>
             <ThemedText themeColor="textSecondary">
               Esnek devam — istediğin zaman iptal edebilirsin.
             </ThemedText>
@@ -149,7 +149,7 @@ export default function PaywallScreen() {
           <ThemedView
             style={[styles.card, styles.recommended, { borderColor: theme.accentWarm }, Shadows.soft ?? {}]}>
             <ThemedText type="subtitle" themeColor="accentWarm">Yıllık · önerilen</ThemedText>
-            <ThemedText type="title">{yearlyPrice}</ThemedText>
+            <ThemedText type="screenTitle">{yearlyPrice}</ThemedText>
             <ThemedText themeColor="textSecondary">{YEARLY_EQUIV}</ThemedText>
             <Pressable
               disabled={busy !== null}

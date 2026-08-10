@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     padding: Spacing.five,
     ...(Shadows.soft ?? {}),
   },
-  symbol: { fontSize: 54, lineHeight: 64, textAlign: 'center' },
+  symbol: { fontSize: 32, lineHeight: 38, textAlign: 'center' },
   center: { textAlign: 'center' },
   badge: {
     alignSelf: 'center',

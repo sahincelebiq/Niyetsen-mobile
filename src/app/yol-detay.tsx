@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.three,
   },
-  lockGlyph: { fontSize: 28, lineHeight: 34 },
+  lockGlyph: { fontSize: 26, lineHeight: 32 },
   lockCta: {
     minHeight: 44,
     paddingHorizontal: Spacing.four,

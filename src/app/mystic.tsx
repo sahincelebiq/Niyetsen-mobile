@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.two,
   },
-  symbol: { fontSize: 38, lineHeight: 46 },
+  symbol: { fontSize: 28, lineHeight: 34 },
   disclaimer: { textAlign: 'center', paddingHorizontal: Spacing.three },
   historyLink: {
     alignItems: 'center',
