@@ -15,7 +15,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { regionById } from '@/i18n/regions';
 import type { RegionId } from '@/i18n/types';
-import { useI18n } from '@/providers/locale-provider';
+import { showAlert, showConfirm } from '@/lib/web-alert';
+import { useLocale } from '@/providers/locale-provider';
 
 type Props = {
   value: RegionId;
@@ -24,19 +25,37 @@ type Props = {
 };
 
 /**
- * FAZ 8.10 — Ayarlar dil seçici: tek satır (mevcut dil + chevron)
- * → seçim bottom sheet'te. Auth/onboarding hâlâ inline RegionPicker kullanır.
+ * Tek dil/ülke seçici: satır + bottom sheet.
+ * Auth, onboarding ve Profil aynı bileşeni kullanır.
+ * RTL (Arapça) geçişinde forceRTL yalnız yeniden başlatma onayına bağlıdır.
  */
 export function RegionLanguageSheet({ value, onChange, busy = false }: Props) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const { t } = useI18n();
+  const { t, wouldChangeRtl, commitLocaleWithRtl, tryReloadApp } = useLocale();
   const [open, setOpen] = useState(false);
   const region = regionById(value);
   const overlayOpacity = scheme === 'dark' ? 0.55 : 0.32;
 
   function select(id: RegionId) {
+    const next = regionById(id);
+    if (wouldChangeRtl(next.locale)) {
+      setOpen(false);
+      showConfirm(t.common.rtlRestartTitle, t.common.rtlRestartBody, {
+        cancelLabel: t.common.cancel,
+        confirmLabel: t.common.rtlRestartConfirm,
+        onConfirm: () => {
+          void (async () => {
+            await commitLocaleWithRtl(next.locale, next.id);
+            onChange(id);
+            showAlert(t.common.rtlRestartTitle, t.common.rtlRestartDone);
+            tryReloadApp();
+          })();
+        },
+      });
+      return;
+    }
     onChange(id);
     setOpen(false);
   }

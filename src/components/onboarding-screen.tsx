@@ -18,7 +18,7 @@ import {
   ConsentChoicesValue,
   EMPTY_CONSENT_CHOICES,
 } from '@/components/consent-choices';
-import { RegionPicker } from '@/components/region-picker';
+import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
@@ -29,14 +29,14 @@ import {
   isValidBirthDateDisplay,
 } from '@/lib/birth-date';
 import { trackEvent } from '@/lib/analytics';
-import { useI18n } from '@/providers/locale-provider';
+import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
 type OnboardingStepId = 'region' | 'name' | 'gender' | 'birth' | 'notif' | 'consent';
 
 export function OnboardingScreen() {
   const theme = useTheme();
-  const { t, regionId, setRegion, timezone, locale } = useI18n();
+  const { t, regionId, setRegion, timezone, locale } = useLocale();
   const { profile, refresh } = useProfile();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -154,15 +154,13 @@ export function OnboardingScreen() {
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
-              <ThemedText type="subtitle" style={styles.stepTitle}>
-                {current.title}
-              </ThemedText>
+              <ThemedText type="subtitle">{current.title}</ThemedText>
               {current.id === 'region' && (
                 <>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.regionHint}
                   </ThemedText>
-                  <RegionPicker
+                  <RegionLanguageSheet
                     value={regionId}
                     onChange={(id) => void setRegion(id)}
                   />
@@ -311,23 +309,20 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 560,
+    maxWidth: 520,
     alignSelf: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    gap: Spacing.two,
   },
   progressRow: { flexDirection: 'row', gap: Spacing.two },
-  progress: { height: 5, flex: 1, borderRadius: 99 },
+  progress: { height: 4, flex: 1, borderRadius: 99 },
   card: {
     borderWidth: 1,
     borderRadius: Spacing.four,
-    padding: Spacing.four,
-    gap: Spacing.three,
-  },
-  stepTitle: {
-    fontSize: 22,
-    lineHeight: 28,
+    padding: Spacing.three,
+    gap: Spacing.two,
   },
   genderRow: {
     flexDirection: 'row',

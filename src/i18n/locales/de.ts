@@ -13,6 +13,12 @@ export const de: Messages = {
     done: 'Fertig',
     errorGeneric: 'Etwas ist schiefgelaufen. Bitte gleich noch einmal versuchen.',
     offlineBanner: 'Keine Verbindung — Offline-Ansicht.',
+    rtlRestartTitle: 'Neustart erforderlich',
+    rtlRestartBody:
+      'Für Arabisch (RTL) muss die App neu gestartet werden. Bestätige zum Speichern, dann App schließen und öffnen.',
+    rtlRestartConfirm: 'Speichern und weiter',
+    rtlRestartDone:
+      'Sprache gespeichert. Schließe die App und öffne sie erneut für RTL.',
   },
   tabs: {
     chat: 'Chat',

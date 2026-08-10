@@ -13,6 +13,12 @@ export const ar: Messages = {
     done: 'تم',
     errorGeneric: 'حدث خطأ. حاول مرة أخرى بعد قليل.',
     offlineBanner: 'تعذّر الاتصال — أنت في وضع عدم الاتصال.',
+    rtlRestartTitle: 'يلزم إعادة التشغيل',
+    rtlRestartBody:
+      'تخطيط العربية (RTL) يحتاج إعادة تشغيل التطبيق. أكّد للحفظ ثم أغلق التطبيق وافتحه مجدداً.',
+    rtlRestartConfirm: 'حفظ ومتابعة',
+    rtlRestartDone:
+      'تم حفظ اللغة. أغلق التطبيق وافتحه الآن لتطبيق تخطيط RTL.',
   },
   tabs: {
     chat: 'محادثة',

@@ -26,6 +26,10 @@ export type Messages = {
     done: string;
     errorGeneric: string;
     offlineBanner: string;
+    rtlRestartTitle: string;
+    rtlRestartBody: string;
+    rtlRestartConfirm: string;
+    rtlRestartDone: string;
   };
   tabs: {
     chat: string;

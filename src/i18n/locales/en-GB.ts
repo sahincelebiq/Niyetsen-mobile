@@ -13,6 +13,12 @@ export const enGB: Messages = {
     done: 'Done',
     errorGeneric: 'Something went wrong. Please try again shortly.',
     offlineBanner: "Couldn't connect — you're offline.",
+    rtlRestartTitle: 'Restart required',
+    rtlRestartBody:
+      'Arabic (RTL) layout needs an app restart. Confirm to save the language, then close and reopen the app.',
+    rtlRestartConfirm: 'Save and continue',
+    rtlRestartDone:
+      'Language saved. Close and reopen the app now for the RTL layout to apply.',
   },
   tabs: {
     chat: 'Chat',

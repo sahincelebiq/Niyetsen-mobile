@@ -13,21 +13,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { RegionPicker } from '@/components/region-picker';
+import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
 import { useAuth } from '@/providers/auth-provider';
-import { useI18n } from '@/providers/locale-provider';
+import { useLocale } from '@/providers/locale-provider';
 
 type Mode = 'sign-in' | 'sign-up';
 
 export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
-  const { t, regionId, setRegion } = useI18n();
+  const { t, regionId, setRegion } = useLocale();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,15 +74,28 @@ export function AuthScreen() {
         <SafeAreaView style={styles.flex}>
           <ScrollView
             contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.topBar}>
+              <View style={styles.langWrap}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  {t.auth.languageRegion}
+                </ThemedText>
+                <RegionLanguageSheet
+                  value={regionId}
+                  onChange={(id) => void setRegion(id)}
+                />
+              </View>
+            </View>
+
             <View style={styles.hero}>
               <Image
                 source={require('@/assets/images/niyetsen-logo.png')}
                 style={styles.logo}
                 contentFit="contain"
               />
-              <ThemedText type="title">Niyetsen</ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.center}>
+              <ThemedText type="screenTitle">Niyetsen</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
                 {t.auth.hero}
               </ThemedText>
             </View>
@@ -90,15 +103,6 @@ export function AuthScreen() {
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                {t.auth.languageRegion}
-              </ThemedText>
-              <RegionPicker
-                compact
-                value={regionId}
-                onChange={(id) => void setRegion(id)}
-              />
-
               <ThemedText type="subtitle">
                 {auth.recovery
                   ? t.auth.newPassword
@@ -305,27 +309,34 @@ const styles = StyleSheet.create({
     maxWidth: Math.min(MaxContentWidth, 520),
     alignSelf: 'center',
     justifyContent: 'center',
-    padding: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    gap: Spacing.three,
   },
-  hero: { alignItems: 'center', gap: Spacing.one },
-  logo: { width: 84, height: 84, borderRadius: 22, marginBottom: Spacing.one },
+  topBar: {
+    alignItems: 'stretch',
+  },
+  langWrap: {
+    gap: Spacing.one,
+  },
+  hero: { alignItems: 'center', gap: Spacing.half },
+  logo: { width: 64, height: 64, borderRadius: 18, marginBottom: Spacing.half },
   center: { textAlign: 'center' },
   card: {
     borderWidth: 1,
     borderRadius: Spacing.four,
-    padding: Spacing.four,
-    gap: Spacing.three,
+    padding: Spacing.three,
+    gap: Spacing.two,
   },
   input: {
-    minHeight: 50,
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
   },
   button: {
-    minHeight: 50,
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: Spacing.three,
     alignItems: 'center',

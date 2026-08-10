@@ -13,6 +13,12 @@ export const tr: Messages = {
     done: 'Tamam',
     errorGeneric: 'Bir şeyler ters gitti. Birazdan tekrar dene.',
     offlineBanner: 'Bağlantı kurulamadı — çevrimdışı görünümdesin.',
+    rtlRestartTitle: 'Yeniden başlatma gerekir',
+    rtlRestartBody:
+      'Arapça (RTL) düzeni için uygulama yeniden başlatılmalı. Onaylarsan dil kaydedilir; sonra uygulamayı kapatıp aç.',
+    rtlRestartConfirm: 'Kaydet ve devam et',
+    rtlRestartDone:
+      'Dil kaydedildi. RTL düzenin uygulanması için uygulamayı şimdi kapatıp yeniden aç.',
   },
   tabs: {
     chat: 'Sohbet',

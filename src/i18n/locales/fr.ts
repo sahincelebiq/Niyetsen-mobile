@@ -13,6 +13,12 @@ export const fr: Messages = {
     done: 'Terminé',
     errorGeneric: 'Une erreur est survenue. Réessaie dans un instant.',
     offlineBanner: 'Connexion impossible — mode hors ligne.',
+    rtlRestartTitle: 'Redémarrage requis',
+    rtlRestartBody:
+      'L’arabe (RTL) nécessite un redémarrage. Confirme pour enregistrer, puis ferme et rouvre l’app.',
+    rtlRestartConfirm: 'Enregistrer et continuer',
+    rtlRestartDone:
+      'Langue enregistrée. Ferme et rouvre l’app pour appliquer le RTL.',
   },
   tabs: {
     chat: 'Chat',
