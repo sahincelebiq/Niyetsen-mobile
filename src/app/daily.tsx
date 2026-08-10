@@ -35,11 +35,13 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  ImageScrim,
   MaxContentWidth,
   Motion,
   Radii,
   Spacing,
 } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
@@ -508,6 +510,8 @@ const TaskCard = memo(function TaskCard({
 }) {
   const theme = useTheme();
   const { t } = useLocale();
+  const scheme = useColorScheme();
+  const scrimColor = (scheme === 'dark' ? ImageScrim.dark : ImageScrim.light)[1];
   const pending = task.status === 'pending';
   const willpowerTask = supportsWillpowerReminder(task);
   const celebrate = outcome?.tone === 'success' || task.status === 'done';
@@ -531,9 +535,11 @@ const TaskCard = memo(function TaskCard({
           {!!task.image_url && (
             <ThemedView style={styles.imageWrapper}>
               <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
-              <View pointerEvents="none" style={[styles.scrim, styles.scrimTop]} />
-              <View pointerEvents="none" style={[styles.scrim, styles.scrimMid]} />
-              <View pointerEvents="none" style={[styles.scrim, styles.scrimBottom]} />
+              {/* faz8.13/8: tek alt bant — görsel canlı kalır, yalnız alt kenar koyulaşır. */}
+              <View
+                pointerEvents="none"
+                style={[styles.scrim, styles.scrimBottom, { backgroundColor: scrimColor }]}
+              />
               {!!task.image_attribution && (
                 <Pressable
                   accessibilityLabel="Fotoğraf atfı"
@@ -747,16 +753,15 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
   },
-  // Katmanlı örtü: üç ince şerit yukarıdan aşağı koyulaşır (gradyan taklidi).
+  // faz8.13/8: görseli yıkayan üç katman kaldırıldı — yalnız alt bant kaldı
+  // (görsel canlı, atıf rozeti okunur). Renk ImageScrim token'ından.
   scrim: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
   },
-  scrimTop: { height: '46%', backgroundColor: 'rgba(28, 22, 16, 0.06)' },
-  scrimMid: { height: '26%', backgroundColor: 'rgba(28, 22, 16, 0.14)' },
-  scrimBottom: { height: '12%', backgroundColor: 'rgba(28, 22, 16, 0.22)' },
+  scrimBottom: { height: '22%' },
   attributionBadge: {
     position: 'absolute',
     right: Spacing.two,

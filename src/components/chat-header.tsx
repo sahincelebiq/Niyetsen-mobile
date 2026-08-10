@@ -1,5 +1,15 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
@@ -21,6 +31,42 @@ type ChatHeaderProps = {
 };
 
 const HIT_SLOP_44 = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+
+/**
+ * ☾ nabız (faz8.13 / 1c): "yeni filiz" göstergesiyle aynı ritimde yumuşak
+ * parlama — Easing YALNIZ reanimated'dan; ReduceMotion.System saygısı.
+ */
+function MysticPulse({ children }: { children: React.ReactNode }) {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, {
+          duration: 1400,
+          easing: Easing.inOut(Easing.sin),
+          reduceMotion: ReduceMotion.System,
+        }),
+        withTiming(0, {
+          duration: 1400,
+          easing: Easing.inOut(Easing.sin),
+          reduceMotion: ReduceMotion.System,
+        }),
+      ),
+      -1,
+      false,
+      undefined,
+      ReduceMotion.System,
+    );
+  }, [pulse]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.55 + pulse.value * 0.45,
+    transform: [{ scale: 1 + pulse.value * 0.08 }],
+  }));
+
+  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
+}
 
 export function ChatHeader({
   streakDays,
@@ -73,7 +119,9 @@ export function ChatHeader({
                 styles.mysticButton,
                 pressed && styles.pressed,
               ]}>
-              <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
+              <MysticPulse>
+                <ThemedText style={styles.mysticGlyph}>☾</ThemedText>
+              </MysticPulse>
             </Pressable>
           ) : null}
           <StreakPill streakDays={streakDays} compact />
@@ -138,7 +186,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
     includeFontPadding: false,
-    opacity: 0.85,
   },
   titles: {
     flex: 1,

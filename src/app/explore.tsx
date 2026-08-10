@@ -268,8 +268,9 @@ function DaySection({
   const theme = useTheme();
   const { t } = useLocale();
   const dayDate = addDaysIso(plan.start_date, day.day - 1);
+  // faz8.13/8: geçmiş gün soldurması hafifletildi (0.72 → 0.9) — görseller soluk görünmesin.
   return (
-    <ThemedView style={[styles.daySection, relation === 'past' ? { opacity: 0.72 } : null]}>
+    <ThemedView style={[styles.daySection, relation === 'past' ? { opacity: 0.9 } : null]}>
       <View style={styles.dayHeading}>
         <ThemedText type="smallBold" themeColor={relation === 'today' ? 'tint' : 'text'}>
           Gün {day.day}
@@ -346,7 +347,7 @@ function VisionTaskCard({
         {!!task.image_url && (
           <ThemedView style={styles.imageWrapper}>
             <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
-            <View pointerEvents="none" style={[styles.scrimBand, { backgroundColor: scrim[0] }]} />
+            {/* faz8.13/8: yalnız alt başlık bandı — görselin geri kalanı canlı. */}
             <View
               pointerEvents="none"
               style={[styles.scrimBandBottom, { backgroundColor: scrim[1] }]}
@@ -508,9 +509,6 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     position: 'relative',
-  },
-  scrimBand: {
-    ...StyleSheet.absoluteFillObject,
   },
   scrimBandBottom: {
     position: 'absolute',
