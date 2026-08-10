@@ -95,12 +95,22 @@ const authStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
-  auth: {
-    storage: authStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: Platform.OS === 'web',
-    lock: processLock,
+// FAZ 8.12 AÇILIŞ DAYANIKLILIĞI: env eksikse createClient module-load'da
+// throw eder ve uygulama release'te AÇILMADAN çöker (Play kapalı test hatası).
+// Placeholder ile boot hayatta kalır; giriş ekranı anlaşılır hata gösterir.
+// Kalıcı çözüm: eas.json env bloklarında EXPO_PUBLIC_SUPABASE_* tanımlı tut.
+export const supabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabasePublishableKey || 'sb_publishable_placeholder',
+  {
+    auth: {
+      storage: authStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: Platform.OS === 'web',
+      lock: processLock,
+    },
   },
-});
+);
