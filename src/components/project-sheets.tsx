@@ -43,6 +43,15 @@ import { showConfirm } from '@/lib/web-alert';
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.86, 340);
 const HIT_SLOP_44 = { top: 12, bottom: 12, left: 12, right: 12 } as const;
 
+/**
+ * faz8.13/5: Modal kapanırken yapılan navigasyon Android'de yarış nedeniyle
+ * yutulabiliyordu ("plan değiştir → sohbete düşmüyor"). Kapanış animasyonu
+ * bittikten sonra yönlendiririz — akış her cihazda sohbete iner.
+ */
+function navigateAfterModalClose(router: ReturnType<typeof useRouter>, href: Href) {
+  setTimeout(() => router.replace(href), 320);
+}
+
 /** Oturum zamanı: bugünse saat, bu yılsa gün+ay, değilse tam tarih. */
 function formatThreadTime(iso: string): string {
   const date = new Date(iso);
@@ -192,7 +201,7 @@ export function ChatHistorySheet({
       onProjectChanged();
       onClose();
       // Tab'lar arası: push yerine replace — Planım'da kalma.
-      router.replace('/' as Href);
+      navigateAfterModalClose(router, '/' as Href);
     } catch (e) {
       if (isPaywallError(e)) {
         onClose();
@@ -613,7 +622,7 @@ export function PlanPickerSheet({
       await startNewProject();
       onPlanChanged();
       onClose();
-      router.replace('/' as Href);
+      navigateAfterModalClose(router, '/' as Href);
     } catch (e) {
       if (isPaywallError(e)) {
         onClose();

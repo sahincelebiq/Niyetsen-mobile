@@ -295,22 +295,18 @@ export default function SettingsScreen() {
           </View>
         </SurfaceCard>
 
+        {/* faz8.13/7: mistik girişi ayarlardan kalktı — yeni evi Bugün sekmesi (2a). */}
         <ThemedView
           type="backgroundElement"
           style={[styles.card, { borderColor: theme.border }]}>
           <SettingsRow
-            label={`☾  ${t.profile.mystic}`}
-            value={t.profile.open}
-            onPress={() => router.push('/mystic' as Href)}
+            label="🏆  Arkadaşlar & Lig"
+            value="Haftalık gelişim"
+            onPress={() => router.push('/arkadaslar' as Href)}
           />
         </ThemedView>
 
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            HESAP
-          </ThemedText>
+        <CollapsibleCard title="HESAP" initiallyOpen>
           <Field label="İsim" value={name} onChangeText={setName} />
           <View style={styles.field}>
             <ThemedText type="smallBold">Doğum tarihi</ThemedText>
@@ -365,14 +361,9 @@ export default function SettingsScreen() {
             busy={busy === 'save'}
             onPress={() => void save()}
           />
-        </ThemedView>
+        </CollapsibleCard>
 
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            TERCİHLER
-          </ThemedText>
+        <CollapsibleCard title="TERCİHLER & BİLDİRİMLER">
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <ThemedText type="smallBold">{t.profile.appearance}</ThemedText>
@@ -442,14 +433,9 @@ export default function SettingsScreen() {
             />
           </View>
           {busy === 'irade' ? <ActivityIndicator color={theme.tint} /> : null}
-        </ThemedView>
+        </CollapsibleCard>
 
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            ABONELİK
-          </ThemedText>
+        <CollapsibleCard title="ABONELİK">
           <SettingsRow
             label="Durum"
             value={
@@ -513,14 +499,9 @@ export default function SettingsScreen() {
               })();
             }}
           />
-        </ThemedView>
+        </CollapsibleCard>
 
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            YASAL
-          </ThemedText>
+        <CollapsibleCard title="GÜVENLİK & GİZLİLİK">
           <ConsentSwitch
             label="AI sohbeti"
             detail="Kapalıysa sohbet/plan kilitlenir"
@@ -559,14 +540,9 @@ export default function SettingsScreen() {
             label="Kullanım Koşulları"
             onPress={() => void openLegalDocument('terms')}
           />
-        </ThemedView>
+        </CollapsibleCard>
 
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
-            OTURUM
-          </ThemedText>
+        <CollapsibleCard title="OTURUM">
           <SettingsRow label="Hesap" value={auth.user?.email ?? '—'} />
           <SettingsRow label="Çıkış Yap" onPress={() => void auth.signOut()} />
           <SettingsRow
@@ -575,9 +551,47 @@ export default function SettingsScreen() {
             busy={busy === 'delete'}
             onPress={confirmDelete}
           />
-        </ThemedView>
+        </CollapsibleCard>
         </ScreenScaffold>
       </KeyboardAwareView>
+    </ThemedView>
+  );
+}
+
+/**
+ * faz8.13/7: Profil açılır bölüm grupları — uzun kaydırma yerine başlığa
+ * dokununca açılan kısa kartlar. Minimal ölçek kilitli; iPhone SE taşmasız.
+ */
+function CollapsibleCard({
+  title,
+  children,
+  initiallyOpen = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  initiallyOpen?: boolean;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <ThemedView
+      type="backgroundElement"
+      style={[styles.card, { borderColor: theme.border }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={title}
+        accessibilityHint={open ? 'Bölümü kapat' : 'Bölümü aç'}
+        onPress={() => setOpen((value) => !value)}
+        style={({ pressed }) => [styles.collapsibleHeader, pressed && { opacity: 0.75 }]}>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>
+          {title}
+        </ThemedText>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.chevron}>
+          {open ? '▾' : '▸'}
+        </ThemedText>
+      </Pressable>
+      {open ? <View style={styles.collapsibleBody}>{children}</View> : null}
     </ThemedView>
   );
 }
@@ -798,6 +812,20 @@ const styles = StyleSheet.create({
   sectionLabel: {
     letterSpacing: 0.8,
     fontSize: 11,
+  },
+  collapsibleHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  chevron: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  collapsibleBody: {
+    gap: Spacing.two,
   },
   card: {
     borderWidth: 1,
