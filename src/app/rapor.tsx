@@ -36,7 +36,16 @@ import { CategoryBadge } from '@/components/ui/category-badge';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
-import { getRecap, type Recap, type RecapCard, type RecapDashboard } from '@/lib/api';
+import {
+  CATEGORIES,
+  getRecap,
+  getState,
+  isPaywallError,
+  type Recap,
+  type RecapCard,
+  type RecapDashboard,
+  type StateResponse,
+} from '@/lib/api';
 
 const STORY_MS = 5200;
 type RecapPeriod = '7d' | '30d';
@@ -64,6 +73,36 @@ function multiPlanCount(subtitle: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
+function dashboardFromSources(
+  recap: Recap | null,
+  state: StateResponse | null,
+): RecapDashboard | null {
+  if (recap?.dashboard) return recap.dashboard;
+  if (!recap && !state) return null;
+  const points: Record<string, number> = { ...(state?.points ?? {}) };
+  const categoryCounts: Record<string, number> = {};
+  for (const category of CATEGORIES) {
+    categoryCounts[category] = 0;
+  }
+  if (recap?.top_category) {
+    categoryCounts[recap.top_category] = recap.completed_tasks;
+  }
+  return {
+    total_tasks: recap?.completed_tasks ?? 0,
+    completed_tasks: recap?.completed_tasks ?? 0,
+    proofed_tasks: 0,
+    completion_rate: recap?.completed_tasks ? 100 : 0,
+    category_counts: categoryCounts,
+    points,
+    total_points: recap?.total_points ?? CATEGORIES.reduce((sum, cat) => sum + (points[cat] ?? 0), 0),
+    streak_len: state?.streak_len ?? 0,
+    best_streak: state?.best_streak ?? 0,
+    days_in: recap?.days_in ?? 1,
+    plans_count: 1,
+    weekly_completed: [0, 0, 0, 0, 0, 0, 0, recap?.completed_tasks ?? 0],
+  };
+}
+
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -71,9 +110,9 @@ export default function RecapScreen() {
   // GÖRÜR — dışarı atılmaz; içeride kilitli önizleme + PRO daveti gösterilir.
   const { hasPremium, loading: premiumLoading } = usePremiumAccess();
   const [period, setPeriod] = useState<RecapPeriod>('7d');
-  // faz8.13/3: story'nin yanına gerçek KPI paneli.
-  const [mode, setMode] = useState<RecapMode>('story');
+  const [mode, setMode] = useState<RecapMode>('panel');
   const [recap, setRecap] = useState<Recap | null>(null);
+  const [state, setState] = useState<StateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -90,10 +129,22 @@ export default function RecapScreen() {
       const next = await getRecap(nextPeriod);
       setRecap(next);
       setIndex(0);
-    } catch {
+    } catch (value) {
+      if (isPaywallError(value)) {
+        setRecap(null);
+        return;
+      }
       setError('Raporun şu an yüklenemedi. Birazdan tekrar dene.');
     }
   }, [period]);
+
+  useEffect(() => {
+    void getState()
+      .then(setState)
+      .catch(() => {
+        /* panel yedek KPI'sız kalabilir */
+      });
+  }, []);
 
   useEffect(() => {
     if (premiumLoading || !hasPremium) return;
@@ -116,6 +167,7 @@ export default function RecapScreen() {
   const cards = recap?.cards ?? [];
   const card = cards[index];
   const isClosing = card?.kind === 'closing';
+  const dashboard = dashboardFromSources(recap, state);
 
   const advance = useCallback(
     (dir: 1 | -1) => {
@@ -282,7 +334,7 @@ export default function RecapScreen() {
         ))}
       </View>
 
-      {!premiumLoading && !hasPremium ? (
+      {!premiumLoading && !hasPremium && mode === 'story' ? (
         <View style={styles.center}>
           <View
             style={[
@@ -314,7 +366,10 @@ export default function RecapScreen() {
           </View>
         </View>
       ) : null}
-      {(premiumLoading || hasPremium) && !recap && !error && (
+      {(premiumLoading || (hasPremium && mode === 'story')) && !recap && !error && (
+        <ActivityIndicator color={theme.tint} style={styles.center} />
+      )}
+      {mode === 'panel' && !dashboard && !error && (
         <ActivityIndicator color={theme.tint} style={styles.center} />
       )}
       {error && (
@@ -326,11 +381,11 @@ export default function RecapScreen() {
         </View>
       )}
 
-      {mode === 'panel' && hasPremium && recap?.dashboard ? (
-        <DashboardPanel dashboard={recap.dashboard} />
+      {mode === 'panel' && dashboard ? (
+        <DashboardPanel dashboard={dashboard} locked={!hasPremium} />
       ) : null}
 
-      {mode === 'story' && card && (
+      {mode === 'story' && hasPremium && card && (
         <Animated.View
           key={`${card.kind}-${index}`}
           entering={
@@ -402,8 +457,15 @@ export default function RecapScreen() {
  * dağılımı, gelişim eğrisi (haftalık mini barlar), zincir istatistikleri.
  * Wrapped kuralı geçerli: kaçırılan görevler gösterilmez.
  */
-function DashboardPanel({ dashboard }: { dashboard: RecapDashboard }) {
+function DashboardPanel({
+  dashboard,
+  locked = false,
+}: {
+  dashboard: RecapDashboard;
+  locked?: boolean;
+}) {
   const theme = useTheme();
+  const router = useRouter();
   const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
   const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
 
@@ -412,6 +474,22 @@ function DashboardPanel({ dashboard }: { dashboard: RecapDashboard }) {
       style={styles.panelScroll}
       contentContainerStyle={styles.panelContent}
       showsVerticalScrollIndicator={false}>
+      {locked ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/paywall')}
+          style={[
+            styles.panelCard,
+            { backgroundColor: theme.backgroundSelected, borderColor: theme.tint },
+          ]}>
+          <ThemedText type="smallBold" style={{ color: theme.tint }}>
+            Hikâye raporu PRO ile açılır
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Paneldeki zincir ve puanların burada; tam story özeti abonelikle gelir.
+          </ThemedText>
+        </Pressable>
+      ) : null}
       <View style={styles.kpiGrid}>
         <KpiTile label="Tamamlanan görev" value={`${dashboard.completed_tasks}`} />
         <KpiTile label="Verilen görev" value={`${dashboard.total_tasks}`} />

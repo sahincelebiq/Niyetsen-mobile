@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 
+import { ChainAnimalPicker } from '@/components/chain-animal-picker';
 import { ChainCompanion, ChainCompanionCaption } from '@/components/chain-companion';
 import { ErrorBanner } from '@/components/error-banner';
 import { ProBadge } from '@/components/pro-badge';
@@ -27,6 +28,7 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
+import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
 import { useLocale } from '@/providers/locale-provider';
 import {
@@ -46,6 +48,8 @@ export default function RankScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const { hasPremium } = usePremiumAccess();
+  const { animalIndex, selectAnimal } = useCompanionAnimal();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [state, setState] = useState<StateResponse | null>(null);
   const [recapReady, setRecapReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -151,8 +155,18 @@ export default function RankScreen() {
                 {t.chain.heroLabel.toUpperCase()}
               </ThemedText>
               <View style={styles.heroRow}>
-                {/* faz8.13/6: filiz → 12 hayvanlı evrim (bebek/genç/yetişkin). */}
-                <ChainCompanion streakDays={state.streak_len} color={theme.onAccent} />
+                {/* faz8.13/6: filiz → 12 hayvanlı evrim. Dokununca seçim paneli. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Yoldaş hayvanını seç"
+                  onPress={() => setPickerOpen(true)}
+                  hitSlop={8}>
+                  <ChainCompanion
+                    streakDays={state.streak_len}
+                    color={theme.onAccent}
+                    animalIndex={animalIndex}
+                  />
+                </Pressable>
                 <View style={styles.heroNumbers}>
                   <CountUpText
                     value={state.streak_len}
@@ -163,7 +177,20 @@ export default function RankScreen() {
                   </ThemedText>
                 </View>
               </View>
-              <ChainCompanionCaption streakDays={state.streak_len} color={theme.onAccent} />
+              <ChainCompanionCaption
+                streakDays={state.streak_len}
+                color={theme.onAccent}
+                animalIndex={animalIndex}
+              />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setPickerOpen(true)}
+                style={styles.pickHint}
+                hitSlop={8}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  Yoldaşı değiştir
+                </ThemedText>
+              </Pressable>
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
                 {t.chain.heroHint}
               </ThemedText>
@@ -221,6 +248,12 @@ export default function RankScreen() {
           </>
         )}
       </ScreenScaffold>
+      <ChainAnimalPicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        selectedIndex={animalIndex}
+        onSelect={selectAnimal}
+      />
     </ThemedView>
   );
 }
@@ -297,6 +330,11 @@ const styles = StyleSheet.create({
     opacity: 0.88,
     lineHeight: 20,
     marginTop: Spacing.one,
+  },
+  pickHint: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   centerText: { textAlign: 'center' },
   streakRow: {

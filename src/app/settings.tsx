@@ -304,6 +304,16 @@ export default function SettingsScreen() {
             value="Haftalık gelişim"
             onPress={() => router.push('/arkadaslar' as Href)}
           />
+          <SettingsRow
+            label="☾  Mistik sohbet"
+            value="Rehber"
+            onPress={() => router.push('/mistik-sohbet' as Href)}
+          />
+          <SettingsRow
+            label="Rapor paneli"
+            value="KPI"
+            onPress={() => router.push('/rapor' as Href)}
+          />
         </ThemedView>
 
         <CollapsibleCard title="HESAP" initiallyOpen>

@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { chainEvolution } from '@/constants/chain-animals';
 import { Radii, Spacing } from '@/constants/theme';
+import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
 
 type StreakPillProps = {
@@ -30,7 +31,8 @@ export function sproutGlyph(streakDays: number): string {
  */
 export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
   const theme = useTheme();
-  const { animal } = chainEvolution(streakDays);
+  const { animalIndex } = useCompanionAnimal();
+  const { animal } = chainEvolution(streakDays, animalIndex);
   const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni yoldaş';
 
   return (

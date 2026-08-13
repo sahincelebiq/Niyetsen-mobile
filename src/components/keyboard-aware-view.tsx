@@ -16,11 +16,11 @@ type KeyboardAwareViewProps = {
 };
 
 /**
- * Klavye telafisi TEK katman (faz8.13 / 1a):
+ * Klavye telafisi TEK katman:
  * - iOS: pencere yeniden boyutlanmaz → KeyboardAvoidingView "padding" gerekir.
- * - Android: `softwareKeyboardLayoutMode: "resize"` pencereyi ZATEN küçültür.
- *   Üstüne bir de behavior="height" koymak çifte küçültme yapıyordu →
- *   kompozer zıplıyor/kayboluyordu. Android'de saf View döneriz.
+ * - Android: NativeTabs + edge-to-edge'de resize pencereyi küçültmez.
+ *   Kompozer `keyboardHeight` ile kalkar (chat-composer / mistik sohbet).
+ *   Burada KAV kullanmak çifte kaydırma yapardı — Android'de saf View.
  */
 export function KeyboardAwareView({ children, style, offset = 0 }: KeyboardAwareViewProps) {
   if (Platform.OS !== 'ios') {

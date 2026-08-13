@@ -64,10 +64,18 @@ export type ChainEvolution = {
   cycleProgress: number;
 };
 
-export function chainEvolution(streakDays: number): ChainEvolution {
+export function chainEvolution(
+  streakDays: number,
+  chosenAnimalIndex?: number | null,
+): ChainEvolution {
   const safeDays = Math.max(0, streakDays);
   const cycle = Math.min(Math.floor(safeDays / CHAIN_CYCLE_DAYS), CHAIN_ANIMALS.length - 1);
-  const animal = CHAIN_ANIMALS[cycle];
+  const autoAnimal = CHAIN_ANIMALS[cycle];
+  const picked =
+    chosenAnimalIndex != null && chosenAnimalIndex >= 0 && chosenAnimalIndex < CHAIN_ANIMALS.length
+      ? CHAIN_ANIMALS[chosenAnimalIndex]
+      : null;
+  const animal = picked ?? autoAnimal;
   const lastCycle = cycle === CHAIN_ANIMALS.length - 1;
   // Son hayvanda (Tek Boynuz) gün sayacı dönmeye devam eder ama hayvan sabit.
   const dayInCycle = lastCycle
@@ -88,8 +96,10 @@ export function chainEvolution(streakDays: number): ChainEvolution {
   } else {
     stage = 'yetiskin';
     daysToNext = CHAIN_CYCLE_DAYS - dayInCycle;
-    const next = CHAIN_ANIMALS[Math.min(cycle + 1, CHAIN_ANIMALS.length - 1)];
-    nextLabel = lastCycle ? `Efsane ${animal.name}` : `Bebek ${next.name}`;
+    const nextIndex = Math.min(animal.index + 1, CHAIN_ANIMALS.length - 1);
+    const next = CHAIN_ANIMALS[nextIndex];
+    const atLast = animal.index === CHAIN_ANIMALS.length - 1;
+    nextLabel = atLast ? `Efsane ${animal.name}` : `Bebek ${next.name}`;
   }
 
   return {

@@ -1,9 +1,8 @@
 import { memo } from 'react';
 import { Image, StyleSheet, useColorScheme, View } from 'react-native';
-import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 
 import { ChatMessageBody } from '@/components/chat-message-body';
-import { Motion, Radii, Shadows, Spacing, SurfaceEdge, Texture } from '@/constants/theme';
+import { Radii, Shadows, Spacing, SurfaceEdge, Texture } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type AssistantMessageProps = {
@@ -17,11 +16,7 @@ export const AssistantMessage = memo(function AssistantMessage({ content }: Assi
   const theme = useTheme();
   const scheme = useColorScheme();
   return (
-    <Animated.View
-      entering={FadeInUp.duration(Motion.base)
-        .withInitialValues({ opacity: 0, transform: [{ translateY: 12 }] })
-        .reduceMotion(ReduceMotion.System)}
-      style={styles.row}>
+    <View style={styles.row}>
       <View
         style={[
           styles.avatar,
@@ -49,7 +44,7 @@ export const AssistantMessage = memo(function AssistantMessage({ content }: Assi
         ]}>
         <ChatMessageBody content={content} style={styles.text} />
       </View>
-    </Animated.View>
+    </View>
   );
 });
 

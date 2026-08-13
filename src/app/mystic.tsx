@@ -45,10 +45,16 @@ const MODULES: {
     href: '/tarot',
   },
   {
-    title: 'Fal',
-    symbol: '☾',
-    description: 'Kahve ve el falı için eğlence odaklı yorum alanı.',
-    href: '/fal',
+    title: 'Kahve Falı',
+    symbol: '☕',
+    description: 'Fincanı çek, telveyi yorumlat.',
+    href: '/fal?kind=kahve' as Href,
+  },
+  {
+    title: 'El Falı',
+    symbol: '✋',
+    description: 'Avuç içi çizgilerine bak.',
+    href: '/fal?kind=el' as Href,
   },
 ];
 

@@ -11,9 +11,8 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
 import { ChatMessageBody } from '@/components/chat-message-body';
@@ -32,7 +31,6 @@ import { ThemedView } from '@/components/themed-view';
 import { useLocale } from '@/providers/locale-provider';
 import {
   MaxContentWidth,
-  Motion,
   Radii,
   Shadows,
   Spacing,
@@ -84,22 +82,16 @@ function buildOutgoingText(text: string, attachment: PendingAttachment | null): 
 const UserBubble = memo(function UserBubble({ content }: { content: string }) {
   const theme = useTheme();
   return (
-    // İlkbahar v3: tint dolgu + onAccent metin; 12px yukarı + fade (Motion.base).
-    <Animated.View
-      entering={FadeInUp.duration(Motion.base)
-        .withInitialValues({ opacity: 0, transform: [{ translateY: 12 }] })
-        .reduceMotion(ReduceMotion.System)}>
-      <ThemedView
-        style={[
-          styles.bubbleUser,
-          {
-            backgroundColor: theme.tint,
-            borderColor: theme.tint,
-          },
-        ]}>
-        <ChatMessageBody content={content} color={theme.onAccent} />
-      </ThemedView>
-    </Animated.View>
+    <ThemedView
+      style={[
+        styles.bubbleUser,
+        {
+          backgroundColor: theme.tint,
+          borderColor: theme.tint,
+        },
+      ]}>
+      <ChatMessageBody content={content} color={theme.onAccent} />
+    </ThemedView>
   );
 });
 
@@ -219,29 +211,16 @@ export default function ChatScreen() {
     void refreshStreak();
   }, [refreshStreak]);
 
-  // Yeni niyet / yollar dönüşünde oturumu yenile + bekleyen mesajı koy.
-  // (Gemini çağrılmaz — yalnız /chat/session hydrate.)
+  // Yeni niyet dönüşünde bekleyen mesajı koy. Odakta her seferinde
+  // /chat/session çekmek sohbeti yavaşlatıyordu (sekme değişince takılma).
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        try {
-          const session = await getChatSession();
-          if (!cancelled) await applySession(session);
-        } catch {
-          // Odak yenilemesi sohbeti düşürmez.
-        }
-        if (cancelled) return;
-        const pending = consumePendingChatMessage();
-        if (pending) {
-          setInput(pending);
-          scrollToEnd(true);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [applySession, scrollToEnd]),
+      const pending = consumePendingChatMessage();
+      if (pending) {
+        setInput(pending);
+        scrollToEnd(true);
+      }
+    }, [scrollToEnd]),
   );
 
   useEffect(() => {
@@ -469,9 +448,8 @@ export default function ChatScreen() {
           trialDaysRemaining={subscriptionStatus?.trial_days_remaining}
           onOpenHistory={openHistory}
           onSecretGesture={() => {
-            // Gizli geçiş: başlığa uzun basmak mistik bölümü açar.
             void trackEvent('mystic_secret_entry', { source: 'chat_header' });
-            router.push('/mystic');
+            router.push('/mistik-sohbet' as Href);
           }}
         />
         {activePlanName !== 'Planım' ? (
@@ -499,11 +477,9 @@ export default function ChatScreen() {
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="interactive"
                   removeClippedSubviews={Platform.OS === 'android'}
-                  maxToRenderPerBatch={12}
-                  windowSize={9}
-                  initialNumToRender={16}
-                  onContentSizeChange={() => scrollToEnd()}
-                  onLayout={() => scrollToEnd()}
+                  maxToRenderPerBatch={8}
+                  windowSize={7}
+                  initialNumToRender={12}
                   onScroll={handleListScroll}
                   scrollEventThrottle={64}
                   ListHeaderComponent={listFooter}

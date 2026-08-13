@@ -32,10 +32,17 @@ type ChainCompanionProps = {
   color: string;
   /** Halka çapı. */
   size?: number;
+  /** Kullanıcının seçtiği hayvan (null = zincirle otomatik). */
+  animalIndex?: number | null;
 };
 
-export function ChainCompanion({ streakDays, color, size = 64 }: ChainCompanionProps) {
-  const { animal, stage } = chainEvolution(streakDays);
+export function ChainCompanion({
+  streakDays,
+  color,
+  size = 64,
+  animalIndex = null,
+}: ChainCompanionProps) {
+  const { animal, stage } = chainEvolution(streakDays, animalIndex);
   const scale = useSharedValue(1);
   const stageKey = `${animal.index}-${stage}`;
   const previousKey = useRef(stageKey);
@@ -82,11 +89,13 @@ export function ChainCompanion({ streakDays, color, size = 64 }: ChainCompanionP
 export function ChainCompanionCaption({
   streakDays,
   color,
+  animalIndex = null,
 }: {
   streakDays: number;
   color: string;
+  animalIndex?: number | null;
 }) {
-  const evolution = chainEvolution(streakDays);
+  const evolution = chainEvolution(streakDays, animalIndex);
   return (
     <View style={styles.caption}>
       <View style={[styles.stagePill, { borderColor: color }]}>

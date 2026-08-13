@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -16,6 +17,7 @@ import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, sendMysticChat, type MysticChatMessage } from '@/lib/api';
 
@@ -48,6 +50,7 @@ const SHORTCUTS: { symbol: string; label: string; href: Href }[] = [
 export default function MysticChatScreen() {
   const router = useRouter();
   const { colors, edge } = useMysticColors();
+  const keyboardHeight = useKeyboardHeight();
   const [bubbles, setBubbles] = useState<Bubble[]>([OPENING]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -88,7 +91,9 @@ export default function MysticChatScreen() {
     }
   }, [bubbles, draft, sending]);
 
-  const inverted = [...bubbles].reverse();
+  const inverted = useMemo(() => [...bubbles].reverse(), [bubbles]);
+  const composerLift =
+    Platform.OS === 'android' && keyboardHeight > 0 ? keyboardHeight : Spacing.two;
 
   return (
     <Animated.View
@@ -194,7 +199,11 @@ export default function MysticChatScreen() {
           <View
             style={[
               styles.composer,
-              { backgroundColor: colors.backgroundElement, borderColor: colors.border },
+              {
+                backgroundColor: colors.backgroundElement,
+                borderColor: colors.border,
+                marginBottom: composerLift,
+              },
             ]}>
             <TextInput
               value={draft}
@@ -283,7 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.two,
     marginHorizontal: Spacing.three,
-    marginBottom: Spacing.two,
     borderWidth: 1,
     borderRadius: Radii.large,
     paddingHorizontal: Spacing.three,

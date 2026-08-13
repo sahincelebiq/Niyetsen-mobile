@@ -57,8 +57,11 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
 
   function open(href: Href) {
     onClose();
-    // Modal kapanış animasyonu bittikten sonra yönlendir (Android yarışı).
-    setTimeout(() => router.push(href), 320);
+    // NativeTabs gizli trigger kaydı sonrası push aynı karede çalışır;
+    // 320ms gecikme "tıklanıyor ama gitmiyor" hissi veriyordu.
+    requestAnimationFrame(() => {
+      router.push(href);
+    });
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
+import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
@@ -19,9 +20,12 @@ export default function TarotScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
+  const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [busy, setBusy] = useState(false);
+  const [granting, setGranting] = useState(false);
   const [draw, setDraw] = useState<TarotDraw | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const aiAllowed = consentStatus.ai_chat_processing.accepted;
 
   useEffect(() => {
     let mounted = true;
@@ -41,8 +45,29 @@ export default function TarotScreen() {
     };
   }, []);
 
+  async function grantAiConsent() {
+    setGranting(true);
+    setError(null);
+    try {
+      await saveChoices({
+        privacy: consentStatus.privacy_policy.accepted,
+        ai: true,
+        proofPhoto: consentStatus.proof_photo_processing.accepted,
+        marketing: consentStatus.marketing_communications.accepted,
+      });
+    } catch (value) {
+      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+    } finally {
+      setGranting(false);
+    }
+  }
+
   async function handleDraw() {
     if (busy) return;
+    if (!aiAllowed) {
+      setError('Tarot için AI işleme onayı gerekli — aşağıdan verebilirsin.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -51,7 +76,7 @@ export default function TarotScreen() {
       void trackEvent('mystic_secret_entry', { module: 'tarot' });
     } catch (value) {
       if (value instanceof ApiError && value.status === 403) {
-        setError('Tarot için Ayarlar > Gizlilik bölümünden AI işleme onayı gerekli.');
+        setError('Tarot için AI işleme onayı gerekli — aşağıdan verebilirsin.');
       } else {
         setError(value instanceof Error ? value.message : 'Kartlara şu an ulaşılamıyor.');
       }
@@ -70,22 +95,28 @@ export default function TarotScreen() {
         <>
           <View style={styles.deckRow}>
             {[0, 1, 2].map((index) => (
-              <Animated.View
+              <Pressable
                 key={index}
-                entering={FadeIn.delay(index * Motion.stagger)
-                  .duration(Motion.base)
-                  .reduceMotion(ReduceMotion.System)}
-                style={[
-                  styles.deckCard,
-                  {
-                    backgroundColor: colors.backgroundSelected,
-                    borderColor: colors.tint,
-                  },
-                ]}>
-                <ThemedText style={[styles.deckSymbol, { color: colors.tint }]}>
-                  ◈
-                </ThemedText>
-              </Animated.View>
+                accessibilityRole="button"
+                accessibilityLabel="Günün kartlarını çek"
+                disabled={busy}
+                onPress={() => void handleDraw()}>
+                <Animated.View
+                  entering={FadeIn.delay(index * Motion.stagger)
+                    .duration(Motion.base)
+                    .reduceMotion(ReduceMotion.System)}
+                  style={[
+                    styles.deckCard,
+                    {
+                      backgroundColor: colors.backgroundSelected,
+                      borderColor: colors.tint,
+                    },
+                  ]}>
+                  <ThemedText style={[styles.deckSymbol, { color: colors.tint }]}>
+                    ◈
+                  </ThemedText>
+                </Animated.View>
+              </Pressable>
             ))}
           </View>
           <Pressable
@@ -163,12 +194,38 @@ export default function TarotScreen() {
         </ThemedText>
       ) : null}
 
+      {!aiAllowed ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={granting}
+          onPress={() => void grantAiConsent()}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.tint, opacity: pressed || granting ? 0.75 : 1 },
+          ]}>
+          <ThemedText type="smallBold" style={{ color: colors.background }}>
+            {granting ? 'Kaydediliyor…' : 'AI onayını ver ve çek'}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+
+      {draw ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/mistik-sohbet' as Href)}
+          style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
+          <ThemedText type="smallBold" style={{ color: colors.tint }}>
+            Mistik rehberle yorumla
+          </ThemedText>
+        </Pressable>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.replace('/mystic')}
+        onPress={() => router.replace('/mistik-sohbet' as Href)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
-          Mistik Keşfe Dön
+          Mistik sohbete dön
         </ThemedText>
       </Pressable>
     </MysticScreenShell>

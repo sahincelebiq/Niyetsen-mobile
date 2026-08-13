@@ -37,9 +37,10 @@ export default function FortuneScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
-  const { status: consentStatus } = useConsentPreferences();
+  const { status: consentStatus, saveChoices } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const autoOpened = useRef(false);
 
   // faz8.13/2b: mistik sohbet kısayolundan ?kind=el ile doğrudan gelinebilir.
   const params = useLocalSearchParams<{ kind?: string }>();
@@ -48,8 +49,10 @@ export default function FortuneScreen() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [granting, setGranting] = useState(false);
   const [result, setResult] = useState<PhotoFortune | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const photoConsent = consentStatus.proof_photo_processing.accepted;
 
   const loadRights = useCallback(async () => {
     try {
@@ -63,15 +66,29 @@ export default function FortuneScreen() {
     void loadRights();
   }, [loadRights]);
 
+  async function grantPhotoConsent() {
+    setGranting(true);
+    setError(null);
+    try {
+      await saveChoices({
+        privacy: consentStatus.privacy_policy.accepted,
+        ai: consentStatus.ai_chat_processing.accepted,
+        proofPhoto: true,
+        marketing: consentStatus.marketing_communications.accepted,
+      });
+    } catch (value) {
+      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+    } finally {
+      setGranting(false);
+    }
+  }
+
   async function openCamera(selected: FortuneKind) {
     setError(null);
     setResult(null);
     setKind(selected);
     if (!consentStatus.proof_photo_processing.accepted) {
-      setError(
-        'Fal fotoğrafı için Ayarlar > Gizlilik bölümünden fotoğraf işleme onayı gerekli.',
-      );
-      router.push('/settings' as Href);
+      setError('Fal fotoğrafı için fotoğraf işleme onayı gerekli — aşağıdan verebilirsin.');
       return;
     }
     if (Platform.OS === 'web') {
@@ -82,12 +99,20 @@ export default function FortuneScreen() {
       ? cameraPermission
       : await requestCameraPermission();
     if (!permission?.granted) {
-      setError('Kamera izni olmadan fal fotoğrafı çekilemez.');
+      setError('Kamera izni olmadan fal fotoğrafı çekilemez. Ayarlar’dan kamerayı aç.');
       return;
     }
     setCameraReady(false);
     setCameraOpen(true);
   }
+
+  useEffect(() => {
+    const requested = params.kind === 'el' || params.kind === 'kahve' ? params.kind : null;
+    if (!requested || autoOpened.current || !photoConsent) return;
+    autoOpened.current = true;
+    void openCamera(requested);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.kind, photoConsent]);
 
   async function captureAndUpload() {
     if (!cameraRef.current || !cameraReady || busy) return;
@@ -195,16 +220,58 @@ export default function FortuneScreen() {
           </ThemedText>
         ) : null}
 
+        {!photoConsent ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={granting}
+            onPress={() => void grantPhotoConsent()}
+            style={({ pressed }) => [
+              styles.kindButton,
+              {
+                borderColor: colors.tint,
+                backgroundColor: colors.backgroundSelected,
+                opacity: pressed || granting ? 0.8 : 1,
+              },
+            ]}>
+            <View style={styles.kindText}>
+              <ThemedText type="smallBold" style={{ color: colors.tint }}>
+                {granting ? 'Kaydediliyor…' : 'Fotoğraf onayını ver ve çek'}
+              </ThemedText>
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                Fal fotoğrafı yalnız bu çekim için işlenir; Ayarlar’dan kapatabilirsin.
+              </ThemedText>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {result ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/mistik-sohbet' as Href)}
+            style={({ pressed }) => [
+              styles.kindButton,
+              {
+                borderColor: colors.tint,
+                backgroundColor: colors.backgroundSelected,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.tint }}>
+              Mistik rehberle yorumla
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
         <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
           Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
         </ThemedText>
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.replace('/mystic')}
+          onPress={() => router.replace('/mistik-sohbet' as Href)}
           style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" style={{ color: colors.tint }}>
-            Mistik Keşfe Dön
+            Mistik sohbete dön
           </ThemedText>
         </Pressable>
       </MysticScreenShell>

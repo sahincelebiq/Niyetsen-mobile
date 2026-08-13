@@ -52,6 +52,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="mystic" hidden />
+      <NativeTabs.Trigger name="mistik-sohbet" hidden />
       <NativeTabs.Trigger name="rapor" hidden />
       <NativeTabs.Trigger name="bonus" hidden />
       <NativeTabs.Trigger name="paywall" hidden />
@@ -61,6 +62,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="fal-gecmisi" hidden />
       <NativeTabs.Trigger name="yollar" hidden />
       <NativeTabs.Trigger name="yol-detay" hidden />
+      <NativeTabs.Trigger name="arkadaslar" hidden />
     </NativeTabs>
   );
 }
