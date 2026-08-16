@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +17,7 @@ import {
   SurfaceEdge,
 } from '@/constants/theme';
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
+import { mysticHref } from '@/lib/mystic-routes';
 import { useAppearance } from '@/providers/appearance-provider';
 
 type MysticScreenShellProps = {
@@ -37,11 +39,17 @@ export function MysticScreenShell({
   children,
   footer,
 }: MysticScreenShellProps) {
+  const router = useRouter();
   const { isDark } = useAppearance();
   const colors = MysticColors[isDark ? 'dark' : 'light'];
   const edge = isDark ? SurfaceEdge.dark : SurfaceEdge.light;
   const glyph = getZodiacGlyph(zodiacSign);
   const label = zodiacLabel(zodiacSign);
+
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace(mysticHref.today);
+  }
 
   return (
     <Animated.View
@@ -54,6 +62,18 @@ export function MysticScreenShell({
         pointerEvents="none"
       />
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Geri"
+            onPress={goBack}
+            hitSlop={12}
+            style={({ pressed }) => [styles.backHit, pressed && { opacity: 0.6 }]}>
+            <ThemedText type="smallBold" style={{ color: colors.tint }}>
+              ‹ Geri
+            </ThemedText>
+          </Pressable>
+        </View>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -73,7 +93,7 @@ export function MysticScreenShell({
             <ThemedText style={[styles.symbol, { color: colors.tint }]}>
               {symbol}
             </ThemedText>
-            <ThemedText type="title" style={[styles.center, { color: colors.text }]}>
+            <ThemedText type="screenTitle" style={[styles.center, { color: colors.text }]}>
               {title}
               {glyph ? ` ${glyph}` : ''}
             </ThemedText>
@@ -107,16 +127,67 @@ export function useMysticColors() {
   };
 }
 
+type MysticGrantButtonProps = {
+  label: string;
+  hint?: string;
+  granting: boolean;
+  onGrant: () => void;
+};
+
+/** AI / fotoğraf rızası — fal ücretsiz ama KVKK onayı olmadan 403 olur. */
+export function MysticGrantButton({
+  label,
+  hint,
+  granting,
+  onGrant,
+}: MysticGrantButtonProps) {
+  const { colors } = useMysticColors();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={granting}
+      onPress={onGrant}
+      style={({ pressed }) => [
+        styles.grantButton,
+        {
+          backgroundColor: colors.tint,
+          opacity: pressed || granting ? 0.75 : 1,
+        },
+      ]}>
+      <ThemedText type="smallBold" style={{ color: colors.background, textAlign: 'center' }}>
+        {granting ? 'Kaydediliyor…' : label}
+      </ThemedText>
+      {hint ? (
+        <ThemedText type="small" style={{ color: colors.background, textAlign: 'center', opacity: 0.85 }}>
+          {hint}
+        </ThemedText>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   background: { ...StyleSheet.absoluteFillObject, opacity: 0.2 },
+  topBar: {
+    paddingHorizontal: Spacing.three,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  backHit: {
+    minHeight: 44,
+    minWidth: 56,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
   content: {
     flexGrow: 1,
     width: '100%',
     maxWidth: Math.min(MaxContentWidth, 620),
     alignSelf: 'center',
-    justifyContent: 'center',
-    padding: Spacing.four,
+    justifyContent: 'flex-start',
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.four,
   },
   card: {
     alignItems: 'stretch',
@@ -133,5 +204,14 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     paddingVertical: 6,
     paddingHorizontal: 12,
+  },
+  grantButton: {
+    minHeight: 48,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    gap: 4,
   },
 });

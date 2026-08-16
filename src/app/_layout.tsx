@@ -13,14 +13,13 @@ import {
   useFonts,
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
-import { Slot, usePathname, useRouter } from 'expo-router';
+import { Slot, Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Pressable, StyleSheet, useColorScheme, View,
 } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { AuthScreen } from '@/components/auth-screen';
 import { ConnectivityBanner } from '@/components/connectivity-banner';
 import { ConsentGate } from '@/components/consent-gate';
@@ -77,6 +76,10 @@ function RootNavigation({ pathname }: { pathname: string }) {
       <AnimatedSplashOverlay />
       {pathname.startsWith('/legal/') ? (
         <Slot />
+      ) : pathname.startsWith('/auth/') ? (
+        <AuthProvider>
+          <Slot />
+        </AuthProvider>
       ) : (
         <AuthProvider>
           <AuthenticatedApp />
@@ -108,6 +111,7 @@ function AuthenticatedApp() {
 
 function ProfileGate() {
   const { profile, loading, error, offline, refresh } = useProfile();
+  const { signOut } = useAuth();
   const theme = useTheme();
   const { t, setLocale } = useI18n();
   const [retrying, setRetrying] = useState(false);
@@ -140,10 +144,13 @@ function ProfileGate() {
       <ThemedView style={styles.loading}>
         <ThemedText themeColor="danger">{error}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-          Bağlantı kurulamadı — tekrar dene.
+          {t.common.offlineBanner}
         </ThemedText>
         <Pressable onPress={() => void retry()} hitSlop={12} style={styles.retryHit}>
           <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
+        </Pressable>
+        <Pressable onPress={() => void signOut()} hitSlop={12} style={styles.retryHit}>
+          <ThemedText themeColor="tint">{t.auth.signOutRetry}</ThemedText>
         </Pressable>
       </ThemedView>
     );
@@ -162,7 +169,21 @@ function ProfileGate() {
       <SubscriptionProvider>
         <SubscriptionGate>
           <NotificationRouter />
-          <AppTabs />
+          <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="mystic" />
+            <Stack.Screen name="mistik-sohbet" />
+            <Stack.Screen name="tarot" />
+            <Stack.Screen name="fal" />
+            <Stack.Screen name="fal-gecmisi" />
+            <Stack.Screen name="astroloji" />
+            <Stack.Screen name="rapor" />
+            <Stack.Screen name="paywall" />
+            <Stack.Screen name="bonus" />
+            <Stack.Screen name="yollar" />
+            <Stack.Screen name="yol-detay" />
+            <Stack.Screen name="arkadaslar" />
+          </Stack>
         </SubscriptionGate>
       </SubscriptionProvider>
     </ConsentGate>

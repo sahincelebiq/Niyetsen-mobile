@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,11 +9,12 @@ import {
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
 import { useConsentPreferences } from '@/components/consent-gate';
-import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
+import { MysticGrantButton, MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, drawTarot, getFortuneRights, type TarotDraw } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
 import { useProfile } from '@/providers/profile-provider';
 
 export default function TarotScreen() {
@@ -195,24 +196,17 @@ export default function TarotScreen() {
       ) : null}
 
       {!aiAllowed ? (
-        <Pressable
-          accessibilityRole="button"
-          disabled={granting}
-          onPress={() => void grantAiConsent()}
-          style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: colors.tint, opacity: pressed || granting ? 0.75 : 1 },
-          ]}>
-          <ThemedText type="smallBold" style={{ color: colors.background }}>
-            {granting ? 'Kaydediliyor…' : 'AI onayını ver ve çek'}
-          </ThemedText>
-        </Pressable>
+        <MysticGrantButton
+          label="AI onayını ver ve çek"
+          granting={granting}
+          onGrant={() => void grantAiConsent()}
+        />
       ) : null}
 
       {draw ? (
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push('/mistik-sohbet' as Href)}
+          onPress={() => router.push(mysticHref.chat)}
           style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" style={{ color: colors.tint }}>
             Mistik rehberle yorumla
@@ -222,7 +216,7 @@ export default function TarotScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.replace('/mistik-sohbet' as Href)}
+        onPress={() => router.replace(mysticHref.chat)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
           Mistik sohbete dön

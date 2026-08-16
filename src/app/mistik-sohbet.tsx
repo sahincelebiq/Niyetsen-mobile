@@ -6,6 +6,7 @@ import {
   FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -14,12 +15,14 @@ import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
-import { useMysticColors } from '@/components/mystic-screen-shell';
+import { useConsentPreferences } from '@/components/consent-gate';
+import { MysticGrantButton, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, sendMysticChat, type MysticChatMessage } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
 
 /**
  * faz8.13/2b — Mistik rehber sohbeti: fal modülünün merkez ekranı.
@@ -40,25 +43,59 @@ const OPENING: Bubble = {
 };
 
 const SHORTCUTS: { symbol: string; label: string; href: Href }[] = [
-  { symbol: '◈', label: 'Tarot', href: '/tarot' as Href },
-  { symbol: '☕', label: 'Kahve', href: '/fal?kind=kahve' as Href },
-  { symbol: '✋', label: 'El', href: '/fal?kind=el' as Href },
-  { symbol: '✦', label: 'Astroloji', href: '/astroloji' as Href },
-  { symbol: '☾', label: 'Geçmiş', href: '/fal-gecmisi' as Href },
+  { symbol: '◈', label: 'Tarot', href: mysticHref.tarot },
+  { symbol: '☕', label: 'Kahve', href: mysticHref.kahve },
+  { symbol: '✋', label: 'El', href: mysticHref.el },
+  { symbol: '✦', label: 'Astroloji', href: mysticHref.astroloji },
+  { symbol: '☾', label: 'Geçmiş', href: mysticHref.history },
 ];
 
 export default function MysticChatScreen() {
   const router = useRouter();
   const { colors, edge } = useMysticColors();
+  const { status: consentStatus, saveChoices } = useConsentPreferences();
   const keyboardHeight = useKeyboardHeight();
   const [bubbles, setBubbles] = useState<Bubble[]>([OPENING]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [granting, setGranting] = useState(false);
   const listRef = useRef<FlatList<Bubble>>(null);
+  const aiAllowed = consentStatus.ai_chat_processing.accepted;
+
+  async function grantAiConsent() {
+    setGranting(true);
+    try {
+      await saveChoices({
+        privacy: consentStatus.privacy_policy.accepted,
+        ai: true,
+        proofPhoto: consentStatus.proof_photo_processing.accepted,
+        marketing: consentStatus.marketing_communications.accepted,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Onay kaydedilemedi.';
+      setBubbles((current) => [
+        ...current,
+        { id: `e-${Date.now()}`, role: 'assistant', text: message },
+      ]);
+    } finally {
+      setGranting(false);
+    }
+  }
 
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || sending) {
+      return;
+    }
+    if (!aiAllowed) {
+      setBubbles((current) => [
+        ...current,
+        {
+          id: `e-${Date.now()}`,
+          role: 'assistant',
+          text: 'Sohbet için AI işleme onayı gerekli — aşağıdaki düğmeden verebilirsin.',
+        },
+      ]);
       return;
     }
     setDraft('');
@@ -79,9 +116,11 @@ export default function MysticChatScreen() {
       trackEvent('mystic_chat_message');
     } catch (error) {
       const message =
-        error instanceof ApiError
-          ? error.message
-          : 'Yıldızlara şu an ulaşamadım — birazdan tekrar dener misin? ✨';
+        error instanceof ApiError && error.status === 403
+          ? 'Sohbet için AI işleme onayı gerekli — aşağıdaki düğmeden verebilirsin.'
+          : error instanceof ApiError
+            ? error.message
+            : 'Yıldızlara şu an ulaşamadım — birazdan tekrar dener misin? ✨';
       setBubbles((current) => [
         ...current,
         { id: `e-${Date.now()}`, role: 'assistant', text: message },
@@ -89,7 +128,7 @@ export default function MysticChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [bubbles, draft, sending]);
+  }, [aiAllowed, bubbles, draft, sending]);
 
   const inverted = useMemo(() => [...bubbles].reverse(), [bubbles]);
   const composerLift =
@@ -112,7 +151,7 @@ export default function MysticChatScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Geri"
-              onPress={() => (router.canGoBack() ? router.back() : router.replace('/daily' as Href))}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(mysticHref.today))}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}>
               <ThemedText type="smallBold" style={{ color: colors.tint }}>
@@ -127,11 +166,13 @@ export default function MysticChatScreen() {
 
           <View style={styles.body}>
             {/* Sol kısayol rayı: tarot / kahve / el / astroloji / geçmiş */}
-            <View
+            <ScrollView
               style={[
                 styles.rail,
                 { backgroundColor: colors.backgroundElement, borderColor: colors.border, borderTopColor: edge },
-              ]}>
+              ]}
+              contentContainerStyle={styles.railContent}
+              showsVerticalScrollIndicator={false}>
               {SHORTCUTS.map((shortcut) => (
                 <Pressable
                   key={shortcut.label}
@@ -150,7 +191,7 @@ export default function MysticChatScreen() {
                   </ThemedText>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
 
             {/* Sohbet listesi */}
             <FlatList
@@ -191,6 +232,17 @@ export default function MysticChatScreen() {
               }
             />
           </View>
+
+          {!aiAllowed ? (
+            <View style={styles.grantWrap}>
+              <MysticGrantButton
+                label="AI onayını ver ve konuş"
+                hint="Mistik sohbet ücretsizdir; onay yalnız yorum üretimi içindir."
+                granting={granting}
+                onGrant={() => void grantAiConsent()}
+              />
+            </View>
+          ) : null}
 
           {/* Disclaimer + kompozer */}
           <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
@@ -255,10 +307,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
     borderWidth: 1,
     borderRadius: Radii.large,
+    alignSelf: 'stretch',
+  },
+  railContent: {
     alignItems: 'center',
-    justifyContent: 'space-evenly',
     paddingVertical: Spacing.two,
-    alignSelf: 'flex-start',
+    gap: Spacing.one,
   },
   railItem: {
     alignItems: 'center',
@@ -310,5 +364,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  grantWrap: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
   },
 });

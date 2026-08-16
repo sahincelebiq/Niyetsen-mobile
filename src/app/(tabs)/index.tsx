@@ -35,7 +35,7 @@ import {
   Shadows,
   Spacing,
 } from '@/constants/theme';
-import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
+import { useKeyboardInset } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -51,6 +51,7 @@ import {
   sendChatMessage,
   uploadChatAttachment,
 } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
 import { consumePendingChatMessage } from '@/lib/pending-chat';
 import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
@@ -100,7 +101,7 @@ export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useKeyboardHeight();
+  const { height: keyboardHeight, lift: keyboardLift } = useKeyboardInset();
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
@@ -449,7 +450,7 @@ export default function ChatScreen() {
           onOpenHistory={openHistory}
           onSecretGesture={() => {
             void trackEvent('mystic_secret_entry', { source: 'chat_header' });
-            router.push('/mistik-sohbet' as Href);
+            router.push(mysticHref.chat);
           }}
         />
         {activePlanName !== 'Planım' ? (
@@ -458,7 +459,13 @@ export default function ChatScreen() {
           </ThemedText>
         ) : null}
         <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
-          <View style={styles.chatColumn}>
+          <View
+            style={[
+              styles.chatColumn,
+              Platform.OS === 'android' && keyboardLift > 0
+                ? { paddingBottom: keyboardLift }
+                : null,
+            ]}>
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
               {loadingHistory ? (
@@ -544,7 +551,6 @@ const styles = StyleSheet.create({
   chatColumn: {
     flex: 1,
     minHeight: 0,
-    overflow: 'hidden',
     position: 'relative',
   },
   loadingContainer: {

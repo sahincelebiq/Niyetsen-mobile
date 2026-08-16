@@ -27,6 +27,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { regionById } from '@/i18n/regions';
 import type { RegionId } from '@/i18n/types';
 import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
 import { openLegalDocument } from '@/lib/legal-links';
 import {
   birthDateDisplayFromIso,
@@ -307,7 +308,7 @@ export default function SettingsScreen() {
           <SettingsRow
             label="☾  Mistik sohbet"
             value="Rehber"
-            onPress={() => router.push('/mistik-sohbet' as Href)}
+            onPress={() => router.push(mysticHref.chat)}
           />
           <SettingsRow
             label="Rapor paneli"

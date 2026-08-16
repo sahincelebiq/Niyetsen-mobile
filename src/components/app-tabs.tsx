@@ -50,19 +50,6 @@ export default function AppTabs() {
         <Label>{t.tabs.profile}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="account-circle" />} />
       </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="mystic" hidden />
-      <NativeTabs.Trigger name="mistik-sohbet" hidden />
-      <NativeTabs.Trigger name="rapor" hidden />
-      <NativeTabs.Trigger name="bonus" hidden />
-      <NativeTabs.Trigger name="paywall" hidden />
-      <NativeTabs.Trigger name="astroloji" hidden />
-      <NativeTabs.Trigger name="tarot" hidden />
-      <NativeTabs.Trigger name="fal" hidden />
-      <NativeTabs.Trigger name="fal-gecmisi" hidden />
-      <NativeTabs.Trigger name="yollar" hidden />
-      <NativeTabs.Trigger name="yol-detay" hidden />
-      <NativeTabs.Trigger name="arkadaslar" hidden />
     </NativeTabs>
   );
 }

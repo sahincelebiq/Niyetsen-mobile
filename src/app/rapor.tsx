@@ -73,6 +73,26 @@ function multiPlanCount(subtitle: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
+function emptyDashboard(): RecapDashboard {
+  const categoryCounts: Record<string, number> = {};
+  for (const category of CATEGORIES) categoryCounts[category] = 0;
+  return {
+    total_tasks: 0,
+    completed_tasks: 0,
+    proofed_tasks: 0,
+    completion_rate: 0,
+    category_counts: categoryCounts,
+    points: {},
+    total_points: 0,
+    streak_len: 0,
+    best_streak: 0,
+    days_in: 1,
+    plans_count: 1,
+    weekly_completed: [0, 0, 0, 0, 0, 0, 0, 0],
+    mirror_line: null,
+  };
+}
+
 function dashboardFromSources(
   recap: Recap | null,
   state: StateResponse | null,
@@ -118,6 +138,7 @@ export default function RecapScreen() {
   const [paused, setPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [stateReady, setStateReady] = useState(false);
   const progress = useSharedValue(0);
   const advanceAtRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remainingMsRef = useRef(STORY_MS);
@@ -142,8 +163,9 @@ export default function RecapScreen() {
     void getState()
       .then(setState)
       .catch(() => {
-        /* panel yedek KPI'sız kalabilir */
-      });
+        setState(null);
+      })
+      .finally(() => setStateReady(true));
   }, []);
 
   useEffect(() => {
@@ -167,7 +189,8 @@ export default function RecapScreen() {
   const cards = recap?.cards ?? [];
   const card = cards[index];
   const isClosing = card?.kind === 'closing';
-  const dashboard = dashboardFromSources(recap, state);
+  const dashboard = dashboardFromSources(recap, state)
+    ?? (stateReady ? emptyDashboard() : null);
 
   const advance = useCallback(
     (dir: 1 | -1) => {
@@ -252,6 +275,16 @@ export default function RecapScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
       <View style={styles.topBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Geri"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/daily'))}
+          hitSlop={12}
+          style={styles.backHit}>
+          <ThemedText type="smallBold" themeColor="tint">
+            ‹ Geri
+          </ThemedText>
+        </Pressable>
         <View
           style={[
             styles.periodSegment,
@@ -490,6 +523,18 @@ function DashboardPanel({
           </ThemedText>
         </Pressable>
       ) : null}
+      {dashboard.mirror_line ? (
+        <View
+          style={[
+            styles.panelCard,
+            { backgroundColor: theme.backgroundElement, borderColor: theme.tint },
+          ]}>
+          <ThemedText type="smallBold" themeColor="tint" style={styles.panelCardTitle}>
+            Ayna
+          </ThemedText>
+          <ThemedText>{dashboard.mirror_line}</ThemedText>
+        </View>
+      ) : null}
       <View style={styles.kpiGrid}>
         <KpiTile label="Tamamlanan görev" value={`${dashboard.completed_tasks}`} />
         <KpiTile label="Verilen görev" value={`${dashboard.total_tasks}`} />
@@ -682,6 +727,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
     zIndex: 2,
+  },
+  backHit: {
+    minHeight: 44,
+    minWidth: 56,
+    justifyContent: 'center',
   },
   hidden: { display: 'none' },
   panelScroll: { flex: 1, zIndex: 1 },

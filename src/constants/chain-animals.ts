@@ -47,8 +47,8 @@ export const CHAIN_ANIMALS: ChainAnimal[] = [
 
 export const STAGE_LABELS: Record<ChainStage, string> = {
   bebek: 'Bebek',
-  genc: 'Genç',
-  yetiskin: 'Yetişkin',
+  genc: 'Olgun',
+  yetiskin: 'Erişkin',
 };
 
 export type ChainEvolution = {
@@ -88,18 +88,17 @@ export function chainEvolution(
   if (dayInCycle < 10) {
     stage = 'bebek';
     daysToNext = 10 - dayInCycle;
-    nextLabel = `Genç ${animal.name}`;
+    nextLabel = `Olgun ${animal.name}`;
   } else if (dayInCycle < 20) {
     stage = 'genc';
     daysToNext = 20 - dayInCycle;
-    nextLabel = `Yetişkin ${animal.name}`;
+    nextLabel = `Erişkin ${animal.name}`;
   } else {
     stage = 'yetiskin';
     daysToNext = CHAIN_CYCLE_DAYS - dayInCycle;
-    const nextIndex = Math.min(animal.index + 1, CHAIN_ANIMALS.length - 1);
-    const next = CHAIN_ANIMALS[nextIndex];
+    const year = Math.max(1, Math.floor(safeDays / CHAIN_CYCLE_DAYS));
     const atLast = animal.index === CHAIN_ANIMALS.length - 1;
-    nextLabel = atLast ? `Efsane ${animal.name}` : `Bebek ${next.name}`;
+    nextLabel = atLast ? `Yaş ${year} ${animal.name}` : `Bebek ${CHAIN_ANIMALS[Math.min(animal.index + 1, CHAIN_ANIMALS.length - 1)].name}`;
   }
 
   return {
@@ -117,4 +116,106 @@ export function stageIconSize(stage: ChainStage, base = 30): number {
   if (stage === 'bebek') return Math.round(base * 0.72);
   if (stage === 'genc') return Math.round(base * 0.88);
   return base;
+}
+
+/** Kullanıcının seçtiği yoldaş — filiz veya 12 hayvandan biri. */
+export const SPROUT_ID = 'sprout' as const;
+export type CompanionId = typeof SPROUT_ID | number;
+
+export type CompanionGrowth = {
+  key: 'bebek' | 'olgun' | 'eriskin' | 'yas';
+  label: string;
+  year: number;
+  nextLabel: string;
+};
+
+/** Seçili yoldaşın kendi günleri — zincir kırılsa bile olgunluk silinmez. */
+export function companionGrowth(investedDays: number): CompanionGrowth {
+  const days = Math.max(0, Math.floor(investedDays));
+  if (days < 10) {
+    return { key: 'bebek', label: 'Bebek', year: 0, nextLabel: 'Olgun' };
+  }
+  if (days < 20) {
+    return { key: 'olgun', label: 'Olgun', year: 0, nextLabel: 'Erişkin' };
+  }
+  if (days < 30) {
+    return { key: 'eriskin', label: 'Erişkin', year: 0, nextLabel: 'Yaş 1' };
+  }
+  const year = Math.max(1, Math.floor(days / 30));
+  return {
+    key: 'yas',
+    label: `Yaş ${year}`,
+    year,
+    nextLabel: `Yaş ${year + 1}`,
+  };
+}
+
+export function sproutIcon(key: CompanionGrowth['key']): ChainIconName {
+  if (key === 'bebek') return 'sprout';
+  if (key === 'olgun') return 'leaf';
+  return 'pine-tree';
+}
+
+export function growthIconSize(key: CompanionGrowth['key'], base = 30): number {
+  if (key === 'bebek') return Math.round(base * 0.7);
+  if (key === 'olgun') return Math.round(base * 0.86);
+  if (key === 'eriskin') return base;
+  return Math.round(base * 1.08);
+}
+
+export function companionStorageKey(id: CompanionId): string {
+  return id === SPROUT_ID ? SPROUT_ID : String(id);
+}
+
+export type CompanionVisual = {
+  id: CompanionId | null;
+  icon: ChainIconName;
+  name: string;
+  motto: string;
+  stageLabel: string;
+  nextLabel: string;
+  iconSize: number;
+};
+
+export function companionVisual(
+  id: CompanionId | null,
+  investedDays: number,
+  streakDays: number,
+  baseIcon = 30,
+): CompanionVisual {
+  if (id === SPROUT_ID) {
+    const growth = companionGrowth(investedDays);
+    return {
+      id,
+      icon: sproutIcon(growth.key),
+      name: 'Filiz',
+      motto: 'Küçük bir filiz; her gün bir yaprak daha.',
+      stageLabel: growth.label,
+      nextLabel: growth.nextLabel,
+      iconSize: growthIconSize(growth.key, baseIcon),
+    };
+  }
+  if (typeof id === 'number' && id >= 0 && id < CHAIN_ANIMALS.length) {
+    const animal = CHAIN_ANIMALS[id];
+    const growth = companionGrowth(investedDays);
+    return {
+      id,
+      icon: animal.icon,
+      name: animal.name,
+      motto: animal.motto,
+      stageLabel: growth.label,
+      nextLabel: growth.nextLabel,
+      iconSize: growthIconSize(growth.key, baseIcon),
+    };
+  }
+  const evolution = chainEvolution(streakDays);
+  return {
+    id: null,
+    icon: evolution.animal.icon,
+    name: evolution.animal.name,
+    motto: evolution.animal.motto,
+    stageLabel: STAGE_LABELS[evolution.stage],
+    nextLabel: evolution.nextLabel,
+    iconSize: stageIconSize(evolution.stage, baseIcon),
+  };
 }

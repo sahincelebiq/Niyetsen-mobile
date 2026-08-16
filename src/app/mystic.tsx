@@ -16,6 +16,7 @@ import {
   SurfaceEdge,
 } from '@/constants/theme';
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
+import { mysticHref } from '@/lib/mystic-routes';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useProfile } from '@/providers/profile-provider';
 
@@ -30,31 +31,31 @@ const MODULES: {
     title: 'Mistik Sohbet',
     symbol: '✶',
     description: 'Rehberinle konuş; kartlarını ve fallarını birlikte yorumlayın.',
-    href: '/mistik-sohbet' as Href,
+    href: mysticHref.chat,
   },
   {
     title: 'Astroloji',
     symbol: '✦',
     description: 'Doğum haritan ve günlük gökyüzü rehberin.',
-    href: '/astroloji',
+    href: mysticHref.astroloji,
   },
   {
     title: 'Tarot',
     symbol: '◈',
     description: 'Niyetine eşlik edecek sembolik kart yorumları.',
-    href: '/tarot',
+    href: mysticHref.tarot,
   },
   {
     title: 'Kahve Falı',
     symbol: '☕',
     description: 'Fincanı çek, telveyi yorumlat.',
-    href: '/fal?kind=kahve' as Href,
+    href: mysticHref.kahve,
   },
   {
     title: 'El Falı',
     symbol: '✋',
     description: 'Avuç içi çizgilerine bak.',
-    href: '/fal?kind=el' as Href,
+    href: mysticHref.el,
   },
 ];
 
@@ -91,9 +92,19 @@ export default function MysticHubScreen() {
             styles.content,
             { paddingBottom: BottomTabInset + Spacing.four },
           ]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Geri"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(mysticHref.today))}
+            hitSlop={12}
+            style={({ pressed }) => [styles.backHit, pressed && { opacity: 0.6 }]}>
+            <ThemedText type="smallBold" style={{ color: colors.tint }}>
+              ‹ Geri
+            </ThemedText>
+          </Pressable>
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <ThemedText type="title" style={{ color: colors.text }}>
+              <ThemedText type="screenTitle" style={{ color: colors.text }}>
                 Mistik Keşif
                 {glyph ? ` ${glyph}` : ''}
               </ThemedText>
@@ -157,7 +168,7 @@ export default function MysticHubScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => openModule('/fal-gecmisi' as Href)}
+            onPress={() => openModule(mysticHref.history)}
             style={({ pressed }) => [
               styles.historyLink,
               { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -179,7 +190,7 @@ export default function MysticHubScreen() {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/' as Href))}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(mysticHref.today))}
             style={({ pressed }) => [
               styles.backButton,
               {
@@ -207,6 +218,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: Spacing.four,
     gap: Spacing.four,
+  },
+  backHit: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    minWidth: 56,
+    justifyContent: 'center',
   },
   header: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.three },
   titleRow: {

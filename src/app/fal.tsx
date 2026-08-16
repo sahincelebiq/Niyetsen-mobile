@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,10 +13,11 @@ import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useConsentPreferences } from '@/components/consent-gate';
-import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
+import { MysticGrantButton, MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { trackEvent } from '@/lib/analytics';
+import { mysticHref } from '@/lib/mystic-routes';
 import {
   ApiError,
   getFortuneRights,
@@ -40,11 +41,11 @@ export default function FortuneScreen() {
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const autoOpened = useRef(false);
 
-  // faz8.13/2b: mistik sohbet kısayolundan ?kind=el ile doğrudan gelinebilir.
+  // Stack params: { kind: 'kahve' | 'el' } — query string NativeTabs'te düşüyordu.
   const params = useLocalSearchParams<{ kind?: string }>();
-  const [kind, setKind] = useState<FortuneKind>(params.kind === 'el' ? 'el' : 'kahve');
+  const requestedKind: FortuneKind = params.kind === 'el' ? 'el' : 'kahve';
+  const [kind, setKind] = useState<FortuneKind>(requestedKind);
   const [rights, setRights] = useState<FortuneRights | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -65,6 +66,12 @@ export default function FortuneScreen() {
   useEffect(() => {
     void loadRights();
   }, [loadRights]);
+
+  useEffect(() => {
+    if (params.kind === 'el' || params.kind === 'kahve') {
+      setKind(params.kind);
+    }
+  }, [params.kind]);
 
   async function grantPhotoConsent() {
     setGranting(true);
@@ -106,14 +113,6 @@ export default function FortuneScreen() {
     setCameraOpen(true);
   }
 
-  useEffect(() => {
-    const requested = params.kind === 'el' || params.kind === 'kahve' ? params.kind : null;
-    if (!requested || autoOpened.current || !photoConsent) return;
-    autoOpened.current = true;
-    void openCamera(requested);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.kind, photoConsent]);
-
   async function captureAndUpload() {
     if (!cameraRef.current || !cameraReady || busy) return;
     setBusy(true);
@@ -152,7 +151,7 @@ export default function FortuneScreen() {
       <MysticScreenShell
         symbol="☾"
         title="Fal"
-        subtitle="Kahve telvesi veya avuç içi — fotoğrafını çek, mistik rehber yorumlasın. Fal bir kader değil, bir ayna."
+        subtitle={`${KIND_LABELS[kind].title} — ${KIND_LABELS[kind].hint} Fal bir kader değil, bir ayna.`}
         zodiacSign={profile?.zodiac_sign}>
         {(['kahve', 'el'] as FortuneKind[]).map((target, index) => (
           <Animated.View
@@ -167,11 +166,13 @@ export default function FortuneScreen() {
               style={({ pressed }) => [
                 styles.kindButton,
                 {
-                  borderColor: colors.border,
+                  borderColor: kind === target ? colors.tint : colors.border,
                   backgroundColor:
-                    pressed || (busy && kind === target)
+                    pressed || kind === target
                       ? colors.backgroundSelected
                       : colors.background,
+                  opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
                 },
               ]}>
               <View style={styles.kindText}>
@@ -221,33 +222,18 @@ export default function FortuneScreen() {
         ) : null}
 
         {!photoConsent ? (
-          <Pressable
-            accessibilityRole="button"
-            disabled={granting}
-            onPress={() => void grantPhotoConsent()}
-            style={({ pressed }) => [
-              styles.kindButton,
-              {
-                borderColor: colors.tint,
-                backgroundColor: colors.backgroundSelected,
-                opacity: pressed || granting ? 0.8 : 1,
-              },
-            ]}>
-            <View style={styles.kindText}>
-              <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                {granting ? 'Kaydediliyor…' : 'Fotoğraf onayını ver ve çek'}
-              </ThemedText>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Fal fotoğrafı yalnız bu çekim için işlenir; Ayarlar’dan kapatabilirsin.
-              </ThemedText>
-            </View>
-          </Pressable>
+          <MysticGrantButton
+            label={granting ? 'Kaydediliyor…' : 'Fotoğraf onayını ver ve çek'}
+            hint="Fal fotoğrafı yalnız bu çekim için işlenir; Ayarlar’dan kapatabilirsin."
+            granting={granting}
+            onGrant={() => void grantPhotoConsent()}
+          />
         ) : null}
 
         {result ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/mistik-sohbet' as Href)}
+            onPress={() => router.push(mysticHref.chat)}
             style={({ pressed }) => [
               styles.kindButton,
               {
@@ -268,7 +254,7 @@ export default function FortuneScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.replace('/mistik-sohbet' as Href)}
+          onPress={() => router.replace(mysticHref.chat)}
           style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" style={{ color: colors.tint }}>
             Mistik sohbete dön

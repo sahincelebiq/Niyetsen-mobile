@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -46,13 +46,11 @@ export function ChatComposer({
   const keyboardHeight = useKeyboardHeight();
   const keyboardOpen = keyboardHeight > 0;
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Android 15 + NativeTabs'te adjustResize pencereyi küçültmez; klavye
-  // kompozerin üstüne biner. pan + keyboardHeight ile kompozeri kaldırırız.
-  // iOS'ta KeyboardAwareView padding zaten kaldırır — yükseklik ekleme.
+  // Klavye açıkken tab bar zaten örtülür — BottomTabInset EKLEME.
+  // Android lift sohbet kolonunun paddingBottom'unda (index.tsx); burada
+  // tekrar keyboardHeight eklemek yazıyı klavyenin arkasına kaçırıyordu.
   const bottomPadding = keyboardOpen
-    ? Platform.OS === 'android'
-      ? Math.max(keyboardHeight, Spacing.two)
-      : Math.max(insets.bottom, Spacing.two)
+    ? Math.max(insets.bottom, Spacing.two)
     : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (

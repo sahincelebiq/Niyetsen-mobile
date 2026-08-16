@@ -1,21 +1,12 @@
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  useColorScheme,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
-import {
-  BottomTabInset, MaxContentWidth, MysticColors, Radii, Shadows, Spacing,
-} from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { getFortuneHistory, type FortuneHistoryItem } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
+import { useRouter } from 'expo-router';
 
 const TYPE_META: Record<FortuneHistoryItem['type'], { symbol: string; label: string }> = {
   tarot: { symbol: '◈', label: 'Tarot' },
@@ -24,16 +15,20 @@ const TYPE_META: Record<FortuneHistoryItem['type'], { symbol: string; label: str
   burc: { symbol: '✦', label: 'Günlük Burç' },
 };
 
+function typeMeta(type: string): { symbol: string; label: string } {
+  return TYPE_META[type as FortuneHistoryItem['type']] ?? { symbol: '☾', label: 'Fal' };
+}
+
 function formatDay(iso: string): string {
-  const [year, month, day] = iso.split('-');
+  const datePart = iso.slice(0, 10);
+  const [year, month, day] = datePart.split('-');
   if (!year || !month || !day) return iso;
   return `${day}.${month}.${year}`;
 }
 
 export default function FortuneHistoryScreen() {
   const router = useRouter();
-  const scheme = useColorScheme();
-  const colors = MysticColors[scheme === 'dark' ? 'dark' : 'light'];
+  const { colors } = useMysticColors();
   const [items, setItems] = useState<FortuneHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -53,123 +48,133 @@ export default function FortuneHistoryScreen() {
   }, [load]);
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <Image
-        source={require('@/assets/images/chat-mystic-bg.png')}
-        style={styles.background}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.header}>
-            <ThemedText type="title" style={{ color: colors.text }}>
-              Fal Geçmişin
-            </ThemedText>
-            <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-              Aynaya önceki bakışların — hangi gün ne fısıldamıştı?
-            </ThemedText>
-          </View>
-
-          {items === null ? (
-            <ActivityIndicator color={colors.tint} style={styles.loader} />
-          ) : items.length === 0 ? (
-            <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-              <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-                {error ?? 'Henüz kayıtlı bir fal yok. İlk çekimini tarot ile yapabilirsin.'}
+    <MysticScreenShell
+      symbol="☾"
+      title="Fal Geçmişin"
+      subtitle="Aynaya önceki bakışların — hangi gün ne fısıldamıştı?">
+      {items === null ? (
+        <ActivityIndicator color={colors.tint} />
+      ) : items.length === 0 ? (
+        <View style={[styles.empty, { borderColor: colors.border, backgroundColor: colors.background }]}>
+          <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
+            {error ?? 'Henüz kayıtlı bir fal yok. İlk çekimini tarot ile yapabilirsin.'}
+          </ThemedText>
+          {error ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void load()}
+              style={({ pressed }) => [
+                styles.retry,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: colors.background }}>
+                Tekrar Dene
               </ThemedText>
-            </View>
+            </Pressable>
           ) : (
-            items.map((item) => {
-              const meta = TYPE_META[item.type];
-              const interpretation = item.result.interpretation ?? '';
-              const expanded = expandedId === item.id;
-              return (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  onPress={() => setExpandedId(expanded ? null : item.id)}
-                  style={({ pressed }) => [
-                    styles.card,
-                    {
-                      backgroundColor: colors.backgroundElement,
-                      borderColor: colors.border,
-                      opacity: pressed ? 0.85 : 1,
-                    },
-                  ]}>
-                  <View style={styles.cardHeader}>
-                    <ThemedText style={[styles.cardSymbol, { color: colors.tint }]}>
-                      {meta.symbol}
-                    </ThemedText>
-                    <View style={styles.cardTitle}>
-                      <ThemedText type="smallBold" style={{ color: colors.text }}>
-                        {meta.label}
-                        {item.result.sign ? ` · ${item.result.sign}` : ''}
-                      </ThemedText>
-                      <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                        {formatDay(item.day)}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  {item.result.cards?.length ? (
-                    <ThemedText type="small" style={{ color: colors.accentWarm }}>
-                      {item.result.cards
-                        .map((card) => `${card.name}${card.reversed ? ' (ters)' : ''}`)
-                        .join(' · ')}
-                    </ThemedText>
-                  ) : null}
-                  {item.result.symbols?.length ? (
-                    <ThemedText type="small" style={{ color: colors.accentWarm }}>
-                      {item.result.symbols.join(' · ')}
-                    </ThemedText>
-                  ) : null}
-                  {interpretation ? (
-                    <ThemedText
-                      type="small"
-                      numberOfLines={expanded ? undefined : 3}
-                      style={{ color: colors.textSecondary }}>
-                      {interpretation}
-                    </ThemedText>
-                  ) : null}
-                </Pressable>
-              );
-            })
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(mysticHref.tarot)}
+              style={({ pressed }) => [
+                styles.retry,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: colors.background }}>
+                Tarot çek
+              </ThemedText>
+            </Pressable>
           )}
+        </View>
+      ) : (
+        items.map((item) => {
+          const meta = typeMeta(item.type);
+          const interpretation = item.result?.interpretation ?? '';
+          const expanded = expandedId === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              onPress={() => setExpandedId(expanded ? null : item.id)}
+              style={({ pressed }) => [
+                styles.card,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}>
+              <View style={styles.cardHeader}>
+                <ThemedText style={[styles.cardSymbol, { color: colors.tint }]}>
+                  {meta.symbol}
+                </ThemedText>
+                <View style={styles.cardTitle}>
+                  <ThemedText type="smallBold" style={{ color: colors.text }}>
+                    {meta.label}
+                    {item.result?.sign ? ` · ${item.result.sign}` : ''}
+                  </ThemedText>
+                  <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                    {formatDay(item.day)}
+                  </ThemedText>
+                </View>
+              </View>
+              {item.result?.cards?.length ? (
+                <ThemedText type="small" style={{ color: colors.accentWarm }}>
+                  {item.result.cards
+                    .map((card) => `${card.name}${card.reversed ? ' (ters)' : ''}`)
+                    .join(' · ')}
+                </ThemedText>
+              ) : null}
+              {item.result?.symbols?.length ? (
+                <ThemedText type="small" style={{ color: colors.accentWarm }}>
+                  {item.result.symbols.join(' · ')}
+                </ThemedText>
+              ) : null}
+              {interpretation ? (
+                <ThemedText
+                  type="small"
+                  numberOfLines={expanded ? undefined : 3}
+                  style={{ color: colors.textSecondary }}>
+                  {interpretation}
+                </ThemedText>
+              ) : null}
+            </Pressable>
+          );
+        })
+      )}
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.replace('/mystic')}
-            style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
-            <ThemedText type="smallBold" style={{ color: colors.tint }}>
-              Mistik Keşfe Dön
-            </ThemedText>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.replace(mysticHref.hub)}
+        style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
+        <ThemedText type="smallBold" style={{ color: colors.tint }}>
+          Mistik Keşfe Dön
+        </ThemedText>
+      </Pressable>
+    </MysticScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  background: { ...StyleSheet.absoluteFillObject, opacity: 0.2 },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 620),
-    alignSelf: 'center',
+  empty: {
     gap: Spacing.three,
-    padding: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four,
+    borderWidth: 1,
+    borderRadius: Radii.medium,
+    padding: Spacing.three,
+    alignItems: 'center',
   },
-  header: { gap: Spacing.one, alignItems: 'center', marginBottom: Spacing.two },
-  loader: { marginTop: Spacing.six },
+  retry: {
+    minHeight: 44,
+    minWidth: 160,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+  },
   card: {
     gap: Spacing.two,
     borderWidth: 1,
-    borderRadius: Radii.large,
-    padding: Spacing.four,
-    ...(Shadows.soft ?? {}),
+    borderRadius: Radii.medium,
+    padding: Spacing.three,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   cardSymbol: { fontSize: 26, lineHeight: 32 },

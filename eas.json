@@ -36,6 +36,7 @@
       },
       "env": {
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_XpoeMYtFdfZFLHmXEELxeNovNLl",
         "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
         "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"
@@ -50,6 +51,7 @@
       },
       "env": {
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_XpoeMYtFdfZFLHmXEELxeNovNLl",
         "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
         "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"

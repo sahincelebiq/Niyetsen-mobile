@@ -12,45 +12,32 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import {
-  chainEvolution,
-  STAGE_LABELS,
-  stageIconSize,
-} from '@/constants/chain-animals';
+import { companionVisual, type CompanionId } from '@/constants/chain-animals';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-
-/**
- * faz8.13/6 — Zincir yoldaşı: 12 hayvanlı evrim görseli.
- * Aşama/hayvan değişiminde spring "doğum" animasyonu (Reanimated,
- * reduce-motion saygılı). rank.tsx hero'su ve StreakPill ile senkron —
- * tek gerçek kaynak chainEvolution().
- */
 
 type ChainCompanionProps = {
   streakDays: number;
-  /** Halka + ikon rengi (hero'da theme.onAccent). */
   color: string;
-  /** Halka çapı. */
   size?: number;
-  /** Kullanıcının seçtiği hayvan (null = zincirle otomatik). */
-  animalIndex?: number | null;
+  companionId?: CompanionId | null;
+  investedDays?: number;
 };
 
 export function ChainCompanion({
   streakDays,
   color,
   size = 64,
-  animalIndex = null,
+  companionId = null,
+  investedDays = 0,
 }: ChainCompanionProps) {
-  const { animal, stage } = chainEvolution(streakDays, animalIndex);
+  const visual = companionVisual(companionId, investedDays, streakDays, Math.round(size * 0.5));
   const scale = useSharedValue(1);
-  const stageKey = `${animal.index}-${stage}`;
+  const stageKey = `${visual.name}-${visual.stageLabel}`;
   const previousKey = useRef(stageKey);
 
   useEffect(() => {
     if (previousKey.current !== stageKey) {
       previousKey.current = stageKey;
-      // Aşama geçişi: küçül → spring ile doğ (yeni aşamanın "doğumu").
       scale.value = withSequence(
         withTiming(0.4, {
           duration: Motion.fast,
@@ -70,8 +57,6 @@ export function ChainCompanion({
     transform: [{ scale: scale.value }],
   }));
 
-  const iconSize = stageIconSize(stage, Math.round(size * 0.5));
-
   return (
     <View
       style={[
@@ -79,35 +64,36 @@ export function ChainCompanion({
         { width: size, height: size, borderRadius: size / 2, borderColor: color },
       ]}>
       <Animated.View style={animatedStyle}>
-        <MaterialCommunityIcons name={animal.icon} size={iconSize} color={color} />
+        <MaterialCommunityIcons name={visual.icon} size={visual.iconSize} color={color} />
       </Animated.View>
     </View>
   );
 }
 
-/** Hayvan + aşama etiketi ("Genç Serçe · 4. gün") — hero altı satırı. */
 export function ChainCompanionCaption({
   streakDays,
   color,
-  animalIndex = null,
+  companionId = null,
+  investedDays = 0,
 }: {
   streakDays: number;
   color: string;
-  animalIndex?: number | null;
+  companionId?: CompanionId | null;
+  investedDays?: number;
 }) {
-  const evolution = chainEvolution(streakDays, animalIndex);
+  const visual = companionVisual(companionId, investedDays, streakDays);
   return (
     <View style={styles.caption}>
       <View style={[styles.stagePill, { borderColor: color }]}>
         <ThemedText type="smallBold" style={{ color }}>
-          {STAGE_LABELS[evolution.stage]} {evolution.animal.name}
+          {visual.stageLabel} {visual.name}
         </ThemedText>
       </View>
       <ThemedText type="small" style={[styles.captionText, { color }]}>
-        {evolution.animal.motto}
+        {visual.motto}
       </ThemedText>
       <ThemedText type="small" style={[styles.captionText, { color, opacity: 0.85 }]}>
-        {evolution.daysToNext} gün sonra: {evolution.nextLabel}
+        Sonra: {visual.nextLabel}
       </ThemedText>
     </View>
   );

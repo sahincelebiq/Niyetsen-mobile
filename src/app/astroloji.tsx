@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,23 +8,28 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
-import { MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
+import { useConsentPreferences } from '@/components/consent-gate';
+import { MysticGrantButton, MysticScreenShell, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { getZodiacGlyph } from '@/constants/zodiac';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getDailyHoroscope, type Horoscope } from '@/lib/api';
+import { mysticHref } from '@/lib/mystic-routes';
 import { useProfile } from '@/providers/profile-provider';
 
 export default function AstrologyScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
   const { profile } = useProfile();
+  const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [loading, setLoading] = useState(true);
   const [horoscope, setHoroscope] = useState<Horoscope | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [period, setPeriod] = useState<'daily' | 'weekly'>('daily');
+  const [granting, setGranting] = useState(false);
+  const aiAllowed = consentStatus.ai_chat_processing.accepted;
 
   const load = useCallback(async (target: 'daily' | 'weekly' = 'daily') => {
     setLoading(true);
@@ -46,6 +51,24 @@ export default function AstrologyScreen() {
       setLoading(false);
     }
   }, []);
+
+  async function grantAiConsent() {
+    setGranting(true);
+    setError(null);
+    try {
+      await saveChoices({
+        privacy: consentStatus.privacy_policy.accepted,
+        ai: true,
+        proofPhoto: consentStatus.proof_photo_processing.accepted,
+        marketing: consentStatus.marketing_communications.accepted,
+      });
+      await load(period);
+    } catch (value) {
+      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+    } finally {
+      setGranting(false);
+    }
+  }
 
   useEffect(() => {
     void load(period);
@@ -102,7 +125,7 @@ export default function AstrologyScreen() {
           </ThemedText>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/settings' as Href)}
+            onPress={() => router.push('/settings')}
             style={({ pressed }) => [
               styles.button,
               { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
@@ -112,6 +135,13 @@ export default function AstrologyScreen() {
             </ThemedText>
           </Pressable>
         </>
+      ) : !aiAllowed ? (
+        <MysticGrantButton
+          label="AI onayını ver ve burcu aç"
+          hint="Günlük burç ücretsizdir; onay yalnız yorum üretimi içindir."
+          granting={granting}
+          onGrant={() => void grantAiConsent()}
+        />
       ) : (
         <>
           <ThemedText type="small" style={[styles.center, { color: colors.accentWarm }]}>
@@ -133,7 +163,7 @@ export default function AstrologyScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.replace('/mystic')}
+        onPress={() => router.replace(mysticHref.hub)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
           Mistik Keşfe Dön

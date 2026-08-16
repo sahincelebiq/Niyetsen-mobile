@@ -1,5 +1,5 @@
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -34,7 +34,6 @@ import { useLocale } from '@/providers/locale-provider';
 import {
   ApiError,
   CATEGORIES,
-  getRecap,
   getState,
   type StateResponse,
 } from '@/lib/api';
@@ -48,10 +47,10 @@ export default function RankScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const { hasPremium } = usePremiumAccess();
-  const { animalIndex, selectAnimal } = useCompanionAnimal();
+  const { companionId, investedDays, investedFor, selectCompanion, syncStreak } =
+    useCompanionAnimal();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [state, setState] = useState<StateResponse | null>(null);
-  const [recapReady, setRecapReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,27 +62,23 @@ export default function RankScreen() {
     try {
       const nextState = await getState();
       setState(nextState);
-      if (hasPremium) {
-        const recap = await getRecap('7d').catch(() => null);
-        // Haftalık rapor: en az 7 gün; yoksa da PRO kullanıcıya "hazır" gösterme.
-        setRecapReady(!!recap && recap.days_in >= 7);
-      } else {
-        // Free: banner yine görünsün (PRO etiketiyle), API çağırma.
-        setRecapReady(nextState.streak_len >= 1);
-      }
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Rütbe bilgisi yüklenemedi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [hasPremium]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (state) syncStreak(state.streak_len);
+  }, [state, syncStreak]);
 
   const milestoneGlow =
     !!state &&
@@ -109,15 +104,13 @@ export default function RankScreen() {
 
         {state && !loading && (
           <>
-            {recapReady && (
-              <Pressable
+            <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Niyetsen raporunu aç"
                 accessibilityHint={
                   hasPremium ? undefined : 'PRO abonelik gerekir'
                 }
                 onPress={() => {
-                  // Kapı içeride: free de /rapor'a gider (kilitli önizleme + CTA).
                   router.push('/rapor' as Href);
                 }}
                 style={[
@@ -144,7 +137,6 @@ export default function RankScreen() {
                   {hasPremium ? t.chain.reportOpen : 'PRO'}
                 </ThemedText>
               </Pressable>
-            )}
             <View
               style={[
                 styles.hero,
@@ -158,13 +150,15 @@ export default function RankScreen() {
                 {/* faz8.13/6: filiz → 12 hayvanlı evrim. Dokununca seçim paneli. */}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Yoldaş hayvanını seç"
+                  accessibilityLabel="Yoldaşını seç — filiz veya 12 hayvan"
                   onPress={() => setPickerOpen(true)}
-                  hitSlop={8}>
+                  hitSlop={12}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
                   <ChainCompanion
                     streakDays={state.streak_len}
                     color={theme.onAccent}
-                    animalIndex={animalIndex}
+                    companionId={companionId}
+                    investedDays={investedDays}
                   />
                 </Pressable>
                 <View style={styles.heroNumbers}>
@@ -180,7 +174,8 @@ export default function RankScreen() {
               <ChainCompanionCaption
                 streakDays={state.streak_len}
                 color={theme.onAccent}
-                animalIndex={animalIndex}
+                companionId={companionId}
+                investedDays={investedDays}
               />
               <Pressable
                 accessibilityRole="button"
@@ -188,7 +183,7 @@ export default function RankScreen() {
                 style={styles.pickHint}
                 hitSlop={8}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  Yoldaşı değiştir
+                  Yoldaşı değiştir — filiz + 12 hayvan
                 </ThemedText>
               </Pressable>
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
@@ -251,8 +246,10 @@ export default function RankScreen() {
       <ChainAnimalPicker
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        selectedIndex={animalIndex}
-        onSelect={selectAnimal}
+        selectedId={companionId}
+        investedFor={investedFor}
+        streakDays={state?.streak_len ?? 0}
+        onSelect={selectCompanion}
       />
     </ThemedView>
   );

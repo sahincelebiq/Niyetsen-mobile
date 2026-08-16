@@ -19,8 +19,9 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
-import { useAuth } from '@/providers/auth-provider';
+import { AuthFlowError, useAuth } from '@/providers/auth-provider';
 import { useLocale } from '@/providers/locale-provider';
+import { supabaseConfigured } from '@/lib/supabase';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -42,7 +43,18 @@ export function AuthScreen() {
     try {
       await action();
     } catch (value) {
-      setError(value instanceof Error ? value.message : t.common.errorGeneric);
+      if (value instanceof AuthFlowError) {
+        const mapped = {
+          email_not_confirmed: t.auth.emailNotConfirmed,
+          wrong_password: t.auth.wrongPassword,
+          already_registered: t.auth.alreadyRegistered,
+          google_incomplete: t.auth.googleIncomplete,
+          generic: value.message || t.common.errorGeneric,
+        }[value.code];
+        setError(mapped);
+      } else {
+        setError(value instanceof Error ? value.message : t.common.errorGeneric);
+      }
     } finally {
       setBusy(null);
     }
@@ -60,8 +72,8 @@ export function AuthScreen() {
       } else if (mode === 'sign-in') {
         await auth.signInWithEmail(email.trim(), password);
       } else {
-        await auth.signUpWithEmail(email.trim(), password);
-        setMessage(t.auth.verifySent);
+        const needsVerification = await auth.signUpWithEmail(email.trim(), password);
+        if (needsVerification) setMessage(t.auth.verifySent);
       }
     });
   }
@@ -98,6 +110,11 @@ export function AuthScreen() {
               <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
                 {t.auth.hero}
               </ThemedText>
+              {!supabaseConfigured ? (
+                <ThemedText themeColor="danger" style={styles.center}>
+                  {t.auth.supabaseMissing}
+                </ThemedText>
+              ) : null}
             </View>
 
             <ThemedView

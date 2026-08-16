@@ -1,10 +1,11 @@
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Shadows, Spacing } from '@/constants/theme';
+import { mysticHref } from '@/lib/mystic-routes';
 
 /**
  * faz8.13/2a — Mistiğin yeni evi: Bugün sekmesi. Bu panel Bugün'deki ☾
@@ -17,32 +18,32 @@ const ENTRIES: { symbol: string; title: string; description: string; href: Href 
     symbol: '✶',
     title: 'Mistik Sohbet',
     description: 'Rehberinle konuş; fallarını birlikte yorumlayın.',
-    href: '/mistik-sohbet' as Href,
+    href: mysticHref.chat,
   },
-  { symbol: '◈', title: 'Tarot', description: 'Günün üç kartını çek.', href: '/tarot' as Href },
+  { symbol: '◈', title: 'Tarot', description: 'Günün üç kartını çek.', href: mysticHref.tarot },
   {
     symbol: '☕',
     title: 'Kahve Falı',
     description: 'Fincanını çek, telveyi yorumlat.',
-    href: '/fal?kind=kahve' as Href,
+    href: mysticHref.kahve,
   },
   {
     symbol: '✋',
     title: 'El Falı',
     description: 'Avuç içi çizgilerine bak.',
-    href: '/fal?kind=el' as Href,
+    href: mysticHref.el,
   },
   {
     symbol: '✦',
     title: 'Astroloji',
     description: 'Günlük ve haftalık burç yorumun.',
-    href: '/astroloji' as Href,
+    href: mysticHref.astroloji,
   },
   {
     symbol: '☾',
     title: 'Fal Geçmişin',
     description: 'Önceki çekimlerine dön.',
-    href: '/fal-gecmisi' as Href,
+    href: mysticHref.history,
   },
 ];
 
@@ -56,12 +57,9 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
   const { colors, edge } = useMysticColors();
 
   function open(href: Href) {
+    // Önce push: Modal kapanırken Native/Stack geçişi yutulmasın.
+    router.push(href);
     onClose();
-    // NativeTabs gizli trigger kaydı sonrası push aynı karede çalışır;
-    // 320ms gecikme "tıklanıyor ama gitmiyor" hissi veriyordu.
-    requestAnimationFrame(() => {
-      router.push(href);
-    });
   }
 
   return (
@@ -89,36 +87,42 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
         <ThemedText type="small" style={[styles.subtitle, { color: colors.textSecondary }]}>
           Sembolik rehberlik — planın merkezde kalır, ayna burada.
         </ThemedText>
-        {ENTRIES.map((entry) => (
-          <Pressable
-            key={entry.title}
-            accessibilityRole="button"
-            accessibilityLabel={entry.title}
-            onPress={() => open(entry.href)}
-            style={({ pressed }) => [
-              styles.row,
-              {
-                backgroundColor: colors.backgroundElement,
-                borderColor: colors.border,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}>
-            <ThemedText style={[styles.symbol, { color: colors.tint }]}>
-              {entry.symbol}
-            </ThemedText>
-            <View style={styles.rowText}>
-              <ThemedText type="smallBold" style={{ color: colors.text }}>
-                {entry.title}
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled">
+          {ENTRIES.map((entry) => (
+            <Pressable
+              key={entry.title}
+              accessibilityRole="button"
+              accessibilityLabel={entry.title}
+              onPress={() => open(entry.href)}
+              style={({ pressed }) => [
+                styles.row,
+                {
+                  backgroundColor: colors.backgroundElement,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.7 : 1,
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                },
+              ]}>
+              <ThemedText style={[styles.symbol, { color: colors.tint }]}>
+                {entry.symbol}
               </ThemedText>
-              <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                {entry.description}
+              <View style={styles.rowText}>
+                <ThemedText type="smallBold" style={{ color: colors.text }}>
+                  {entry.title}
+                </ThemedText>
+                <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                  {entry.description}
+                </ThemedText>
+              </View>
+              <ThemedText type="smallBold" style={{ color: colors.textSecondary }}>
+                ›
               </ThemedText>
-            </View>
-            <ThemedText type="smallBold" style={{ color: colors.textSecondary }}>
-              ›
-            </ThemedText>
-          </Pressable>
-        ))}
+            </Pressable>
+          ))}
+        </ScrollView>
         <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
           Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
         </ThemedText>
@@ -150,6 +154,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     paddingBottom: Spacing.five,
     gap: Spacing.two,
+    maxHeight: '82%',
   },
   grabber: {
     alignSelf: 'center',
@@ -160,6 +165,8 @@ const styles = StyleSheet.create({
   },
   title: { textAlign: 'center' },
   subtitle: { textAlign: 'center', marginBottom: Spacing.one },
+  list: { flexGrow: 0 },
+  listContent: { gap: Spacing.two, paddingBottom: Spacing.one },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

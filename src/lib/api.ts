@@ -731,6 +731,7 @@ export type RecapDashboard = {
   days_in: number;
   plans_count: number;
   weekly_completed: number[];
+  mirror_line?: string | null;
 };
 
 export type Recap = {

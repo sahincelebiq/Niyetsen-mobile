@@ -1,14 +1,22 @@
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet,
+  AccessibilityInfo,
+  ActivityIndicator, Pressable, ScrollView, StyleSheet, View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset, MaxContentWidth, Radii, Shadows, Spacing, Texture,
+  BottomTabInset, MaxContentWidth, Motion, Radii, Shadows, Spacing, Texture,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
@@ -18,9 +26,8 @@ import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases'
 import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
-const FALLBACK_MONTHLY = '450 TL / ay';
-const FALLBACK_YEARLY = '3.600 TL / yıl';
-const YEARLY_EQUIV = 'Ayda ~300 TL';
+const FALLBACK_MONTHLY = '150 TL / ay';
+const FALLBACK_YEARLY = '1.200 TL / yıl';
 
 export default function PaywallScreen() {
   const theme = useTheme();
@@ -36,7 +43,7 @@ export default function PaywallScreen() {
     let mounted = true;
     void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
     void getStorePrices().then((prices) => {
-      if (!mounted) return; // unmount sonrası setState engellenir
+      if (!mounted) return;
       if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
       if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
     });
@@ -45,8 +52,6 @@ export default function PaywallScreen() {
     };
   }, []);
 
-  // Render sırasında navigate etmek expo-router'da "navigate before mounting"
-  // hatası atabiliyor; yönlendirme effect'e taşındı.
   const shouldRedirectHome = Boolean(status?.has_premium_access && !status.show_paywall);
   useEffect(() => {
     if (shouldRedirectHome) {
@@ -63,9 +68,7 @@ export default function PaywallScreen() {
       try {
         await waitForPremiumAccess();
       } catch {
-        setMessage(
-          'Satın alma tamamlandı. Abonelik birkaç saniye içinde açılacak — Geri Yükle ile de deneyebilirsin.',
-        );
+        setMessage(t.paywall.syncing);
         setBusy(null);
         await refresh();
         return;
@@ -86,7 +89,7 @@ export default function PaywallScreen() {
       try {
         await waitForPremiumAccess();
       } catch {
-        setMessage('Geri yükleme tamamlandı; senkron birkaç saniye sürebilir.');
+        setMessage(t.paywall.restoreSyncing);
         setBusy(null);
         await refresh();
         return;
@@ -99,9 +102,20 @@ export default function PaywallScreen() {
     setBusy(null);
   }
 
+  function close() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/' as Href);
+  }
+
   if (shouldRedirectHome) {
     return null;
   }
+
+  const benefits = [
+    t.paywall.benefitPlan,
+    t.paywall.benefitProof,
+    t.paywall.benefitReport,
+  ];
 
   return (
     <ThemedView style={styles.flex}>
@@ -109,6 +123,17 @@ export default function PaywallScreen() {
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
+          <Pressable
+            onPress={close}
+            hitSlop={12}
+            style={styles.closeHit}
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.paywall.close}
+            </ThemedText>
+          </Pressable>
+
           <ThemedView style={styles.hero}>
             <ThemedText type="title">{t.paywall.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
@@ -122,52 +147,42 @@ export default function PaywallScreen() {
           </ThemedView>
 
           <ThemedView
-            style={[styles.card, { borderColor: theme.border }, Shadows.soft ?? {}]}>
-            <ThemedText type="subtitle">Aylık</ThemedText>
-            <ThemedText type="screenTitle">{monthlyPrice}</ThemedText>
-            <ThemedText themeColor="textSecondary">
-              Esnek devam — istediğin zaman iptal edebilirsin.
-            </ThemedText>
-            <Pressable
-              disabled={busy !== null}
-              onPress={() => void handlePurchase('monthly')}
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: theme.accentWarm },
-                pressed && styles.pressed,
-              ]}>
-              {busy === 'monthly' ? (
-                <ActivityIndicator color={theme.onAccent} />
-              ) : (
-                <ThemedText style={{ color: theme.onAccent }} type="smallBold">
-                  Aylık devam et
+            style={[
+              styles.benefitCard,
+              { borderColor: theme.border, backgroundColor: theme.backgroundElement },
+            ]}>
+            {benefits.map((line) => (
+              <View key={line} style={styles.benefitRow}>
+                <View style={[styles.benefitDot, { backgroundColor: theme.tint }]} />
+                <ThemedText type="small" style={styles.benefitText}>
+                  {line}
                 </ThemedText>
-              )}
-            </Pressable>
+              </View>
+            ))}
           </ThemedView>
 
-          <ThemedView
-            style={[styles.card, styles.recommended, { borderColor: theme.accentWarm }, Shadows.soft ?? {}]}>
-            <ThemedText type="subtitle" themeColor="accentWarm">Yıllık · önerilen</ThemedText>
-            <ThemedText type="screenTitle">{yearlyPrice}</ThemedText>
-            <ThemedText themeColor="textSecondary">{YEARLY_EQUIV}</ThemedText>
-            <Pressable
-              disabled={busy !== null}
-              onPress={() => void handlePurchase('yearly')}
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: theme.accentWarm },
-                pressed && styles.pressed,
-              ]}>
-              {busy === 'yearly' ? (
-                <ActivityIndicator color={theme.onAccent} />
-              ) : (
-                <ThemedText style={{ color: theme.onAccent }} type="smallBold">
-                  Yıllık devam et
-                </ThemedText>
-              )}
-            </Pressable>
-          </ThemedView>
+          <PlanCard
+            recommended
+            title={t.paywall.yearlyRecommended}
+            price={yearlyPrice}
+            hint={t.paywall.yearlyHint}
+            cta={t.paywall.yearlyCta}
+            busy={busy === 'yearly'}
+            disabled={busy !== null}
+            fill
+            onPress={() => void handlePurchase('yearly')}
+          />
+
+          <PlanCard
+            title={t.paywall.monthlyLabel}
+            price={monthlyPrice}
+            hint={t.paywall.monthlyHint}
+            cta={t.paywall.monthlyCta}
+            busy={busy === 'monthly'}
+            disabled={busy !== null}
+            fill={false}
+            onPress={() => void handlePurchase('monthly')}
+          />
 
           {message ? (
             <ThemedText themeColor="textSecondary" style={styles.message}>
@@ -178,19 +193,20 @@ export default function PaywallScreen() {
           <Pressable
             disabled={busy !== null}
             onPress={() => void handleRestore()}
-            style={styles.linkButton}>
+            style={styles.linkButton}
+            accessibilityRole="button">
             <ThemedText type="linkPrimary">
-              {busy === 'restore' ? 'Geri yükleniyor…' : 'Satın alımları geri yükle'}
+              {busy === 'restore' ? t.paywall.restoring : t.paywall.restore}
             </ThemedText>
           </Pressable>
 
           <ThemedView style={styles.legalRow}>
             <Pressable hitSlop={8} onPress={() => void openLegalDocument('terms')}>
-              <ThemedText type="linkPrimary">Kullanım Koşulları</ThemedText>
+              <ThemedText type="linkPrimary">{t.paywall.terms}</ThemedText>
             </Pressable>
             <ThemedText themeColor="textSecondary">·</ThemedText>
             <Pressable hitSlop={8} onPress={() => void openLegalDocument('privacy')}>
-              <ThemedText type="linkPrimary">Gizlilik Politikası</ThemedText>
+              <ThemedText type="linkPrimary">{t.paywall.privacy}</ThemedText>
             </Pressable>
           </ThemedView>
 
@@ -200,6 +216,98 @@ export default function PaywallScreen() {
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function PlanCard({
+  title,
+  price,
+  hint,
+  cta,
+  busy,
+  disabled,
+  fill,
+  recommended,
+  onPress,
+}: {
+  title: string;
+  price: string;
+  hint: string;
+  cta: string;
+  busy: boolean;
+  disabled: boolean;
+  fill: boolean;
+  recommended?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const scale = useSharedValue(1);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.card,
+        Shadows.soft ?? {},
+        {
+          borderColor: recommended ? theme.tint : theme.border,
+          borderWidth: recommended ? 2 : Texture.cardBorderWidth,
+          backgroundColor: theme.backgroundElement,
+        },
+        animated,
+      ]}>
+      <ThemedText type="subtitle" themeColor={recommended ? 'tint' : 'text'}>
+        {title}
+      </ThemedText>
+      <ThemedText type="screenTitle">{price}</ThemedText>
+      <ThemedText themeColor="textSecondary">{hint}</ThemedText>
+      <Pressable
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => {
+          if (reduceMotion) return;
+          scale.value = withTiming(0.97, {
+            duration: Motion.fast,
+            easing: Easing.out(Easing.quad),
+            reduceMotion: ReduceMotion.System,
+          });
+        }}
+        onPressOut={() => {
+          scale.value = withTiming(1, {
+            duration: Motion.fast,
+            easing: Easing.out(Easing.quad),
+            reduceMotion: ReduceMotion.System,
+          });
+        }}
+        accessibilityRole="button"
+        style={({ pressed }) => [
+          styles.button,
+          fill
+            ? { backgroundColor: theme.tint }
+            : { backgroundColor: theme.surfaceMuted, borderWidth: 1, borderColor: theme.tint },
+          pressed && reduceMotion ? { opacity: 0.85 } : null,
+        ]}>
+        {busy ? (
+          <ActivityIndicator color={fill ? theme.onAccent : theme.tint} />
+        ) : (
+          <ThemedText
+            type="smallBold"
+            style={{ color: fill ? theme.onAccent : theme.tint }}>
+            {cta}
+          </ThemedText>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -213,15 +321,34 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.five,
     gap: Spacing.four,
   },
+  closeHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
   hero: { gap: Spacing.two },
-  card: {
+  benefitCard: {
     borderWidth: Texture.cardBorderWidth,
     borderRadius: Radii.large,
     padding: Spacing.four,
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
-  recommended: {
-    borderWidth: 2,
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  benefitDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+  },
+  benefitText: { flex: 1 },
+  card: {
+    borderRadius: Radii.large,
+    padding: Spacing.four,
+    gap: Spacing.two,
   },
   button: {
     minHeight: 48,
@@ -230,11 +357,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.two,
   },
-  pressed: { opacity: 0.85 },
   linkButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44, // Apple review: geri yükleme erişilebilir olmalı
+    minHeight: 44,
     paddingVertical: Spacing.two,
   },
   legalRow: {

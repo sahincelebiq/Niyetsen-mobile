@@ -1,5 +1,5 @@
-import { type Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { type Href, usePathname, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ConnectivityBanner } from '@/components/connectivity-banner';
@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { isMysticPath } from '@/lib/mystic-routes';
 import { useSubscription } from '@/providers/subscription-provider';
 
 type SubscriptionGateProps = {
@@ -16,16 +17,24 @@ type SubscriptionGateProps = {
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const theme = useTheme();
   const router = useRouter();
+  const pathname = usePathname();
   const { status, loading, error, offline, refresh } = useSubscription();
   const [retrying, setRetrying] = useState(false);
+  const didAutoPush = useRef(false);
 
   useEffect(() => {
     // Çevrimdışı varsayılanda paywall'a atma — kullanıcı uygulama içinde kalır.
     if (offline) return;
-    if (status?.show_paywall) {
-      router.push('/paywall' as Href);
+    if (!status?.show_paywall) {
+      didAutoPush.current = false;
+      return;
     }
-  }, [offline, router, status?.show_paywall]);
+    // Fal ücretsizdir — süresi bitmiş deneme mistik ekranı paywall ile çalamaz.
+    if (isMysticPath(pathname) || pathname === '/paywall') return;
+    if (didAutoPush.current) return;
+    didAutoPush.current = true;
+    router.push('/paywall' as Href);
+  }, [offline, pathname, router, status?.show_paywall]);
 
   async function retry() {
     setRetrying(true);
