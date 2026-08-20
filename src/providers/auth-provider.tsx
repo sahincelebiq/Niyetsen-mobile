@@ -12,7 +12,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { InteractionManager, Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
@@ -46,6 +46,12 @@ function toAuthFlowError(error: unknown): AuthFlowError {
   }
   if (text.includes('already registered') || text.includes('already been registered')) {
     return new AuthFlowError('already_registered', raw);
+  }
+  if (text.includes('provider is not enabled')) {
+    return new AuthFlowError(
+      'generic',
+      'Google girişi henüz açık değil. E-posta ve şifre ile devam et.',
+    );
   }
   if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
     return new AuthFlowError('google_incomplete', raw);
@@ -172,11 +178,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const userId = session?.user?.id;
-    if (userId) {
-      void configurePurchases(userId);
+    if (!userId) {
+      void logOutPurchases();
       return;
     }
-    void logOutPurchases();
+    const handle = InteractionManager.runAfterInteractions(() => {
+      void configurePurchases(userId);
+    });
+    return () => handle.cancel();
   }, [session?.user?.id]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {

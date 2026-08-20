@@ -1,7 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   FadeOut,
@@ -18,14 +18,12 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 
-const DURATION = 900;
+const DURATION = 720;
+const SPLASH_SEEN_KEY = 'niyetsen.boot.splash.v2';
 
 /**
- * Açılış animasyonu — zincir bağlanma metaforu korunur:
- * iki yarım halka kenarlardan gelip ortada kenetlenir, kenetlenme anında
- * yeni sonsuzluk logosu tek bir "pop" ile belirir ve marka adı yükselir.
- * Tüm sahne tek zaman çizelgesinde ilerler; halkalar kaybolurken logo
- * aynı easing ile ölçeklenir, böylece geçiş kesintisiz hissedilir.
+ * Açılış animasyonu — zincir bağlanma metaforu korunur.
+ * İlk soğuk açılışta bir kez oynar; sonraki açılışlarda atlanır (hız).
  */
 export function AnimatedSplashOverlay() {
   const theme = useTheme();
@@ -38,31 +36,51 @@ export function AnimatedSplashOverlay() {
   const titleY = useSharedValue(10);
 
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => undefined);
-    // 1) Yarım halkalar kenardan merkeze gelir ve kenetlenir.
-    leftX.value = withSequence(
-      withTiming(-8, { duration: 420, easing: Easing.out(Easing.cubic) }),
-      withTiming(0, { duration: 180, easing: Easing.inOut(Easing.quad) }),
-    );
-    rightX.value = withSequence(
-      withTiming(8, { duration: 420, easing: Easing.out(Easing.cubic) }),
-      withTiming(0, { duration: 180, easing: Easing.inOut(Easing.quad) }),
-    );
-    linkOpacity.value = withSequence(
-      withDelay(160, withTiming(1, { duration: 240 })),
-      // Kenetlenme tamamlanınca halkalar logoya yerini bırakır.
-      withDelay(220, withTiming(0, { duration: 220 })),
-    );
-    // 2) Kenetlenme anında (≈600ms) logo tek hamlede belirir.
-    logoProgress.value = withDelay(
-      560,
-      withTiming(1, { duration: 340, easing: Easing.out(Easing.back(1.6)) }),
-    );
-    // 3) Marka adı logodan hemen sonra yükselir.
-    titleOpacity.value = withDelay(720, withTiming(1, { duration: 320 }));
-    titleY.value = withDelay(720, withTiming(0, { duration: 320 }));
-    const timer = setTimeout(() => setVisible(false), DURATION + 600);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const play = () => {
+      leftX.value = withSequence(
+        withTiming(-8, { duration: 280, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 140, easing: Easing.inOut(Easing.quad) }),
+      );
+      rightX.value = withSequence(
+        withTiming(8, { duration: 280, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 140, easing: Easing.inOut(Easing.quad) }),
+      );
+      linkOpacity.value = withSequence(
+        withDelay(80, withTiming(1, { duration: 180 })),
+        withDelay(160, withTiming(0, { duration: 160 })),
+      );
+      logoProgress.value = withDelay(
+        360,
+        withTiming(1, { duration: 260, easing: Easing.out(Easing.back(1.4)) }),
+      );
+      titleOpacity.value = withDelay(480, withTiming(1, { duration: 220 }));
+      titleY.value = withDelay(480, withTiming(0, { duration: 220 }));
+      timer = setTimeout(() => {
+        if (!cancelled) setVisible(false);
+      }, DURATION);
+    };
+
+    void (async () => {
+      const [reduceMotion, seen] = await Promise.all([
+        AccessibilityInfo.isReduceMotionEnabled(),
+        AsyncStorage.getItem(SPLASH_SEEN_KEY),
+      ]);
+      if (cancelled) return;
+      if (reduceMotion || seen) {
+        setVisible(false);
+        return;
+      }
+      void AsyncStorage.setItem(SPLASH_SEEN_KEY, '1');
+      play();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [leftX, linkOpacity, logoProgress, rightX, titleOpacity, titleY]);
 
   const leftStyle = useAnimatedStyle(() => ({

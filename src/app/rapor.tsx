@@ -1,8 +1,6 @@
 /**
- * FAZ 8.8 — Niyetsen Raporu ("Wrapped") story ekranı.
- * Spotify Wrapped mantığı: tam ekran kartlar, üstte ilerleme çubukları,
- * sağa dokun = ileri, sola dokun = geri, uzun basınca duraklat.
- * Closing kartında Paylaş (view-shot → native share).
+ * Niyetsen Raporu — panel önce (ayna + kazanım), hikâye isteyene.
+ * Spotify Wrapped: tam ekran kartlar, üstte çubuklar, sağa/sola dokun.
  * İlkbahar teması — hex yok. Kaçırılan görev/ceza ASLA gösterilmez.
  */
 import { useRouter } from 'expo-router';
@@ -30,10 +28,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 
+import { CountUpText } from '@/components/count-up-text';
+import { ProBadge } from '@/components/pro-badge';
 import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { CategoryBadge } from '@/components/ui/category-badge';
-import { Motion, Radii, Spacing } from '@/constants/theme';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { Fonts, Motion, Radii, Spacing } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -120,15 +122,14 @@ function dashboardFromSources(
     days_in: recap?.days_in ?? 1,
     plans_count: 1,
     weekly_completed: [0, 0, 0, 0, 0, 0, 0, recap?.completed_tasks ?? 0],
+    mirror_line: recap?.dashboard?.mirror_line ?? null,
   };
 }
 
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
-  // FAZ 8.10 "KAPI İÇERİDE" (Şahin kuralı): ücretsiz kullanıcı bu ekranı
-  // GÖRÜR — dışarı atılmaz; içeride kilitli önizleme + PRO daveti gösterilir.
-  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
+  const { hasPremium } = usePremiumAccess();
   const [period, setPeriod] = useState<RecapPeriod>('7d');
   const [mode, setMode] = useState<RecapMode>('panel');
   const [recap, setRecap] = useState<Recap | null>(null);
@@ -139,6 +140,7 @@ export default function RecapScreen() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [stateReady, setStateReady] = useState(false);
+  const [recapLoading, setRecapLoading] = useState(true);
   const progress = useSharedValue(0);
   const advanceAtRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remainingMsRef = useRef(STORY_MS);
@@ -146,6 +148,7 @@ export default function RecapScreen() {
 
   const load = useCallback(async (nextPeriod: RecapPeriod = period) => {
     setError(null);
+    setRecapLoading(true);
     try {
       const next = await getRecap(nextPeriod);
       setRecap(next);
@@ -156,6 +159,8 @@ export default function RecapScreen() {
         return;
       }
       setError('Raporun şu an yüklenemedi. Birazdan tekrar dene.');
+    } finally {
+      setRecapLoading(false);
     }
   }, [period]);
 
@@ -169,14 +174,25 @@ export default function RecapScreen() {
   }, []);
 
   useEffect(() => {
-    if (premiumLoading || !hasPremium) return;
     void load(period);
-  }, [load, period, hasPremium, premiumLoading]);
+  }, [load, period]);
 
   const selectPeriod = (next: RecapPeriod) => {
     if (next === period) return;
     setPeriod(next);
   };
+
+  const openStory = () => {
+    setIndex(0);
+    setMode('story');
+  };
+
+  const closeStory = () => {
+    setMode('panel');
+    setIndex(0);
+    setPaused(false);
+  };
+
   useEffect(() => {
     const sub = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
@@ -191,18 +207,21 @@ export default function RecapScreen() {
   const isClosing = card?.kind === 'closing';
   const dashboard = dashboardFromSources(recap, state)
     ?? (stateReady ? emptyDashboard() : null);
+  const storyLocked = !hasPremium || cards.length === 0;
 
   const advance = useCallback(
     (dir: 1 | -1) => {
       const next = index + dir;
       if (next < 0) return;
       if (next >= cards.length) {
-        router.back();
+        setMode('panel');
+        setIndex(0);
+        setPaused(false);
         return;
       }
       setIndex(next);
     },
-    [cards.length, index, router],
+    [cards.length, index],
   );
 
   useEffect(() => {
@@ -216,7 +235,7 @@ export default function RecapScreen() {
       clearTimeout(advanceAtRef.current);
       advanceAtRef.current = null;
     }
-    if (!card || reduceMotion || mode !== 'story') return;
+    if (!card || reduceMotion || mode !== 'story' || storyLocked) return;
     if (paused) {
       cancelAnimation(progress);
       return;
@@ -240,7 +259,7 @@ export default function RecapScreen() {
       remainingMsRef.current = Math.max(0, duration - (Date.now() - started));
       cancelAnimation(progress);
     };
-  }, [advance, card, index, paused, progress, reduceMotion, mode]);
+  }, [advance, card, index, paused, progress, reduceMotion, mode, storyLocked]);
 
   const fillStyle = useAnimatedStyle(() => ({
     width: `${Math.min(Math.max(progress.value, 0), 1) * 100}%`,
@@ -261,7 +280,7 @@ export default function RecapScreen() {
       } else {
         await Share.share({
           url: uri,
-          message: 'Niyetsen Raporum ✨',
+          message: 'Niyetsen Raporum',
         });
       }
     } catch {
@@ -272,83 +291,84 @@ export default function RecapScreen() {
     }
   }, [sharing]);
 
+  const goBack = () => {
+    if (mode === 'story') {
+      closeStory();
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/daily');
+  };
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Geri"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/daily'))}
+          onPress={goBack}
           hitSlop={12}
           style={styles.backHit}>
           <ThemedText type="smallBold" themeColor="tint">
             ‹ Geri
           </ThemedText>
         </Pressable>
-        <View
-          style={[
-            styles.periodSegment,
-            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
-          ]}>
-          {([
-            { id: '7d' as const, label: 'Haftalık' },
-            { id: '30d' as const, label: 'Aylık' },
-          ]).map((option) => {
-            const active = period === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => selectPeriod(option.id)}
-                style={[
-                  styles.periodChip,
-                  active && { backgroundColor: theme.tint },
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: active ? theme.onAccent : theme.textSecondary }}>
-                  {option.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
+        <View style={styles.titleBlock}>
+          <ThemedText type="screenTitle" numberOfLines={1}>
+            Raporun
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {period === '7d' ? 'Son 7 günün izi' : 'Son 30 günün izi'}
+          </ThemedText>
         </View>
-        <View
-          style={[
-            styles.periodSegment,
-            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
-          ]}>
-          {([
-            { id: 'story' as const, label: 'Hikâye' },
-            { id: 'panel' as const, label: 'Panel' },
-          ]).map((option) => {
-            const active = mode === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => setMode(option.id)}
-                style={[
-                  styles.periodChip,
-                  active && { backgroundColor: theme.accentWarm },
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: active ? theme.onAccent : theme.textSecondary }}>
-                  {option.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
+        {mode === 'panel' ? (
+          <View
+            style={[
+              styles.periodSegment,
+              { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+            ]}>
+            {([
+              { id: '7d' as const, label: '7 gün' },
+              { id: '30d' as const, label: '30 gün' },
+            ]).map((option) => {
+              const active = period === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => selectPeriod(option.id)}
+                  style={[
+                    styles.periodChip,
+                    active && { backgroundColor: theme.tint },
+                  ]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: active ? theme.onAccent : theme.textSecondary }}>
+                    {option.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Panele dön"
+            onPress={closeStory}
+            hitSlop={8}
+            style={styles.panelLink}>
+            <ThemedText type="smallBold" themeColor="tint">
+              Panel
+            </ThemedText>
+          </Pressable>
+        )}
       </View>
 
       <View style={[styles.progressRow, mode !== 'story' && styles.hidden]}>
-        {cards.map((c, i) => (
+        {cards.map((item, i) => (
           <View
-            key={`${c.kind}-${i}`}
+            key={`${item.kind}-${i}`}
             style={[styles.progressTrack, { backgroundColor: theme.progressTrack }]}>
             {i < index ? (
               <View style={[styles.progressFill, { backgroundColor: theme.tint, width: '100%' }]} />
@@ -367,7 +387,7 @@ export default function RecapScreen() {
         ))}
       </View>
 
-      {!premiumLoading && !hasPremium && mode === 'story' ? (
+      {mode === 'story' && storyLocked ? (
         <View style={styles.center}>
           <View
             style={[
@@ -382,8 +402,8 @@ export default function RecapScreen() {
               type="small"
               themeColor="textSecondary"
               style={{ textAlign: 'center' }}>
-              Kaç görev tamamladın, hangi yönün gelişti, zincirin nereye
-              uzandı — haftalık ve aylık story raporun PRO ile açılır.
+              Paneldeki kazanımların açık. Haftalık ve aylık hikâye kartları
+              PRO ile açılır — dışarı atılmazsın.
             </ThemedText>
             <Pressable
               accessibilityRole="button"
@@ -396,29 +416,48 @@ export default function RecapScreen() {
                 PRO ile aç
               </ThemedText>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={closeStory}
+              hitSlop={8}
+              style={styles.panelLink}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Panele dön
+              </ThemedText>
+            </Pressable>
           </View>
         </View>
       ) : null}
-      {(premiumLoading || (hasPremium && mode === 'story')) && !recap && !error && (
+
+      {mode === 'story' && !storyLocked && recapLoading && !recap && !error ? (
         <ActivityIndicator color={theme.tint} style={styles.center} />
-      )}
-      {mode === 'panel' && !dashboard && !error && (
-        <ActivityIndicator color={theme.tint} style={styles.center} />
-      )}
-      {error && (
+      ) : null}
+
+      {mode === 'panel' && !dashboard && !error ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={theme.tint} />
+        </View>
+      ) : null}
+
+      {error ? (
         <View style={styles.center}>
           <ThemedText themeColor="danger">{error}</ThemedText>
           <Pressable onPress={() => void load(period)} style={styles.retry}>
             <ThemedText themeColor="tint">Tekrar dene</ThemedText>
           </Pressable>
         </View>
-      )}
-
-      {mode === 'panel' && dashboard ? (
-        <DashboardPanel dashboard={dashboard} locked={!hasPremium} />
       ) : null}
 
-      {mode === 'story' && hasPremium && card && (
+      {mode === 'panel' && dashboard ? (
+        <DashboardPanel
+          dashboard={dashboard}
+          locked={storyLocked}
+          reduceMotion={reduceMotion}
+          onOpenStory={openStory}
+        />
+      ) : null}
+
+      {mode === 'story' && !storyLocked && card ? (
         <Animated.View
           key={`${card.kind}-${index}`}
           entering={
@@ -436,9 +475,9 @@ export default function RecapScreen() {
             <StoryCardBody card={card} />
           </ViewShot>
         </Animated.View>
-      )}
+      ) : null}
 
-      {mode === 'story' && isClosing && Platform.OS !== 'web' && (
+      {mode === 'story' && isClosing && Platform.OS !== 'web' ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Raporu paylaş"
@@ -455,11 +494,11 @@ export default function RecapScreen() {
             {sharing ? 'Hazırlanıyor…' : 'Paylaş'}
           </ThemedText>
         </Pressable>
-      )}
+      ) : null}
 
       <View
         style={[styles.tapZones, mode !== 'story' && styles.hidden]}
-        pointerEvents={mode === 'story' ? 'box-none' : 'none'}>
+        pointerEvents={mode === 'story' && !storyLocked ? 'box-none' : 'none'}>
         <Pressable
           style={styles.tapZone}
           onPress={() => advance(-1)}
@@ -477,160 +516,197 @@ export default function RecapScreen() {
           accessibilityLabel="Sonraki kart"
         />
       </View>
-
-      <Pressable onPress={() => router.back()} style={styles.close} accessibilityLabel="Kapat">
-        <ThemedText themeColor="textSecondary">Kapat ✕</ThemedText>
-      </Pressable>
     </SafeAreaView>
   );
 }
 
-/**
- * faz8.13/3: gerçek KPI dashboard'u — ilk günden bugüne toplamlar, 6 kategori
- * dağılımı, gelişim eğrisi (haftalık mini barlar), zincir istatistikleri.
- * Wrapped kuralı geçerli: kaçırılan görevler gösterilmez.
- */
 function DashboardPanel({
   dashboard,
   locked = false,
+  reduceMotion = false,
+  onOpenStory,
 }: {
   dashboard: RecapDashboard;
   locked?: boolean;
+  reduceMotion?: boolean;
+  onOpenStory: () => void;
 }) {
   const theme = useTheme();
-  const router = useRouter();
   const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
   const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
+  const emptyTrail = dashboard.completed_tasks === 0;
+  const enter = (delay: number) =>
+    reduceMotion
+      ? undefined
+      : FadeIn.duration(Motion.base)
+          .delay(delay)
+          .easing(Easing.out(Easing.cubic))
+          .reduceMotion(ReduceMotion.System);
 
   return (
     <ScrollView
       style={styles.panelScroll}
       contentContainerStyle={styles.panelContent}
       showsVerticalScrollIndicator={false}>
-      {locked ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/paywall')}
-          style={[
-            styles.panelCard,
-            { backgroundColor: theme.backgroundSelected, borderColor: theme.tint },
-          ]}>
-          <ThemedText type="smallBold" style={{ color: theme.tint }}>
-            Hikâye raporu PRO ile açılır
+      <Animated.View entering={enter(0)}>
+        <SurfaceCard hero>
+          <ThemedText type="smallBold" themeColor="tint">
+            Niyetsen'de {Math.max(dashboard.days_in, 1)}. günün
           </ThemedText>
+          <View style={styles.heroRow}>
+            <CountUpText
+              value={dashboard.completed_tasks}
+              style={[styles.heroCount, { color: theme.tint }]}
+            />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.heroUnit}>
+              görev tamamlandı
+            </ThemedText>
+          </View>
+          <ProgressBar progress={Math.min(dashboard.completion_rate / 100, 1)} />
           <ThemedText type="small" themeColor="textSecondary">
-            Paneldeki zincir ve puanların burada; tam story özeti abonelikle gelir.
+            %{dashboard.completion_rate} tamamlama
+            {dashboard.proofed_tasks > 0
+              ? ` · ${dashboard.proofed_tasks} fotoğraflı kanıt`
+              : ''}
           </ThemedText>
-        </Pressable>
-      ) : null}
-      {dashboard.mirror_line ? (
-        <View
-          style={[
-            styles.panelCard,
-            { backgroundColor: theme.backgroundElement, borderColor: theme.tint },
-          ]}>
-          <ThemedText type="smallBold" themeColor="tint" style={styles.panelCardTitle}>
-            Ayna
-          </ThemedText>
-          <ThemedText>{dashboard.mirror_line}</ThemedText>
-        </View>
-      ) : null}
-      <View style={styles.kpiGrid}>
-        <KpiTile label="Tamamlanan görev" value={`${dashboard.completed_tasks}`} />
-        <KpiTile label="Verilen görev" value={`${dashboard.total_tasks}`} />
-        <KpiTile label="Tamamlama" value={`%${dashboard.completion_rate}`} />
-        <KpiTile label="Fotoğraflı kanıt" value={`${dashboard.proofed_tasks}`} />
-        <KpiTile label="Toplam puan" value={`${dashboard.total_points}`} />
-        <KpiTile label="Niyetsen'de gün" value={`${Math.max(dashboard.days_in, 1)}`} />
-      </View>
+          {emptyTrail ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              İlk görevin tamamlanınca burası dolacak. Acele yok — iz birikir.
+            </ThemedText>
+          ) : null}
+        </SurfaceCard>
+      </Animated.View>
 
-      <View
-        style={[
-          styles.panelCard,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
-        ]}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-          GELİŞİM EĞRİSİ · SON 8 HAFTA
-        </ThemedText>
-        <View style={styles.weeklyRow}>
-          {dashboard.weekly_completed.map((count, i) => (
-            <View key={i} style={styles.weeklyCol}>
-              <View style={[styles.weeklyTrack, { backgroundColor: theme.progressTrack }]}>
+      {dashboard.mirror_line ? (
+        <Animated.View entering={enter(Motion.stagger)}>
+          <SurfaceCard
+            elevated
+            style={{ borderColor: theme.tint, borderWidth: StyleSheet.hairlineWidth }}>
+            <ThemedText type="smallBold" themeColor="tint">
+              Ayna
+            </ThemedText>
+            <ThemedText>{dashboard.mirror_line}</ThemedText>
+          </SurfaceCard>
+        </Animated.View>
+      ) : null}
+
+      <Animated.View entering={enter(Motion.stagger * 2)} style={styles.kpiGrid}>
+        <KpiTile label="Şu anki zincir" value={`${dashboard.streak_len}`} suffix="gün" />
+        <KpiTile label="En uzun zincir" value={`${dashboard.best_streak}`} suffix="gün" />
+        <KpiTile label="Toplam puan" value={`${dashboard.total_points}`} />
+      </Animated.View>
+
+      <Animated.View entering={enter(Motion.stagger * 3)}>
+        <SurfaceCard>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+            Gelişim · son 8 hafta
+          </ThemedText>
+          <View style={styles.weeklyRow}>
+            {dashboard.weekly_completed.map((count, i) => {
+              const last = i === dashboard.weekly_completed.length - 1;
+              return (
+                <View key={i} style={styles.weeklyCol}>
+                  <View style={[styles.weeklyTrack, { backgroundColor: theme.progressTrack }]}>
+                    <View
+                      style={[
+                        styles.weeklyFill,
+                        {
+                          backgroundColor: last ? theme.accentWarm : theme.tint,
+                          height: `${Math.max((count / maxWeekly) * 100, count > 0 ? 8 : 0)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.weeklyCount}>
+                    {count}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.weeklyLabel}>
+                    {last ? 'Bu hf' : ''}
+                  </ThemedText>
+                </View>
+              );
+            })}
+          </View>
+        </SurfaceCard>
+      </Animated.View>
+
+      <Animated.View entering={enter(Motion.stagger * 4)}>
+        <SurfaceCard>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+            Kazanılan yönler
+          </ThemedText>
+          {Object.entries(dashboard.category_counts).map(([category, count]) => (
+            <View key={category} style={styles.categoryRow}>
+              <View style={styles.categoryLabel}>
+                <CategoryBadge label={category} />
+              </View>
+              <View style={[styles.categoryTrack, { backgroundColor: theme.progressTrack }]}>
                 <View
                   style={[
-                    styles.weeklyFill,
+                    styles.categoryFill,
                     {
-                      backgroundColor:
-                        i === dashboard.weekly_completed.length - 1
-                          ? theme.accentWarm
-                          : theme.tint,
-                      height: `${Math.max((count / maxWeekly) * 100, count > 0 ? 8 : 0)}%`,
+                      backgroundColor: theme.tint,
+                      width: `${Math.max((count / maxCategory) * 100, count > 0 ? 6 : 0)}%`,
                     },
                   ]}
                 />
               </View>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.weeklyCount}>
+              <ThemedText type="smallBold" themeColor="tint" style={styles.categoryCount}>
                 {count}
               </ThemedText>
             </View>
           ))}
-        </View>
-      </View>
+          {dashboard.plans_count > 1 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {dashboard.plans_count} niyeti birden yürütüyorsun.
+            </ThemedText>
+          ) : null}
+        </SurfaceCard>
+      </Animated.View>
 
-      <View
-        style={[
-          styles.panelCard,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={locked ? 'Hikâye raporu, PRO ile açılır' : 'Hikâye olarak gör'}
+        onPress={onOpenStory}
+        style={({ pressed }) => [
+          styles.storyCta,
+          {
+            backgroundColor: locked ? theme.backgroundSelected : theme.tint,
+            borderColor: theme.tint,
+            opacity: pressed ? 0.88 : 1,
+          },
         ]}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-          KAZANILAN YÖNLER
-        </ThemedText>
-        {Object.entries(dashboard.category_counts).map(([category, count]) => (
-          <View key={category} style={styles.categoryRow}>
-            <ThemedText type="small" style={styles.categoryLabel} numberOfLines={1}>
-              {category}
+        <View style={styles.storyCtaCopy}>
+          <View style={styles.storyCtaTitle}>
+            <ThemedText
+              type="smallBold"
+              style={{ color: locked ? theme.tint : theme.onAccent }}>
+              Hikâye olarak gör
             </ThemedText>
-            <View style={[styles.categoryTrack, { backgroundColor: theme.progressTrack }]}>
-              <View
-                style={[
-                  styles.categoryFill,
-                  {
-                    backgroundColor: theme.tint,
-                    width: `${Math.max((count / maxCategory) * 100, count > 0 ? 6 : 0)}%`,
-                  },
-                ]}
-              />
-            </View>
-            <ThemedText type="smallBold" themeColor="tint" style={styles.categoryCount}>
-              {count}
-            </ThemedText>
+            {locked ? <ProBadge /> : null}
           </View>
-        ))}
-      </View>
-
-      <View
-        style={[
-          styles.panelCard,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
-        ]}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-          ZİNCİR
-        </ThemedText>
-        <View style={styles.kpiGrid}>
-          <KpiTile label="Şu anki zincir" value={`${dashboard.streak_len} gün`} />
-          <KpiTile label="En uzun zincir" value={`${dashboard.best_streak} gün`} />
-        </View>
-        {dashboard.plans_count > 1 ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {dashboard.plans_count} niyeti birden yürütüyorsun.
+          <ThemedText
+            type="small"
+            style={{ color: locked ? theme.textSecondary : theme.onAccent }}>
+            {locked
+              ? 'Kartlar içeride kilitli — panelin açık kalır.'
+              : 'Dokunarak ilerle, uzun basınca durur.'}
           </ThemedText>
-        ) : null}
-      </View>
+        </View>
+      </Pressable>
     </ScrollView>
   );
 }
 
-function KpiTile({ label, value }: { label: string; value: string }) {
+function KpiTile({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+}) {
   const theme = useTheme();
   return (
     <View
@@ -638,10 +714,17 @@ function KpiTile({ label, value }: { label: string; value: string }) {
         styles.kpiTile,
         { backgroundColor: theme.backgroundElement, borderColor: theme.border },
       ]}>
-      <ThemedText type="screenTitle" style={{ color: theme.tint }}>
-        {value}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+      <View style={styles.kpiValueRow}>
+        <ThemedText type="subtitle" style={{ color: theme.tint }}>
+          {value}
+        </ThemedText>
+        {suffix ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {suffix}
+          </ThemedText>
+        ) : null}
+      </View>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
         {label}
       </ThemedText>
     </View>
@@ -673,7 +756,7 @@ function StoryCardBody({ card }: { card: RecapCard }) {
         </View>
       ) : null}
 
-      {card.kind === 'trait' && (
+      {card.kind === 'trait' ? (
         <View style={styles.traitRow}>
           <CategoryBadge label={card.headline} />
           {periodCount != null ? (
@@ -682,7 +765,7 @@ function StoryCardBody({ card }: { card: RecapCard }) {
             </ThemedText>
           ) : null}
         </View>
-      )}
+      ) : null}
 
       {card.kind === 'journey' ? (
         <View style={styles.journeyTrack}>
@@ -702,11 +785,11 @@ function StoryCardBody({ card }: { card: RecapCard }) {
         </View>
       ) : null}
 
-      {card.kind === 'streak' && (
+      {card.kind === 'streak' ? (
         <ThemedText style={styles.sproutEmoji}>{sproutGlyph(streakDays)}</ThemedText>
-      )}
+      ) : null}
 
-      <ThemedText style={[styles.headline, { color: theme.tint }]}>
+      <ThemedText type="title" style={{ color: theme.tint, textAlign: 'center' }}>
         {card.headline}
       </ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.subtitle}>
@@ -722,16 +805,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     alignItems: 'center',
-    justifyContent: 'center',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.two,
     zIndex: 2,
   },
   backHit: {
     minHeight: 44,
-    minWidth: 56,
+    minWidth: 52,
     justifyContent: 'center',
+  },
+  titleBlock: {
+    flex: 1,
+    gap: 1,
+  },
+  panelLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
   },
   hidden: { display: 'none' },
   panelScroll: { flex: 1, zIndex: 1 },
@@ -739,6 +829,21 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     paddingBottom: Spacing.six,
     gap: Spacing.three,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  heroCount: {
+    fontFamily: Fonts.serif,
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+  },
+  heroUnit: {
+    paddingBottom: 4,
   },
   kpiGrid: {
     flexDirection: 'row',
@@ -754,21 +859,19 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: 2,
   },
-  panelCard: {
-    borderWidth: 1,
-    borderRadius: Radii.large,
-    padding: Spacing.three,
-    gap: Spacing.two,
+  kpiValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.one,
   },
   panelCardTitle: {
-    letterSpacing: 0.8,
-    fontSize: 11,
+    letterSpacing: 0.4,
   },
   weeklyRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.two,
-    height: 96,
+    height: 108,
   },
   weeklyCol: {
     flex: 1,
@@ -788,13 +891,14 @@ const styles = StyleSheet.create({
     borderRadius: Radii.small,
   },
   weeklyCount: { fontSize: 11, lineHeight: 14 },
+  weeklyLabel: { fontSize: 10, lineHeight: 12, minHeight: 12 },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    minHeight: 24,
+    minHeight: 32,
   },
-  categoryLabel: { width: 84 },
+  categoryLabel: { width: 92 },
   categoryTrack: {
     flex: 1,
     height: 8,
@@ -806,6 +910,22 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   categoryCount: { width: 28, textAlign: 'right' },
+  storyCta: {
+    borderWidth: 1,
+    borderRadius: Radii.large,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    minHeight: 64,
+    justifyContent: 'center',
+  },
+  storyCtaCopy: {
+    gap: 2,
+  },
+  storyCtaTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   periodSegment: {
     flexDirection: 'row',
     borderRadius: Radii.pill,
@@ -815,8 +935,10 @@ const styles = StyleSheet.create({
   },
   periodChip: {
     borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two + 2,
     paddingVertical: Spacing.one + 2,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   progressRow: {
     flexDirection: 'row',
@@ -836,7 +958,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  retry: { padding: Spacing.two },
+  retry: { padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
   lockCard: {
     marginHorizontal: Spacing.four,
     padding: Spacing.four,
@@ -915,7 +1037,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sproutEmoji: { fontSize: 32, lineHeight: 38, textAlign: 'center' },
-  headline: { fontSize: 32, lineHeight: 38, fontWeight: '700', textAlign: 'center' },
   subtitle: { textAlign: 'center', fontSize: 16, lineHeight: 24 },
   shareBtn: {
     position: 'absolute',
@@ -925,14 +1046,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.five,
     paddingVertical: Spacing.three,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 0 },
   tapZone: { flex: 1 },
-  close: {
-    position: 'absolute',
-    top: Spacing.five,
-    right: Spacing.three,
-    padding: Spacing.two,
-    zIndex: 2,
-  },
 });

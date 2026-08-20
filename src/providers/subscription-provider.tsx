@@ -36,9 +36,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const previousStatus = useRef<string | null>(null);
+  const statusRef = useRef<SubscriptionInfo | null>(null);
+  statusRef.current = status;
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (opts?: { background?: boolean }) => {
+    const background = opts?.background ?? Boolean(statusRef.current);
+    if (!background) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const next = await getSubscription();
@@ -64,7 +69,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setError(null);
         return;
       }
-      const cached = await readCachedSubscription();
+      const cached = statusRef.current ?? (await readCachedSubscription());
       // FAZ 8.11.0: ağ yokken paywall / kilit ekranına düşürme — önbellek veya güvenli varsayılan.
       setStatus(cached ?? DEFAULT_SUBSCRIPTION);
       setOffline(true);
@@ -75,18 +80,31 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    void (async () => {
+      const cached = await readCachedSubscription();
+      if (cancelled) return;
+      if (cached) {
+        setStatus(cached);
+        previousStatus.current = cached.status;
+        setLoading(false);
+      }
+      await refresh({ background: Boolean(cached) });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   useEffect(() => {
     const unsubscribe = subscribeToPurchaseUpdates(() => {
-      void refresh();
+      void refresh({ background: true });
     });
     return unsubscribe;
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ status, loading, error, offline, refresh }),
+    () => ({ status, loading, error, offline, refresh: () => refresh() }),
     [status, loading, error, offline, refresh],
   );
 

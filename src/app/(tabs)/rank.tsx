@@ -108,7 +108,7 @@ export default function RankScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Niyetsen raporunu aç"
                 accessibilityHint={
-                  hasPremium ? undefined : 'PRO abonelik gerekir'
+                  hasPremium ? undefined : 'Panel açık; hikâye PRO ile gelir'
                 }
                 onPress={() => {
                   router.push('/rapor' as Href);
@@ -134,7 +134,7 @@ export default function RankScreen() {
                   </ThemedText>
                 </View>
                 <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                  {hasPremium ? t.chain.reportOpen : 'PRO'}
+                  {t.chain.reportOpen}
                 </ThemedText>
               </Pressable>
             <View

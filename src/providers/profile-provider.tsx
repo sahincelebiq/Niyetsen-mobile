@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -27,9 +28,14 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const profileRef = useRef<UserProfile | null>(null);
+  profileRef.current = profile;
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (opts?: { background?: boolean }) => {
+    const background = opts?.background ?? Boolean(profileRef.current);
+    if (!background) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const next = await getProfile();
@@ -37,7 +43,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
       setOffline(false);
       void writeCachedProfile(next);
     } catch (value) {
-      const cached = await readCachedProfile();
+      const cached = profileRef.current ?? (await readCachedProfile());
       if (cached) {
         setProfile(cached);
         setOffline(true);
@@ -52,11 +58,23 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    void (async () => {
+      const cached = await readCachedProfile();
+      if (cancelled) return;
+      if (cached) {
+        setProfile(cached);
+        setLoading(false);
+      }
+      await refresh({ background: Boolean(cached) });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ profile, loading, error, offline, refresh }),
+    () => ({ profile, loading, error, offline, refresh: () => refresh() }),
     [error, loading, offline, profile, refresh],
   );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

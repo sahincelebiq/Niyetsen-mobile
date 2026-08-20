@@ -2,7 +2,6 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   Fraunces_500Medium,
-  Fraunces_500Medium_Italic,
   Fraunces_600SemiBold,
 } from '@expo-google-fonts/fraunces';
 import {
@@ -16,7 +15,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Slot, Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, StyleSheet, useColorScheme, View,
+  ActivityIndicator, InteractionManager, Pressable, StyleSheet, useColorScheme, View,
 } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -52,9 +51,13 @@ export default function TabLayout() {
     Manrope_600SemiBold,
     Manrope_700Bold,
     Fraunces_500Medium,
-    Fraunces_500Medium_Italic,
     Fraunces_600SemiBold,
   });
+
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 
@@ -211,12 +214,16 @@ function NotificationRouter() {
 
   useEffect(() => {
     initSentry();
-    void trackEvent('app_open');
-    // Sağlık ping'i açılışı düşürmez — hata yutulur.
-    void pingHealth().catch(() => undefined);
-    void openLastNotificationResponse(router).catch(() => undefined);
     const subscription = addNotificationResponseListener(router);
-    return () => subscription?.remove();
+    const handle = InteractionManager.runAfterInteractions(() => {
+      void trackEvent('app_open');
+      void pingHealth().catch(() => undefined);
+      void openLastNotificationResponse(router).catch(() => undefined);
+    });
+    return () => {
+      handle.cancel();
+      subscription?.remove();
+    };
   }, [router]);
 
   return null;

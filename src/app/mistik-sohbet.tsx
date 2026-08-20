@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +18,7 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticGrantButton, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
+import { useKeyboardDockLift } from '@/hooks/use-keyboard-height';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, sendMysticChat, type MysticChatMessage } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
@@ -54,12 +53,13 @@ export default function MysticChatScreen() {
   const router = useRouter();
   const { colors, edge } = useMysticColors();
   const { status: consentStatus, saveChoices } = useConsentPreferences();
-  const keyboardHeight = useKeyboardHeight();
   const [bubbles, setBubbles] = useState<Bubble[]>([OPENING]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [granting, setGranting] = useState(false);
   const listRef = useRef<FlatList<Bubble>>(null);
+  const composerRef = useRef<View>(null);
+  const { lift: keyboardLift } = useKeyboardDockLift(composerRef);
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
 
   async function grantAiConsent() {
@@ -131,8 +131,6 @@ export default function MysticChatScreen() {
   }, [aiAllowed, bubbles, draft, sending]);
 
   const inverted = useMemo(() => [...bubbles].reverse(), [bubbles]);
-  const composerLift =
-    Platform.OS === 'android' && keyboardHeight > 0 ? keyboardHeight : Spacing.two;
 
   return (
     <Animated.View
@@ -145,7 +143,8 @@ export default function MysticChatScreen() {
         pointerEvents="none"
       />
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right', 'bottom']}>
-        <KeyboardAwareView style={styles.flex}>
+        <KeyboardAwareView
+          style={[styles.flex, keyboardLift > 0 ? { paddingBottom: keyboardLift } : null]}>
           {/* Üst bar: geri + başlık */}
           <View style={styles.topBar}>
             <Pressable
@@ -249,12 +248,13 @@ export default function MysticChatScreen() {
             Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
           </ThemedText>
           <View
+            ref={composerRef}
+            collapsable={false}
             style={[
               styles.composer,
               {
                 backgroundColor: colors.backgroundElement,
                 borderColor: colors.border,
-                marginBottom: composerLift,
               },
             ]}>
             <TextInput

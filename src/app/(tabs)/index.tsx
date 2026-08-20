@@ -11,7 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
@@ -35,7 +35,7 @@ import {
   Shadows,
   Spacing,
 } from '@/constants/theme';
-import { useKeyboardInset } from '@/hooks/use-keyboard-height';
+import { useKeyboardDockLift } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -100,8 +100,8 @@ export default function ChatScreen() {
   const { t } = useLocale();
   const theme = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { height: keyboardHeight, lift: keyboardLift } = useKeyboardInset();
+  const composerRef = useRef<View>(null);
+  const { lift: keyboardLift } = useKeyboardDockLift(composerRef);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
@@ -225,10 +225,10 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-    if (keyboardHeight > 0) {
-      scrollToEnd();
+    if (keyboardLift > 0) {
+      scrollToEnd(true);
     }
-  }, [keyboardHeight, scrollToEnd]);
+  }, [keyboardLift, scrollToEnd]);
 
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {
@@ -458,13 +458,11 @@ export default function ChatScreen() {
             Aktif niyet: {activePlanName}
           </ThemedText>
         ) : null}
-        <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
+        <KeyboardAwareView>
           <View
             style={[
               styles.chatColumn,
-              Platform.OS === 'android' && keyboardLift > 0
-                ? { paddingBottom: keyboardLift }
-                : null,
+              keyboardLift > 0 ? { paddingBottom: keyboardLift } : null,
             ]}>
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
@@ -521,6 +519,7 @@ export default function ChatScreen() {
             ) : null}
 
             <ChatComposer
+              ref={composerRef}
               value={input}
               onChangeText={setInput}
               onSubmit={handleSend}

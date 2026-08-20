@@ -89,7 +89,7 @@ export const Fonts = {
   sansBold: 'Manrope_700Bold',
   serif: 'Fraunces_600SemiBold',
   serifMedium: 'Fraunces_500Medium',
-  serifItalic: 'Fraunces_500Medium_Italic',
+  serifItalic: 'Fraunces_500Medium',
   mono: Platform.select({ ios: 'ui-monospace', default: 'monospace' }) as string,
 } as const;
 

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -6,7 +7,6 @@ import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset, Fonts, MaxContentWidth, Radii, Shadows, Spacing,
 } from '@/constants/theme';
-import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import { useLocale } from '@/providers/locale-provider';
 
@@ -29,29 +29,27 @@ export type ChatComposerProps = {
   attaching?: boolean;
 };
 
-export function ChatComposer({
-  value,
-  onChangeText,
-  onSubmit,
-  disabled,
-  sending = false,
-  pendingAttachment,
-  onAttach,
-  onClearAttachment,
-  attaching = false,
-}: ChatComposerProps) {
+export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatComposer(
+  {
+    value,
+    onChangeText,
+    onSubmit,
+    disabled,
+    sending = false,
+    pendingAttachment,
+    onAttach,
+    onClearAttachment,
+    attaching = false,
+  },
+  ref,
+) {
   const theme = useTheme();
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
-  const keyboardHeight = useKeyboardHeight();
-  const keyboardOpen = keyboardHeight > 0;
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Klavye açıkken tab bar zaten örtülür — BottomTabInset EKLEME.
-  // Android lift sohbet kolonunun paddingBottom'unda (index.tsx); burada
-  // tekrar keyboardHeight eklemek yazıyı klavyenin arkasına kaçırıyordu.
-  const bottomPadding = keyboardOpen
-    ? Math.max(insets.bottom, Spacing.two)
-    : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
+  // Tab payı her zaman durur — klavye lift'i kolon padding'inde.
+  // Açıkken tab inset'i düşürmek, lift 0 kalırsa kutuyu klavyenin altına indirmişti.
+  const bottomPadding = Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
     <ThemedView
@@ -63,7 +61,7 @@ export function ChatComposer({
           backgroundColor: theme.background,
         },
       ]}>
-      <View style={styles.inputRow}>
+      <View ref={ref} collapsable={false} style={styles.inputRow}>
         {pendingAttachment ? (
           <View
             style={[
@@ -127,7 +125,9 @@ export function ChatComposer({
       </View>
     </ThemedView>
   );
-}
+});
+
+ChatComposer.displayName = 'ChatComposer';
 
 const styles = StyleSheet.create({
   dock: {

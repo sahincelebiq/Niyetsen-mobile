@@ -1,43 +1,105 @@
-import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import {
+  Keyboard,
+  Platform,
+  type KeyboardEvent,
+  type View,
+} from 'react-native';
 
-/**
- * Klavye yüksekliği + pencere gerçekten küçüldü mü.
- * Android NativeTabs'te adjustResize bazen no-op; o zaman JS lift gerekir.
- * Pencere zaten küçüldüyse lift EKLEME — yoksa sohbet iki kez kayar, yazı kaybolur.
- */
-export function useKeyboardHeight(): number {
-  return useKeyboardInset().height;
+const OPEN_PX = 40;
+
+function subscribeKeyboard(handler: (event: KeyboardEvent) => void) {
+  if (Platform.OS === 'ios') {
+    return [
+      Keyboard.addListener('keyboardWillChangeFrame', handler),
+      Keyboard.addListener('keyboardWillHide', handler),
+    ];
+  }
+  return [
+    Keyboard.addListener('keyboardDidShow', handler),
+    Keyboard.addListener('keyboardDidHide', handler),
+    Keyboard.addListener('keyboardDidChangeFrame', handler),
+  ];
 }
 
-export function useKeyboardInset(): { height: number; lift: number } {
+export function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
-  const [windowShrunk, setWindowShrunk] = useState(false);
-  const baseHeight = useRef(Dimensions.get('window').height);
+  useEffect(() => {
+    const onEvent = (event: KeyboardEvent) => {
+      const next = event.endCoordinates?.height ?? 0;
+      setHeight(next > OPEN_PX ? next : 0);
+    };
+    const subs = subscribeKeyboard(onEvent);
+    return () => subs.forEach((sub) => sub.remove());
+  }, []);
+  return height;
+}
+
+/**
+ * NativeTabs + edge-to-edge'de KeyboardAvoidingView / "pencere küçüldü mü"
+ * tahmini kutucuğu klavyenin altında bırakıyordu.
+ *
+ * Yazı kutusunu ekranda ölç, klavye üstüyle çakışan pikseli lift et.
+ * Pencere zaten küçüldüyse çakışma ~0 → lift 0 (çift kaydırma yok).
+ */
+export function useKeyboardDockLift(
+  dockRef: RefObject<View | null>,
+  gap = 8,
+): { lift: number; height: number; open: boolean } {
+  const [height, setHeight] = useState(0);
+  const [lift, setLift] = useState(0);
+  const restBottomRef = useRef(0);
+  const liftRef = useRef(0);
+  liftRef.current = lift;
+
+  const applyEvent = useCallback(
+    (event: KeyboardEvent) => {
+      const nextHeight = event.endCoordinates?.height ?? 0;
+      const keyboardTop = event.endCoordinates?.screenY ?? 0;
+      const open = nextHeight > OPEN_PX;
+      setHeight(open ? nextHeight : 0);
+      if (!open) {
+        restBottomRef.current = 0;
+        setLift(0);
+        return;
+      }
+
+      const fromStoredRest = () => {
+        const rest = restBottomRef.current;
+        if (rest <= 0) return;
+        setLift(Math.max(0, Math.round(rest + gap - keyboardTop)));
+      };
+
+      if (liftRef.current > 0) {
+        fromStoredRest();
+        return;
+      }
+
+      const node = dockRef.current;
+      if (!node || typeof node.measureInWindow !== 'function') {
+        fromStoredRest();
+        return;
+      }
+
+      node.measureInWindow((_x, y, _w, h) => {
+        const bottom = y + h;
+        if (bottom > 1) restBottomRef.current = bottom;
+        setLift(Math.max(0, Math.round(bottom + gap - keyboardTop)));
+      });
+    },
+    [dockRef, gap],
+  );
 
   useEffect(() => {
-    const onShow = (event: KeyboardEvent) => {
-      const next = event.endCoordinates.height;
-      setHeight(next);
-      const current = Dimensions.get('window').height;
-      setWindowShrunk(current < baseHeight.current - 64);
-    };
-    const onHide = () => {
-      setHeight(0);
-      setWindowShrunk(false);
-    };
+    const subs = subscribeKeyboard(applyEvent);
+    return () => subs.forEach((sub) => sub.remove());
+  }, [applyEvent]);
 
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
+  return { lift, height, open: height > 0 };
+}
 
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  const lift = height > 0 && !windowShrunk ? height : 0;
-  return { height, lift };
+/** @deprecated useKeyboardDockLift — eski pencere-küçülme tahmini. */
+export function useKeyboardInset(): { height: number; lift: number } {
+  const height = useKeyboardHeight();
+  return { height, lift: 0 };
 }
