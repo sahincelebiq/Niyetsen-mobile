@@ -8,16 +8,22 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
+      "environment": "development",
       "ios": {
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium"
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_XpoeMYtFdfZFLHmXEELxeNovNLl",
+        "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "environment": "preview",
       "ios": {
         "resourceClass": "m-medium"
       },
@@ -25,11 +31,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium"
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_XpoeMYtFdfZFLHmXEELxeNovNLl",
+        "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"
       }
     },
     "production": {
       "channel": "production",
+      "environment": "production",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
@@ -45,6 +56,7 @@
     "play-internal": {
       "channel": "production",
       "distribution": "store",
+      "environment": "production",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
@@ -52,6 +64,21 @@
       "env": {
         "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "goog_XpoeMYtFdfZFLHmXEELxeNovNLl",
+        "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"
+      }
+    },
+    "ios-testflight": {
+      "channel": "production",
+      "distribution": "store",
+      "environment": "production",
+      "autoIncrement": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "premium",
         "EXPO_PUBLIC_API_URL": "https://api-production-86f1.up.railway.app",
         "EXPO_PUBLIC_SUPABASE_URL": "https://ktweahgrrppmxpdhohdh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_ENkE8mzWJzFwZBHkPKC-2Q_QSyMWb4y"

@@ -131,9 +131,9 @@ export const enUS: Messages = {
     pointsFloor: 'Points never go below zero.',
     overallRank: 'OVERALL RANK',
     reportReady: 'Your report is ready',
-    reportReadyHint: 'See your recent story as slides',
+    reportReadyHint: 'Your mirror and wins are on the panel',
     reportOpen: 'Open',
-    reportProHint: 'Unlock your story report with PRO',
+    reportProHint: 'Panel is open; the story needs PRO',
   },
   plan: {
     title: 'My Plan',
@@ -204,6 +204,8 @@ export const enUS: Messages = {
     syncing:
       'Purchase complete. Premium should unlock in a few seconds — you can also Restore.',
     restoreSyncing: 'Restore complete; sync may take a few seconds.',
+    priceLoading: 'Loading price…',
+    storeUnavailable: 'The store is unavailable right now. Please restart the app and try again.',
     benefitPlan: 'A visual 365-day plan — a second intention unlocks too.',
     benefitProof: 'Photo proof and honest reflection. No shaming.',
     benefitReport: 'Reports: which trait is growing, where you stall.',

@@ -22,12 +22,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
 import { openLegalDocument } from '@/lib/legal-links';
-import { getStorePrices, purchasePlan, restorePurchases } from '@/lib/purchases';
+import {
+  getStorePrices, purchasePlan, restorePurchases, storeUnavailableReason,
+} from '@/lib/purchases';
 import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
-
-const FALLBACK_MONTHLY = '150 TL / ay';
-const FALLBACK_YEARLY = '1.200 TL / yıl';
 
 export default function PaywallScreen() {
   const theme = useTheme();
@@ -36,16 +35,23 @@ export default function PaywallScreen() {
   const { status, refresh } = useSubscription();
   const [busy, setBusy] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [monthlyPrice, setMonthlyPrice] = useState(FALLBACK_MONTHLY);
-  const [yearlyPrice, setYearlyPrice] = useState(FALLBACK_YEARLY);
+  // Fiyat ASLA uydurulmaz — mağazadan gelene kadar yükleniyor gösterilir
+  // (App Store 3.1.2 / Play ödeme politikası: gösterilen fiyat gerçek olmalı).
+  const [monthlyPrice, setMonthlyPrice] = useState<string | null>(null);
+  const [yearlyPrice, setYearlyPrice] = useState<string | null>(null);
+  const [priceState, setPriceState] = useState<'loading' | 'ready' | 'unavailable'>(
+    storeUnavailableReason() ? 'unavailable' : 'loading',
+  );
 
   useEffect(() => {
     let mounted = true;
     void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
+    if (storeUnavailableReason()) return undefined;
     void getStorePrices().then((prices) => {
       if (!mounted) return;
       if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
       if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
+      setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
     });
     return () => {
       mounted = false;
@@ -74,6 +80,7 @@ export default function PaywallScreen() {
         return;
       }
       await refresh();
+      setBusy(null);
       router.replace('/' as Href);
       return;
     }
@@ -86,6 +93,7 @@ export default function PaywallScreen() {
     setMessage(null);
     const result = await restorePurchases();
     if (result.ok) {
+      void trackEvent('subscription_restored', { plan: result.plan });
       try {
         await waitForPremiumAccess();
       } catch {
@@ -95,6 +103,7 @@ export default function PaywallScreen() {
         return;
       }
       await refresh();
+      setBusy(null);
       router.replace('/' as Href);
       return;
     }
@@ -161,28 +170,36 @@ export default function PaywallScreen() {
             ))}
           </ThemedView>
 
-          <PlanCard
-            recommended
-            title={t.paywall.yearlyRecommended}
-            price={yearlyPrice}
-            hint={t.paywall.yearlyHint}
-            cta={t.paywall.yearlyCta}
-            busy={busy === 'yearly'}
-            disabled={busy !== null}
-            fill
-            onPress={() => void handlePurchase('yearly')}
-          />
+          {priceState === 'unavailable' ? (
+            <ThemedText themeColor="textSecondary" style={styles.message}>
+              {t.paywall.storeUnavailable}
+            </ThemedText>
+          ) : (
+            <>
+              <PlanCard
+                recommended
+                title={t.paywall.yearlyRecommended}
+                price={yearlyPrice ?? t.paywall.priceLoading}
+                hint={t.paywall.yearlyHint}
+                cta={t.paywall.yearlyCta}
+                busy={busy === 'yearly'}
+                disabled={busy !== null || !yearlyPrice}
+                fill
+                onPress={() => void handlePurchase('yearly')}
+              />
 
-          <PlanCard
-            title={t.paywall.monthlyLabel}
-            price={monthlyPrice}
-            hint={t.paywall.monthlyHint}
-            cta={t.paywall.monthlyCta}
-            busy={busy === 'monthly'}
-            disabled={busy !== null}
-            fill={false}
-            onPress={() => void handlePurchase('monthly')}
-          />
+              <PlanCard
+                title={t.paywall.monthlyLabel}
+                price={monthlyPrice ?? t.paywall.priceLoading}
+                hint={t.paywall.monthlyHint}
+                cta={t.paywall.monthlyCta}
+                busy={busy === 'monthly'}
+                disabled={busy !== null || !monthlyPrice}
+                fill={false}
+                onPress={() => void handlePurchase('monthly')}
+              />
+            </>
+          )}
 
           {message ? (
             <ThemedText themeColor="textSecondary" style={styles.message}>
@@ -290,11 +307,13 @@ function PlanCard({
           });
         }}
         accessibilityRole="button"
+        accessibilityState={{ disabled }}
         style={({ pressed }) => [
           styles.button,
           fill
             ? { backgroundColor: theme.tint }
             : { backgroundColor: theme.surfaceMuted, borderWidth: 1, borderColor: theme.tint },
+          disabled ? { opacity: 0.5 } : null,
           pressed && reduceMotion ? { opacity: 0.85 } : null,
         ]}>
         {busy ? (

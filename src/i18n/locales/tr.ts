@@ -131,9 +131,9 @@ export const tr: Messages = {
     pointsFloor: 'Puan tabanı sıfırdır.',
     overallRank: 'GENEL RÜTBE',
     reportReady: 'Raporun hazır',
-    reportReadyHint: 'Son günlerinin hikâyesini story olarak gör',
+    reportReadyHint: 'Ayna ve kazanımların panelde',
     reportOpen: 'Aç',
-    reportProHint: 'PRO ile story raporunu aç',
+    reportProHint: 'Panel açık; hikâye PRO ile gelir',
   },
   plan: {
     title: 'Planım',
@@ -204,6 +204,8 @@ export const tr: Messages = {
     syncing:
       'Satın alma tamamlandı. Abonelik birkaç saniye içinde açılacak — Geri Yükle ile de deneyebilirsin.',
     restoreSyncing: 'Geri yükleme tamamlandı; senkron birkaç saniye sürebilir.',
+    priceLoading: 'Fiyat yükleniyor…',
+    storeUnavailable: 'Mağaza şu an ulaşılamıyor. Uygulamayı yeniden başlatıp tekrar dener misin?',
     benefitPlan: 'Görsel 365 günlük plan — ikinci niyet de açılır.',
     benefitProof: 'Fotoğraflı kanıt ve dürüst yüzleşme. Utandırma yok.',
     benefitReport: 'Rapor: hangi yönün büyüyor, nerede takılıyorsun.',

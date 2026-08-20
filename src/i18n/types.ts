@@ -203,6 +203,8 @@ export type Messages = {
     restoring: string;
     syncing: string;
     restoreSyncing: string;
+    priceLoading: string;
+    storeUnavailable: string;
     benefitPlan: string;
     benefitProof: string;
     benefitReport: string;

@@ -204,6 +204,8 @@ export const fr: Messages = {
     syncing:
       'Achat terminé. L’abonnement s’ouvre dans quelques secondes — ou Restaurer.',
     restoreSyncing: 'Restauration terminée ; la synchro peut prendre quelques secondes.',
+    priceLoading: 'Chargement du prix…',
+    storeUnavailable: 'La boutique est indisponible pour le moment. Redémarre l’application et réessaie.',
     benefitPlan: 'Un plan visuel sur 365 jours — une deuxième intention s’ouvre aussi.',
     benefitProof: 'Preuve photo et face honnête. Pas de honte.',
     benefitReport: 'Rapports : quelle part grandit, où tu bloques.',

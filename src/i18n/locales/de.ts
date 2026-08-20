@@ -204,6 +204,8 @@ export const de: Messages = {
     syncing:
       'Kauf abgeschlossen. Premium öffnet in wenigen Sekunden — oder Wiederherstellen.',
     restoreSyncing: 'Wiederherstellung fertig; die Synchronisation kann kurz dauern.',
+    priceLoading: 'Preis wird geladen…',
+    storeUnavailable: 'Der Store ist derzeit nicht erreichbar. Bitte starte die App neu und versuche es erneut.',
     benefitPlan: 'Ein visueller 365-Tage-Plan — eine zweite Absicht wird frei.',
     benefitProof: 'Fotonachweis und ehrliche Reflexion. Kein Beschämen.',
     benefitReport: 'Berichte: welche Seite wächst, wo du hängen bleibst.',

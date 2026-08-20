@@ -32,17 +32,38 @@ const PACKAGE_IDS: Record<PurchasePlan, string | undefined> = {
 let configured = false;
 let configureTask: Promise<void> | null = null;
 
+/**
+ * Yalnız gerçek RevenueCat public SDK anahtarını kabul et.
+ * eas.json'a yanlışlıkla `$EXPO_PUBLIC_...` gibi çözülmemiş bir yer tutucu
+ * girerse anahtar "dolu" görünüp Purchases.configure sessizce patlıyordu;
+ * uygulama satın alınabilir sanılıp App Review'da reddedilirdi.
+ */
+function validKey(value: string | undefined): string | undefined {
+  const key = value?.trim();
+  if (!key) return undefined;
+  if (!/^(appl|goog|amzn|rcb)_[A-Za-z0-9]+$/.test(key)) {
+    if (__DEV__) {
+      console.warn(
+        `[purchases] Geçersiz RevenueCat anahtarı yok sayıldı: "${key.slice(0, 12)}…" `
+        + '(appl_/goog_ önekli public SDK anahtarı bekleniyor)',
+      );
+    }
+    return undefined;
+  }
+  return key;
+}
+
 function getApiKey(): string | undefined {
   if (Platform.OS === 'ios') {
     return (
-      process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim()
-      || process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim()
+      validKey(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
+      || validKey(process.env.EXPO_PUBLIC_REVENUECAT_API_KEY)
     );
   }
   if (Platform.OS === 'android') {
     return (
-      process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim()
-      || process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim()
+      validKey(process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY)
+      || validKey(process.env.EXPO_PUBLIC_REVENUECAT_API_KEY)
     );
   }
   return undefined;
@@ -106,7 +127,14 @@ export async function logOutPurchases(): Promise<void> {
 }
 
 export async function getStorePrices(): Promise<StorePrices> {
-  if (!purchasesAvailable() || !configured) {
+  if (!purchasesAvailable()) {
+    return { monthly: null, yearly: null };
+  }
+  // Paywall, auth sağlayıcısı configure'u bitirmeden açılabiliyordu; beklemeden
+  // çağırınca configured=false olup fiyatlar hep null dönüyordu → ekranda sabit
+  // "150 TL" görünüyordu. Mağaza fiyatı ASLA uydurulmaz (App Store 3.1.2).
+  await configurePurchases();
+  if (!configured) {
     return { monthly: null, yearly: null };
   }
   try {
@@ -133,19 +161,32 @@ export function subscribeToPurchaseUpdates(onUpdate: () => void): () => void {
   };
 }
 
+/**
+ * Mağaza satın alması bu build'de mümkün mü? Paywall bunu kullanarak butonları
+ * gizler — yoksa App Review "satın alınamayan paywall" diye reddeder.
+ */
+export function storeUnavailableReason(): string | null {
+  if (Platform.OS === 'web') return 'store_unsupported_platform';
+  if (!getApiKey()) return 'store_not_configured';
+  return null;
+}
+
 export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> {
   if (!purchasesAvailable()) {
     return {
       ok: false,
-      message:
-        'Mağaza satın alması Expo Go’da çalışmaz. TestFlight veya EAS build ile dene.',
+      message: __DEV__
+        ? 'Mağaza satın alması Expo Go’da çalışmaz. TestFlight veya EAS build ile dene.'
+        : 'Mağaza şu an ulaşılamıyor. Birazdan tekrar dener misin?',
     };
   }
   await configurePurchases();
   if (!configured) {
     return {
       ok: false,
-      message: 'RevenueCat yapılandırılamadı. EXPO_PUBLIC_REVENUECAT_API_KEY kontrol et.',
+      message: __DEV__
+        ? 'RevenueCat yapılandırılamadı. EXPO_PUBLIC_REVENUECAT_API_KEY kontrol et.'
+        : 'Mağaza şu an ulaşılamıyor. Birazdan tekrar dener misin?',
     };
   }
 
@@ -190,7 +231,7 @@ export async function restorePurchases(): Promise<PurchaseResult> {
   }
   await configurePurchases();
   if (!configured) {
-    return { ok: false, message: 'RevenueCat yapılandırılamadı.' };
+    return { ok: false, message: 'Mağaza şu an ulaşılamıyor. Birazdan tekrar dene.' };
   }
 
   try {
@@ -202,7 +243,12 @@ export async function restorePurchases(): Promise<PurchaseResult> {
         message: 'Geri yüklenecek aktif abonelik bulunamadı.',
       };
     }
-    return { ok: true, plan: 'monthly' };
+    // Sabit 'monthly' dönmek yıllık aboneyi analitikte aylık gösteriyordu.
+    const yearlyId = PACKAGE_IDS.yearly;
+    const product = active.productIdentifier ?? '';
+    const isYearly = (yearlyId && product.includes(yearlyId))
+      || /year|annual|yillik|yıllık/i.test(product);
+    return { ok: true, plan: isYearly ? 'yearly' : 'monthly' };
   } catch (error) {
     if (isPurchasesError(error) && error.userCancelled) {
       return { ok: false, message: 'Geri yükleme iptal edildi.' };

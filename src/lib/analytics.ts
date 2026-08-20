@@ -19,6 +19,7 @@ export type AnalyticsEvent =
   | 'proof_uploaded'
   | 'paywall_shown'
   | 'subscription_started'
+  | 'subscription_restored'
   | 'subscription_cancelled'
   | 'notification_opened'
   | 'mystic_secret_entry'
