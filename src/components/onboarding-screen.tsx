@@ -24,6 +24,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { updateConsent, updateProfile, GENDER_OPTIONS, type GenderOption } from '@/lib/api';
+import { enablePushNotifications } from '@/lib/push-notifications';
+import { useAuth } from '@/providers/auth-provider';
 import {
   birthDateIsoFromDisplay,
   isValidBirthDateDisplay,
@@ -38,6 +40,7 @@ export function OnboardingScreen() {
   const theme = useTheme();
   const { t, regionId, setRegion, timezone, locale } = useLocale();
   const { profile, refresh } = useProfile();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [gender, setGender] = useState<GenderOption | null>(null);
@@ -92,6 +95,13 @@ export function OnboardingScreen() {
       return;
     }
     setError(null);
+    if (current.id === 'notif' && user?.id) {
+      try {
+        await enablePushNotifications(user.id);
+      } catch {
+        // Expo Go / izin reddi onboarding'i durdurmaz; Profil'den tekrar açılır.
+      }
+    }
     if (step < steps.length - 1) {
       setStep((value) => value + 1);
       return;
@@ -233,6 +243,9 @@ export function OnboardingScreen() {
                 <>
                   <ThemedText themeColor="textSecondary">
                     Günlük görev hatırlatıcını hangi saatte almak istersin?
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t.onboarding.notifEnable}
                   </ThemedText>
                   <TimeOfDayField
                     label="Bildirim saati"

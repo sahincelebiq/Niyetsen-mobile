@@ -64,6 +64,7 @@ export const ar: Messages = {
     consentRequired: 'أكد أنك قرأت إشعارات الخصوصية للمتابعة.',
     birthSaveInvalid: 'أدخل تاريخ ميلاد صالحًا.',
     profileSaveFailed: 'تعذر حفظ الملف الشخصي.',
+    notifEnable: 'فعّل الإذن لتلقي تذكير في الوقت الذي اخترته.',
   },
   regions: {
     TR: 'تركيا · Türkçe',
@@ -119,6 +120,11 @@ export const ar: Messages = {
     addProof: 'إضافة إثبات',
     chainAdded: (pts) => `أُضيف إلى السلسلة · +${pts}`,
     tinyPrefix: 'النسخة المصغّرة',
+    pushHint: 'وقت التذكير محفوظ؛ إشعارات الجهاز مغلقة. افتحها من الملف.',
+    missYesterday: (count) =>
+      count === 1
+        ? 'أمس بقيت مهمة صامتة. السلسلة توقفت — أضف حلقة اليوم.'
+        : `أمس بقيت ${count} مهام صامتة. انخفضت نقاطك — واجه اليوم بلا خجل.`,
   },
   chain: {
     title: 'السلسلة',
@@ -167,6 +173,8 @@ export const ar: Messages = {
     notEditable: 'لم يعد بالإمكان تعديل هذه المهمة.',
     pastDayBlocked: 'لا يمكن الإضافة أو النقل إلى يوم سابق.',
     titleRequired: 'لا يمكن أن يكون العنوان فارغاً.',
+    dayProgress: (current, total) => `اليوم ${current} / ${total}`,
+    extendCta: 'حمّل خطة هذا الأسبوع',
   },
   profile: {
     title: 'الملف',
@@ -196,7 +204,7 @@ export const ar: Messages = {
     monthlyLabel: 'شهري',
     yearlyRecommended: 'سنوي · مُستحسن',
     monthlyHint: 'مرن — يمكنك الإلغاء في أي وقت.',
-    yearlyHint: 'حوالي 100 ليرة / شهر — شهران منا.',
+    yearlyHint: 'حوالي 120 ليرة / شهر — أربعة أشهر منا.',
     monthlyCta: 'متابعة شهرية',
     yearlyCta: 'متابعة سنوية',
     restore: 'استعادة المشتريات',

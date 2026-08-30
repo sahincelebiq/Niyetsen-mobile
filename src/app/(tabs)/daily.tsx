@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
@@ -44,6 +44,7 @@ import {
 } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
+import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
@@ -51,11 +52,14 @@ import {
   ensureTodayPlan,
   excuseTask,
   getDailyTasks,
+  getState,
   isPaywallError,
   type ProofResult,
   type Task,
   uploadTaskProof,
 } from '@/lib/api';
+import { getPushStatus } from '@/lib/push-notifications';
+import { useAuth } from '@/providers/auth-provider';
 import {
   addTaskToCalendar,
   scheduleTaskNotification,
@@ -73,11 +77,15 @@ export default function DailyTasksScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { profile } = useProfile();
+  const { user } = useAuth();
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [needsExtension, setNeedsExtension] = useState(false);
+  const [yesterdayMisses, setYesterdayMisses] = useState(0);
+  const [showPushHint, setShowPushHint] = useState(false);
+  const autoExtendRef = useRef(false);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -93,20 +101,56 @@ export default function DailyTasksScreen() {
   const screenInsets = useScreenInsets();
 
   const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+    if (refresh) {
+      autoExtendRef.current = false;
+      setRefreshing(true);
+    } else setLoading(true);
     setError(null);
     try {
-      const daily = await getDailyTasks();
+      let daily = await getDailyTasks();
+      if (daily.needs_extension && !autoExtendRef.current) {
+        autoExtendRef.current = true;
+        setExtending(true);
+        try {
+          await ensureTodayPlan();
+          daily = await getDailyTasks();
+        } catch (value) {
+          if (isPaywallError(value)) {
+            router.push('/paywall' as Href);
+          } else {
+            setError(
+              value instanceof ApiError
+                ? value.message
+                : 'Görevler şu an üretilemedi. Birazdan tekrar dene.',
+            );
+          }
+        } finally {
+          setExtending(false);
+        }
+      }
       setNeedsExtension(!!daily.needs_extension);
       setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+      try {
+        const state = await getState();
+        setYesterdayMisses(state.yesterday_silent_misses ?? 0);
+      } catch {
+        setYesterdayMisses(0);
+      }
+      if (user?.id) {
+        try {
+          const push = await getPushStatus(user.id);
+          setShowPushHint(push.supported && !push.enabled);
+        } catch {
+          setShowPushHint(false);
+        }
+      }
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Günlük görevler yüklenemedi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [router, user?.id]);
 
   async function handleExtendPlan() {
     if (extending) return;
@@ -130,11 +174,7 @@ export default function DailyTasksScreen() {
     }
   }
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  useWarmFocusReload(load, tasks.length > 0 || needsExtension);
 
   const setOutcome = useCallback((taskId: string, outcome: Outcome) => {
     setOutcomes((current) => ({ ...current, [taskId]: outcome }));
@@ -381,6 +421,26 @@ export default function DailyTasksScreen() {
         </View>
       ) : null}
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
+      {yesterdayMisses > 0 ? (
+        <SurfaceCard elevated style={{ marginBottom: Spacing.two }}>
+          <ThemedText type="small">{t.daily.missYesterday(yesterdayMisses)}</ThemedText>
+        </SurfaceCard>
+      ) : null}
+      {showPushHint ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/settings' as Href)}
+          style={{ marginBottom: Spacing.two }}>
+          <ThemedText type="small" themeColor="tint">
+            {t.daily.pushHint}
+          </ThemedText>
+        </Pressable>
+      ) : null}
+      {extending ? (
+        <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
+          {t.daily.extending}
+        </ThemedText>
+      ) : null}
       {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
       {!loading && !error && tasks.length === 0 ? (
         <SurfaceCard elevated>

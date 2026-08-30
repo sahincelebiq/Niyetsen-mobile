@@ -34,6 +34,7 @@ import {
 import { trackEvent } from '@/lib/analytics';
 import { pingHealth } from '@/lib/api';
 import { initSentry } from '@/lib/sentry';
+import { Motion } from '@/constants/theme';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { isAppLocale } from '@/i18n/catalog';
@@ -172,8 +173,17 @@ function ProfileGate() {
       <SubscriptionProvider>
         <SubscriptionGate>
           <NotificationRouter />
-          <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-            <Stack.Screen name="(tabs)" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+              animationDuration: Motion.fast,
+              freezeOnBlur: true,
+            }}>
+            <Stack.Screen
+              name="(tabs)"
+              options={{ animation: 'none', freezeOnBlur: false }}
+            />
             <Stack.Screen name="mystic" />
             <Stack.Screen name="mistik-sohbet" />
             <Stack.Screen name="tarot" />

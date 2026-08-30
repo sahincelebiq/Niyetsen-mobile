@@ -353,6 +353,7 @@ export type StateResponse = {
   freeze_tokens: number;
   excuse_count: number;
   silent_miss_streak: number;
+  yesterday_silent_misses?: number;
 };
 
 export type PushPlatform = 'ios' | 'android';
@@ -365,6 +366,7 @@ export type BonusOffer = {
   day: string;
   status: 'offered' | 'completed' | 'expired';
   points: number;
+  offered_at?: string | null;
 };
 
 export type BonusCompletionResponse = {
@@ -518,9 +520,19 @@ export async function getDailyTasks(): Promise<DailyTasksResponse> {
   return raw;
 }
 
-/** Bugünün günü üretilmemişse sonraki partiyi üretir (Gemini — yalnız kullanıcı CTA). */
+/** Bugünün günü üretilmemişse partiyi bugünden üretir (geçmiş doldurulmaz).
+ * Tek uçuş: Bugün + Planım açılışta aynı anda çağırırsa tek istek gider. */
+let ensureTodayInFlight: Promise<Plan> | null = null;
 export function ensureTodayPlan(): Promise<Plan> {
-  return request<Plan>('/plan/ensure-today', { method: 'POST' }, { timeoutMs: PlanTimeoutMs });
+  if (ensureTodayInFlight) return ensureTodayInFlight;
+  ensureTodayInFlight = request<Plan>(
+    '/plan/ensure-today',
+    { method: 'POST' },
+    { timeoutMs: PlanTimeoutMs },
+  ).finally(() => {
+    ensureTodayInFlight = null;
+  });
+  return ensureTodayInFlight;
 }
 
 export function getProfile(): Promise<UserProfile> {
@@ -732,6 +744,13 @@ export type RecapDashboard = {
   plans_count: number;
   weekly_completed: number[];
   mirror_line?: string | null;
+  /** Release QA T8 — davranış örüntüleri (panel aynası; story'de yok). */
+  weekday_done?: number[];
+  weekday_missed?: number[];
+  hour_done?: number[];
+  bonus_offered?: number;
+  bonus_completed?: number;
+  insights?: string[];
 };
 
 export type Recap = {

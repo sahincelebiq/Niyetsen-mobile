@@ -75,6 +75,7 @@ export type Messages = {
     consentRequired: string;
     birthSaveInvalid: string;
     profileSaveFailed: string;
+    notifEnable: string;
   };
   regions: {
     TR: string;
@@ -123,6 +124,8 @@ export type Messages = {
     addProof: string;
     chainAdded: (pts: number) => string;
     tinyPrefix: string;
+    pushHint: string;
+    missYesterday: (count: number) => string;
   };
   chain: {
     title: string;
@@ -169,6 +172,8 @@ export type Messages = {
     notEditable: string;
     pastDayBlocked: string;
     titleRequired: string;
+    dayProgress: (current: number, total: number) => string;
+    extendCta: string;
   };
   profile: {
     title: string;

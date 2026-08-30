@@ -64,6 +64,7 @@ export const tr: Messages = {
     consentRequired: 'Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.',
     birthSaveInvalid: 'Geçerli bir doğum tarihi gir.',
     profileSaveFailed: 'Profil kaydedilemedi.',
+    notifEnable: 'Görev saatinde bildirim almak için izni aç.',
   },
   regions: {
     TR: 'Türkiye · Türkçe',
@@ -119,6 +120,11 @@ export const tr: Messages = {
     addProof: 'Kanıt ekle',
     chainAdded: (pts) => `Zincire eklendi · +${pts} puan`,
     tinyPrefix: 'En küçük halka',
+    pushHint: 'Hatırlatma saatin kayıtlı; cihaz bildirimi kapalı. Profil’den aç.',
+    missYesterday: (count) =>
+      count === 1
+        ? 'Dün bir görev sessiz kaldı. Zincirin durdu; bugün bir halka at.'
+        : `Dün ${count} görev sessiz kaldı. Puanın düştü — bugün yüzleş, utanç yok.`,
   },
   chain: {
     title: 'Zincir',
@@ -167,6 +173,8 @@ export const tr: Messages = {
     notEditable: 'Bu görev artık düzenlenemez.',
     pastDayBlocked: 'Geçmiş güne görev eklenemez veya taşınamaz.',
     titleRequired: 'Başlık boş olamaz.',
+    dayProgress: (current, total) => `Gün ${current} / ${total}`,
+    extendCta: 'Bu haftanın planını yükle',
   },
   profile: {
     title: 'Profil',
@@ -196,7 +204,7 @@ export const tr: Messages = {
     monthlyLabel: 'Aylık',
     yearlyRecommended: 'Yıllık · önerilen',
     monthlyHint: 'Esnek devam — istediğin zaman iptal edebilirsin.',
-    yearlyHint: 'Ayda 100 TL — iki ay bizden.',
+    yearlyHint: 'Ayda ~120 TL — dört ay bizden.',
     monthlyCta: 'Aylık devam et',
     yearlyCta: 'Yıllık devam et',
     restore: 'Satın alımları geri yükle',

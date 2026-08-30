@@ -64,6 +64,7 @@ export const de: Messages = {
     consentRequired: 'Bitte bestätige, dass du die Hinweise gelesen hast.',
     birthSaveInvalid: 'Gib ein gültiges Geburtsdatum ein.',
     profileSaveFailed: 'Profil konnte nicht gespeichert werden.',
+    notifEnable: 'Erlaube Benachrichtigungen zur gewählten Erinnerungszeit.',
   },
   regions: {
     TR: 'Türkei · Türkçe',
@@ -119,6 +120,11 @@ export const de: Messages = {
     addProof: 'Beweis hinzufügen',
     chainAdded: (pts) => `Zur Kette · +${pts} Punkte`,
     tinyPrefix: 'Mini-Version',
+    pushHint: 'Erinnerungszeit ist gespeichert; Gerätebenachrichtigungen sind aus. Im Profil öffnen.',
+    missYesterday: (count) =>
+      count === 1
+        ? 'Gestern blieb eine Aufgabe still. Die Kette pausierte — setze heute ein Glied.'
+        : `Gestern blieben ${count} Aufgaben still. Punkte sanken — heute ehrlich, ohne Scham.`,
   },
   chain: {
     title: 'Kette',
@@ -167,6 +173,8 @@ export const de: Messages = {
     notEditable: 'Diese Aufgabe kann nicht mehr bearbeitet werden.',
     pastDayBlocked: 'Aufgaben können nicht in die Vergangenheit verschoben werden.',
     titleRequired: 'Titel darf nicht leer sein.',
+    dayProgress: (current, total) => `Tag ${current} / ${total}`,
+    extendCta: 'Plan dieser Woche laden',
   },
   profile: {
     title: 'Profil',
@@ -196,7 +204,7 @@ export const de: Messages = {
     monthlyLabel: 'Monatlich',
     yearlyRecommended: 'Jährlich · empfohlen',
     monthlyHint: 'Flexibel — jederzeit kündbar.',
-    yearlyHint: 'Etwa 100 TL / Monat — zwei Monate von uns.',
+    yearlyHint: 'Etwa 120 TL / Monat — vier Monate von uns.',
     monthlyCta: 'Monatlich weiter',
     yearlyCta: 'Jährlich weiter',
     restore: 'Käufe wiederherstellen',

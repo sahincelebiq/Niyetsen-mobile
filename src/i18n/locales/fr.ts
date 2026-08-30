@@ -64,6 +64,7 @@ export const fr: Messages = {
     consentRequired: 'Confirme avoir lu les notices pour continuer.',
     birthSaveInvalid: 'Entre une date de naissance valide.',
     profileSaveFailed: 'Impossible d’enregistrer le profil.',
+    notifEnable: 'Active l’autorisation pour un rappel à l’heure choisie.',
   },
   regions: {
     TR: 'Turquie · Türkçe',
@@ -119,6 +120,11 @@ export const fr: Messages = {
     addProof: 'Ajouter une preuve',
     chainAdded: (pts) => `Ajouté à la chaîne · +${pts} pts`,
     tinyPrefix: 'Version mini',
+    pushHint: 'L’heure de rappel est enregistrée ; les notifications appareil sont off. Ouvre-les dans Profil.',
+    missYesterday: (count) =>
+      count === 1
+        ? 'Hier, une tâche est restée silencieuse. La chaîne a pausé — pose un maillon aujourd’hui.'
+        : `Hier, ${count} tâches sont restées silencieuses. Le score a baissé — affronte, sans honte.`,
   },
   chain: {
     title: 'Chaîne',
@@ -167,6 +173,8 @@ export const fr: Messages = {
     notEditable: 'Cette tâche ne peut plus être modifiée.',
     pastDayBlocked: 'Impossible d’ajouter ou déplacer vers un jour passé.',
     titleRequired: 'Le titre ne peut pas être vide.',
+    dayProgress: (current, total) => `Jour ${current} / ${total}`,
+    extendCta: 'Charger le plan de la semaine',
   },
   profile: {
     title: 'Profil',
@@ -196,7 +204,7 @@ export const fr: Messages = {
     monthlyLabel: 'Mensuel',
     yearlyRecommended: 'Annuel · recommandé',
     monthlyHint: 'Souple — tu peux annuler quand tu veux.',
-    yearlyHint: 'Environ 100 TL / mois — deux mois offerts.',
+    yearlyHint: 'Environ 120 TL / mois — quatre mois offerts.',
     monthlyCta: 'Continuer au mois',
     yearlyCta: 'Continuer à l’année',
     restore: 'Restaurer les achats',

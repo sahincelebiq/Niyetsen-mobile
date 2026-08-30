@@ -64,6 +64,7 @@ export const enGB: Messages = {
     consentRequired: 'Please confirm you have read the privacy notices to continue.',
     birthSaveInvalid: 'Enter a valid birth date.',
     profileSaveFailed: 'Could not save your profile.',
+    notifEnable: 'Turn on permission to get a reminder at your chosen time.',
   },
   regions: {
     TR: 'Türkiye · Türkçe',
@@ -119,6 +120,11 @@ export const enGB: Messages = {
     addProof: 'Add proof',
     chainAdded: (pts) => `Added to streak · +${pts} pts`,
     tinyPrefix: 'Tiny version',
+    pushHint: 'Reminder time is saved; device notifications are off. Open them in Profile.',
+    missYesterday: (count) =>
+      count === 1
+        ? 'Yesterday one task stayed silent. Your streak paused — add a link today.'
+        : `Yesterday ${count} tasks stayed silent. Your score dropped — face it today, no shame.`,
   },
   chain: {
     title: 'Streak',
@@ -167,6 +173,8 @@ export const enGB: Messages = {
     notEditable: 'This task can no longer be edited.',
     pastDayBlocked: 'Cannot add or move tasks to a past day.',
     titleRequired: 'Title cannot be empty.',
+    dayProgress: (current, total) => `Day ${current} / ${total}`,
+    extendCta: 'Load this week’s plan',
   },
   profile: {
     title: 'Profile',
@@ -196,7 +204,7 @@ export const enGB: Messages = {
     monthlyLabel: 'Monthly',
     yearlyRecommended: 'Yearly · recommended',
     monthlyHint: 'Flexible — cancel whenever you want.',
-    yearlyHint: 'About 100 TL / month — two months on us.',
+    yearlyHint: 'About 120 TL / month — four months on us.',
     monthlyCta: 'Continue monthly',
     yearlyCta: 'Continue yearly',
     restore: 'Restore purchases',

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -33,6 +33,7 @@ import {
 } from '@/lib/api';
 
 const BONUS_POINTS = 10;
+const BONUS_WAIT_SEC = 45;
 
 function completionKey(offerId: string): string {
   return `bonus-completion:${offerId}`;
@@ -46,6 +47,8 @@ export default function BonusScreen() {
   const [busy, setBusy] = useState<'offer' | 'complete' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [attested, setAttested] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -55,6 +58,7 @@ export default function BonusScreen() {
       const active = await getActiveBonus();
       setOffer(active);
       setCompleted(false);
+      setAttested(false);
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Bonus görev yüklenemedi.');
     } finally {
@@ -75,6 +79,7 @@ export default function BonusScreen() {
     try {
       setOffer(await offerBonus());
       setCompleted(false);
+      setAttested(false);
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Bonus görev alınamadı.');
     } finally {
@@ -82,8 +87,26 @@ export default function BonusScreen() {
     }
   }
 
+  const offeredAtMs = useMemo(() => {
+    if (!offer?.offered_at) return Date.now();
+    const parsed = Date.parse(offer.offered_at);
+    return Number.isFinite(parsed) ? parsed : Date.now();
+  }, [offer?.id, offer?.offered_at]);
+
+  useEffect(() => {
+    if (!offer || offer.status === 'completed' || completed) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [offer, completed]);
+
+  const remainingSec = Math.max(
+    0,
+    BONUS_WAIT_SEC - Math.floor((nowMs - offeredAtMs) / 1000),
+  );
+  const canComplete = remainingSec === 0 && attested;
+
   async function markComplete() {
-    if (!offer || busy) return;
+    if (!offer || busy || !canComplete) return;
     setBusy('complete');
     setError(null);
     const key = completionKey(offer.id);
@@ -174,11 +197,35 @@ export default function BonusScreen() {
                   </ThemedText>
                 </ThemedView>
               ) : (
-                <BonusButton
-                  label="Yaptım"
-                  busy={busy === 'complete'}
-                  onPress={() => void markComplete()}
-                />
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {remainingSec > 0
+                      ? `Görevi yap. Onay ${remainingSec} sn sonra açılır.`
+                      : 'Hareketi yaptıysan aşağıyı işaretle, sonra onayla.'}
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: attested }}
+                    onPress={() => setAttested((value) => !value)}
+                    style={styles.attestRow}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: attested ? theme.tint : 'transparent',
+                        },
+                      ]}
+                    />
+                    <ThemedText type="small">Gerçekten yaptım</ThemedText>
+                  </Pressable>
+                  <BonusButton
+                    label="Yaptım"
+                    busy={busy === 'complete'}
+                    disabled={!canComplete}
+                    onPress={() => void markComplete()}
+                  />
+                </>
               )}
             </ThemedView>
           )}
@@ -196,19 +243,22 @@ function BonusButton({
   label,
   busy,
   onPress,
+  disabled = false,
 }: {
   label: string;
   busy: boolean;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   const theme = useTheme();
+  const locked = busy || disabled;
   return (
     <Pressable
-      disabled={busy}
+      disabled={locked}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: theme.accentWarm, opacity: pressed || busy ? 0.7 : 1 },
+        { backgroundColor: theme.accentWarm, opacity: pressed || locked ? 0.45 : 1 },
       ]}>
       {busy ? (
         <ActivityIndicator color={theme.onAccent} />
@@ -270,4 +320,16 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   note: { textAlign: 'center' },
+  attestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 44,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+  },
 });

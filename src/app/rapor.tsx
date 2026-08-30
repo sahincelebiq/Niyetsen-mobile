@@ -630,6 +630,29 @@ function DashboardPanel({
         </SurfaceCard>
       </Animated.View>
 
+      {dashboard.insights?.length || dashboard.weekday_done?.some((n) => n > 0) ? (
+        <Animated.View entering={enter(Motion.stagger * 3.5)}>
+          <SurfaceCard>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+              Örüntüler
+            </ThemedText>
+            {dashboard.weekday_done?.some((n) => n > 0) ? (
+              <WeekdayBars done={dashboard.weekday_done} missed={dashboard.weekday_missed} />
+            ) : null}
+            {(dashboard.insights ?? []).map((line, i) => (
+              <View key={i} style={styles.insightRow}>
+                <ThemedText type="small" themeColor="tint">
+                  ◆
+                </ThemedText>
+                <ThemedText type="small" style={styles.insightText}>
+                  {line}
+                </ThemedText>
+              </View>
+            ))}
+          </SurfaceCard>
+        </Animated.View>
+      ) : null}
+
       <Animated.View entering={enter(Motion.stagger * 4)}>
         <SurfaceCard>
           <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
@@ -695,6 +718,49 @@ function DashboardPanel({
         </View>
       </Pressable>
     </ScrollView>
+  );
+}
+
+const WEEKDAY_SHORT = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
+
+function WeekdayBars({
+  done,
+  missed,
+}: {
+  done?: number[];
+  missed?: number[];
+}) {
+  const theme = useTheme();
+  const doneSafe = done && done.length === 7 ? done : [0, 0, 0, 0, 0, 0, 0];
+  const missedSafe = missed && missed.length === 7 ? missed : [0, 0, 0, 0, 0, 0, 0];
+  const maxVal = Math.max(...doneSafe, ...missedSafe, 1);
+  return (
+    <View style={styles.weekdayRow}>
+      {WEEKDAY_SHORT.map((label, i) => (
+        <View key={label} style={styles.weekdayCol}>
+          <View style={[styles.weekdayTrack, { backgroundColor: theme.progressTrack }]}>
+            <View
+              style={[
+                styles.weekdayFill,
+                {
+                  backgroundColor: theme.tint,
+                  height: `${Math.max((doneSafe[i] / maxVal) * 100, doneSafe[i] > 0 ? 8 : 0)}%`,
+                },
+              ]}
+            />
+          </View>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.weekdayLabel}>
+            {label}
+          </ThemedText>
+          <ThemedText
+            type="small"
+            themeColor={missedSafe[i] > 0 ? 'accentWarm' : 'textSecondary'}
+            style={styles.weekdayMiss}>
+            {missedSafe[i] > 0 ? `−${missedSafe[i]}` : ' '}
+          </ThemedText>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -892,6 +958,39 @@ const styles = StyleSheet.create({
   },
   weeklyCount: { fontSize: 11, lineHeight: 14 },
   weeklyLabel: { fontSize: 10, lineHeight: 12, minHeight: 12 },
+  weekdayRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.one,
+    height: 88,
+    marginBottom: Spacing.one,
+  },
+  weekdayCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    height: '100%',
+  },
+  weekdayTrack: {
+    flex: 1,
+    width: '100%',
+    borderRadius: Radii.small,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  weekdayFill: {
+    width: '100%',
+    borderRadius: Radii.small,
+  },
+  weekdayLabel: { fontSize: 10, lineHeight: 12 },
+  weekdayMiss: { fontSize: 10, lineHeight: 12, minHeight: 12 },
+  insightRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'flex-start',
+    paddingVertical: 2,
+  },
+  insightText: { flex: 1 },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',

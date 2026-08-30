@@ -53,7 +53,7 @@ export function MysticScreenShell({
 
   return (
     <Animated.View
-      entering={FadeIn.duration(Motion.base).reduceMotion(ReduceMotion.System)}
+      entering={FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)}
       style={[styles.flex, { backgroundColor: colors.background }]}>
       <Image
         source={require('@/assets/images/chat-mystic-bg.png')}

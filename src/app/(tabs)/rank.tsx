@@ -1,4 +1,4 @@
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +30,7 @@ import {
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
+import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { useLocale } from '@/providers/locale-provider';
 import {
   ApiError,
@@ -70,11 +71,7 @@ export default function RankScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  useWarmFocusReload(load, state != null);
 
   useEffect(() => {
     if (state) syncStreak(state.streak_len);

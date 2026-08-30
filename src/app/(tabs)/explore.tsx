@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -28,7 +28,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts, ImageScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
+import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
+import { ApiError, ensureTodayPlan, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
 import { addDaysIso } from '@/lib/plan-dates';
 import { showAlert } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
@@ -39,6 +40,21 @@ function calendarDayNumber(startDate: string): number {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
   return Math.floor((today.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+function nearestGeneratedDay(days: PlanDay[], todayDay: number): number {
+  if (!days.length) return Math.max(1, todayDay);
+  const exact = days.find((item) => item.day === todayDay);
+  if (exact) return exact.day;
+  return days.reduce((best, item) =>
+    Math.abs(item.day - todayDay) < Math.abs(best - todayDay) ? item.day : best,
+    days[0].day,
+  );
+}
+
+function weekWindow(days: PlanDay[], todayDay: number): PlanDay[] {
+  const around = days.filter((item) => Math.abs(item.day - todayDay) <= 6);
+  return around.length ? around : [...days].sort((a, b) => a.day - b.day);
 }
 
 export default function PlanScreen() {
@@ -55,13 +71,35 @@ export default function PlanScreen() {
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
   const [addDate, setAddDate] = useState<string | null>(null);
+  const [extending, setExtending] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      setPlan(await getCurrentPlan());
+      let next = await getCurrentPlan();
+      if (next) {
+        const todayNo = calendarDayNumber(next.start_date);
+        const needs =
+          todayNo > next.batch_generated_until &&
+          next.batch_generated_until < next.duration_days;
+        if (needs) {
+          setExtending(true);
+          try {
+            next = await ensureTodayPlan();
+          } catch (extendError) {
+            setError(
+              extendError instanceof ApiError
+                ? extendError.message
+                : 'Bu haftanın planı üretilemedi. Birazdan tekrar dene.',
+            );
+          } finally {
+            setExtending(false);
+          }
+        }
+      }
+      setPlan(next);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
     } finally {
@@ -70,21 +108,25 @@ export default function PlanScreen() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  useWarmFocusReload(load, plan != null);
 
-  const contentIntent = plan?.days[0]?.theme || plan?.name || 'Planım';
   const todayDay = plan ? calendarDayNumber(plan.start_date) : 1;
-  const activeDay = focusedDay ?? Math.max(1, Math.min(todayDay, plan?.days.length ?? 1));
+  const weekDays = useMemo(
+    () => (plan ? weekWindow(plan.days, todayDay) : []),
+    [plan, todayDay],
+  );
+  const contentIntent =
+    plan?.days.find((item) => item.day === todayDay)?.theme ||
+    plan?.days.find((item) => item.day === nearestGeneratedDay(plan.days, todayDay))?.theme ||
+    plan?.name ||
+    'Planım';
+  const activeDay =
+    focusedDay ?? (plan ? nearestGeneratedDay(plan.days, todayDay) : 1);
   const visibleDays = useMemo(() => {
     if (!plan) return [];
-    if (focusedDay === null) return plan.days;
+    if (focusedDay === null) return weekDays;
     return plan.days.filter((d) => d.day === focusedDay);
-  }, [focusedDay, plan]);
+  }, [focusedDay, plan, weekDays]);
 
   return (
     <ThemedView style={styles.flex}>
@@ -112,7 +154,7 @@ export default function PlanScreen() {
             <ThemedText
               type="smallBold"
               style={[styles.intentLabel, { color: theme.onAccent, opacity: 0.8 }]}>
-              BU AYIN BÜYÜK NİYETİ
+              {t.plan.dayProgress(Math.max(1, todayDay), plan.duration_days)}
             </ThemedText>
             <ThemedText style={[styles.intentText, { color: theme.onAccent }]}>
               {contentIntent}
@@ -121,12 +163,32 @@ export default function PlanScreen() {
         ) : null}
 
         {plan && !loading ? (
-          <DayStrip
-            days={plan.days}
-            todayDay={todayDay}
-            activeDay={activeDay}
-            onSelect={(day) => setFocusedDay((prev) => (prev === day ? null : day))}
-          />
+          <>
+            <DayStrip
+              days={weekDays}
+              todayDay={todayDay}
+              activeDay={activeDay}
+              onSelect={(day) => setFocusedDay((prev) => (prev === day ? null : day))}
+            />
+            {extending ? (
+              <ThemedText type="small" themeColor="textSecondary" style={{ paddingHorizontal: Spacing.three }}>
+                {t.daily.extending}
+              </ThemedText>
+            ) : null}
+            {todayDay > plan.batch_generated_until && plan.batch_generated_until < plan.duration_days ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void load(true)}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1, marginHorizontal: Spacing.three },
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {t.plan.extendCta}
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </>
         ) : null}
 
         {loading && (
