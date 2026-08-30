@@ -28,7 +28,13 @@ import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
-import { ApiError, getPhilosophyPaths, isPaywallError, type PhilosophyPath } from '@/lib/api';
+import {
+  activatePhilosophyPath,
+  ApiError,
+  getPhilosophyPaths,
+  isPaywallError,
+  type PhilosophyPath,
+} from '@/lib/api';
 import { setPendingChatMessage } from '@/lib/pending-chat';
 
 /**
@@ -74,8 +80,16 @@ export default function PhilosophyPathsScreen() {
     router.push(`/yol-detay?slug=${encodeURIComponent(key)}` as Href);
   }
 
-  function startWithPath(path: PhilosophyPath) {
+  async function startWithPath(path: PhilosophyPath) {
     void trackEvent('mystic_secret_entry', { module: 'felsefe_yolu', path: path.name });
+    try {
+      await activatePhilosophyPath(path.slug?.trim() || path.name);
+    } catch (value) {
+      if (isPaywallError(value)) {
+        router.push('/paywall' as Href);
+        return;
+      }
+    }
     setPendingChatMessage(
       `${path.name} ile ilerlemek istiyorum — ${path.tagline}. Bu yolu niyetime işler misin?`,
       true,

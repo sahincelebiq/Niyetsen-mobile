@@ -45,6 +45,7 @@ import {
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
+import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
@@ -78,6 +79,7 @@ export default function DailyTasksScreen() {
   const router = useRouter();
   const { profile } = useProfile();
   const { user } = useAuth();
+  const { syncStreak } = useCompanionAnimal();
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -133,6 +135,7 @@ export default function DailyTasksScreen() {
       try {
         const state = await getState();
         setYesterdayMisses(state.yesterday_silent_misses ?? 0);
+        syncStreak(state.streak_len);
       } catch {
         setYesterdayMisses(0);
       }
@@ -150,7 +153,7 @@ export default function DailyTasksScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router, user?.id]);
+  }, [router, syncStreak, user?.id]);
 
   async function handleExtendPlan() {
     if (extending) return;

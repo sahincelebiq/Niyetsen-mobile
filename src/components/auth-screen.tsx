@@ -49,6 +49,8 @@ export function AuthScreen() {
           wrong_password: t.auth.wrongPassword,
           already_registered: t.auth.alreadyRegistered,
           google_incomplete: t.auth.googleIncomplete,
+          provider_not_enabled: t.auth.providerNotEnabled,
+          session_failed: t.auth.sessionFailed,
           generic: value.message || t.common.errorGeneric,
         }[value.code];
         setError(mapped);
@@ -193,11 +195,11 @@ export function AuthScreen() {
                   onPress={() =>
                     void run('reset', async () => {
                       await auth.resetPassword(email.trim());
-                      setMessage('Şifre yenileme bağlantısı gönderildi.');
+                      setMessage(t.auth.resetLinkSent);
                     })
                   }>
                   <ThemedText type="small" themeColor="tint" style={styles.center}>
-                    Şifremi unuttum
+                    {t.auth.forgotPassword}
                   </ThemedText>
                 </Pressable>
               )}
@@ -207,18 +209,18 @@ export function AuthScreen() {
                   <View style={styles.dividerRow}>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
                     <ThemedText type="small" themeColor="textSecondary">
-                      veya
+                      {t.auth.orDivider}
                     </ThemedText>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   </View>
 
                   <AuthButton
-                    label="Google ile devam et"
+                    label={t.auth.continueWithGoogle}
                     busy={busy === 'google'}
                     onPress={() => void run('google', auth.signInWithGoogle)}
                   />
                   <AuthButton
-                    label="Apple ile devam et"
+                    label={t.auth.continueWithApple}
                     busy={busy === 'apple'}
                     onPress={() => void run('apple', auth.signInWithApple)}
                   />
@@ -245,7 +247,7 @@ export function AuthScreen() {
                 hitSlop={8}
                 onPress={() => void openLegalDocument('privacy')}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  Gizlilik
+                  {t.auth.legalPrivacy}
                 </ThemedText>
               </Pressable>
               <Pressable
@@ -253,7 +255,7 @@ export function AuthScreen() {
                 hitSlop={8}
                 onPress={() => void openLegalDocument('kvkk')}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  KVKK
+                  {t.auth.legalKvkk}
                 </ThemedText>
               </Pressable>
               <Pressable
@@ -261,7 +263,7 @@ export function AuthScreen() {
                 hitSlop={8}
                 onPress={() => void openLegalDocument('consent')}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  Açık Rıza
+                  {t.auth.legalConsent}
                 </ThemedText>
               </Pressable>
               <Pressable
@@ -269,7 +271,7 @@ export function AuthScreen() {
                 hitSlop={8}
                 onPress={() => void openLegalDocument('terms')}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  Kullanım Koşulları
+                  {t.auth.legalTerms}
                 </ThemedText>
               </Pressable>
             </View>

@@ -60,6 +60,17 @@ export type Messages = {
     signOutRetry: string;
     languageRegion: string;
     languageRegionHint: string;
+    forgotPassword: string;
+    resetLinkSent: string;
+    orDivider: string;
+    continueWithGoogle: string;
+    continueWithApple: string;
+    providerNotEnabled: string;
+    sessionFailed: string;
+    legalPrivacy: string;
+    legalKvkk: string;
+    legalConsent: string;
+    legalTerms: string;
   };
   onboarding: {
     regionTitle: string;
@@ -186,6 +197,11 @@ export type Messages = {
     mysticHintPro: string;
     mysticHintFree: string;
     open: string;
+    notifications: string;
+    notificationsHint: string;
+    notificationsWhen: string;
+    willpowerMode: string;
+    willpowerHint: string;
   };
   gender: {
     kadın: string;

@@ -1,10 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -27,10 +26,11 @@ import {
   ApiError,
   completeBonus,
   generateMessageId,
-  getActiveBonus,
+  getTodayBonus,
   offerBonus,
   type BonusOffer,
 } from '@/lib/api';
+import { useI18n } from '@/providers/locale-provider';
 
 const BONUS_POINTS = 10;
 const BONUS_WAIT_SEC = 45;
@@ -41,29 +41,28 @@ function completionKey(offerId: string): string {
 
 export default function BonusScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const { t } = useI18n();
   const [offer, setOffer] = useState<BonusOffer | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<'offer' | 'complete' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [attested, setAttested] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     setError(null);
     try {
-      const active = await getActiveBonus();
-      setOffer(active);
-      setCompleted(false);
+      const today = await getTodayBonus();
+      setOffer(today);
+      setCompleted(today?.status === 'completed');
       setAttested(false);
     } catch (value) {
       setError(value instanceof ApiError ? value.message : 'Bonus görev yüklenemedi.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
@@ -74,11 +73,13 @@ export default function BonusScreen() {
   );
 
   async function requestOffer() {
+    if (offer?.status === 'completed' || completed) return;
     setBusy('offer');
     setError(null);
     try {
-      setOffer(await offerBonus());
-      setCompleted(false);
+      const next = await offerBonus();
+      setOffer(next);
+      setCompleted(next.status === 'completed');
       setAttested(false);
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Bonus görev alınamadı.');
@@ -117,9 +118,6 @@ export default function BonusScreen() {
         await AsyncStorage.setItem(key, completionId);
       }
       const result = await completeBonus(offer.id, completionId);
-      // Backend başarı döndürdüyse tamamlandı say — puan miktarını sunucu
-      // belirler. (Eski katı `awarded !== 10` kontrolü, sunucu puanı değişirse
-      // görevi tamamlanmış olmasına rağmen hata gösteriyordu.)
       if (typeof result.awarded !== 'number' || result.awarded < 0) {
         throw new Error('Beklenmeyen bonus yanıtı; rütbe durumunu yenile.');
       }
@@ -138,14 +136,23 @@ export default function BonusScreen() {
     }
   }
 
+  const alreadyDone = completed || offer?.status === 'completed';
+
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-        <ScrollView
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
-          }
-          contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.common.back}
+            hitSlop={12}
+            onPress={() => router.back()}
+            style={styles.back}>
+            <ThemedText type="smallBold" themeColor="tint">
+              ‹ {t.common.back}
+            </ThemedText>
+          </Pressable>
+
           <View style={styles.header}>
             <ThemedText type="title">Bonus Görev</ThemedText>
             <ThemedText themeColor="textSecondary">
@@ -187,13 +194,13 @@ export default function BonusScreen() {
               <ThemedText type="subtitle">{offer.title}</ThemedText>
               <ThemedText themeColor="textSecondary">{offer.tiny_instruction}</ThemedText>
 
-              {completed || offer.status === 'completed' ? (
+              {alreadyDone ? (
                 <ThemedView type="backgroundSelected" style={styles.success}>
                   <ThemedText type="smallBold" themeColor="success">
                     Tamamlandı · +{BONUS_POINTS} puan
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Aynı onay tekrar gönderilse bile ikinci kez puan yazılmaz.
+                    Bugünün bonus görevi bitti. Yarın yeni bir kıvılcım gelir.
                   </ThemedText>
                 </ThemedView>
               ) : (
@@ -281,6 +288,7 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.five,
     gap: Spacing.three,
   },
+  back: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   header: { gap: Spacing.one, paddingVertical: Spacing.two },
   empty: {
     borderWidth: Texture.cardBorderWidth,

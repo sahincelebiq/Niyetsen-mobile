@@ -25,6 +25,8 @@ export type AuthFlowCode =
   | 'wrong_password'
   | 'already_registered'
   | 'google_incomplete'
+  | 'provider_not_enabled'
+  | 'session_failed'
   | 'generic';
 
 export class AuthFlowError extends Error {
@@ -48,10 +50,7 @@ function toAuthFlowError(error: unknown): AuthFlowError {
     return new AuthFlowError('already_registered', raw);
   }
   if (text.includes('provider is not enabled')) {
-    return new AuthFlowError(
-      'generic',
-      'Google girişi henüz açık değil. E-posta ve şifre ile devam et.',
-    );
+    return new AuthFlowError('provider_not_enabled', raw);
   }
   if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
     return new AuthFlowError('google_incomplete', raw);
@@ -74,7 +73,11 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const redirectTo = makeRedirectUri({ scheme: 'niyetsen', path: 'auth/callback' });
+const NATIVE_REDIRECT = 'niyetsen://auth/callback';
+const redirectTo =
+  Platform.OS === 'web'
+    ? makeRedirectUri({ path: 'auth/callback' })
+    : NATIVE_REDIRECT;
 
 async function openOAuth(provider: 'google' | 'apple') {
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -110,7 +113,7 @@ async function openOAuth(provider: 'google' | 'apple') {
   }
   const exchanged = await completeAuthFromUrl(result.url);
   if (!exchanged) {
-    throw new AuthFlowError('generic', 'Supabase oturumu alınamadı.');
+    throw new AuthFlowError('session_failed', 'Supabase oturumu alınamadı.');
   }
 }
 
@@ -167,7 +170,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setLoading(false);
     });
     const linking = Linking.addEventListener('url', ({ url }) => {
-      void completeAuthFromUrl(url).catch(() => undefined);
+      void completeAuthFromUrl(url).catch((error) => {
+        console.warn('OAuth geri dönüşü tamamlanamadı', error);
+      });
     });
     return () => {
       mounted = false;

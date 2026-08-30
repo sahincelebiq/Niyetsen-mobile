@@ -35,6 +35,7 @@ import {
   Shadows,
   Spacing,
 } from '@/constants/theme';
+import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useKeyboardDockLift } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -104,6 +105,7 @@ export default function ChatScreen() {
   const { lift: keyboardLift } = useKeyboardDockLift(composerRef);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
+  const { syncStreak } = useCompanionAnimal();
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -190,10 +192,11 @@ export default function ChatScreen() {
     try {
       const state = await getState();
       setStreakDays(state.streak_len);
+      syncStreak(state.streak_len);
     } catch {
       // Zincir bilgisi yüklenemezse sohbet akışı devam eder.
     }
-  }, []);
+  }, [syncStreak]);
 
   useEffect(() => {
     let cancelled = false;

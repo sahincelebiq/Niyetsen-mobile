@@ -406,9 +406,9 @@ export default function SettingsScreen() {
           {busy === 'locale' ? <ActivityIndicator color={theme.tint} /> : null}
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
-              <ThemedText type="smallBold">Bildirimler</ThemedText>
+              <ThemedText type="smallBold">{t.profile.notifications}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                Günlük görev ve bonus haberleri
+                {t.profile.notificationsHint}
               </ThemedText>
             </View>
             <Switch
@@ -421,6 +421,11 @@ export default function SettingsScreen() {
             />
           </View>
           {!pushStatus && !pushError && <ActivityIndicator color={theme.tint} />}
+          {pushStatus?.enabled ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.profile.notificationsWhen}
+            </ThemedText>
+          ) : null}
           {pushStatus?.message ? (
             <ThemedText type="small" themeColor="textSecondary">
               {pushStatus.message}
@@ -429,9 +434,9 @@ export default function SettingsScreen() {
           {pushError ? <ThemedText themeColor="danger">{pushError}</ThemedText> : null}
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
-              <ThemedText type="smallBold">İrade Modu</ThemedText>
+              <ThemedText type="smallBold">{t.profile.willpowerMode}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                Yerel hatırlatıcı (sistem alarmı değil)
+                {t.profile.willpowerHint}
               </ThemedText>
             </View>
             <Switch

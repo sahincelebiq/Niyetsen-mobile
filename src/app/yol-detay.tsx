@@ -25,6 +25,7 @@ import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
+  activatePhilosophyPath,
   ApiError,
   getPathDetail,
   isPaywallError,
@@ -116,12 +117,20 @@ export default function PathDetailScreen() {
     void load();
   }, [hasPremium, load, premiumLoading]);
 
-  function applyToPlan() {
+  async function applyToPlan() {
     if (!detail) return;
     void trackEvent('mystic_secret_entry', {
       module: 'felsefe_yolu_uygula',
       path: detail.name,
     });
+    try {
+      await activatePhilosophyPath(detail.slug || slug);
+    } catch (value) {
+      if (isPaywallError(value)) {
+        router.push('/paywall' as Href);
+        return;
+      }
+    }
     setPendingChatMessage(
       `${detail.name} ile ilerlemek istiyorum — ${detail.tagline}. Bu yolu niyetime işler misin?`,
       true,

@@ -653,6 +653,10 @@ export function getActiveBonus(): Promise<BonusOffer | null> {
   return request<BonusOffer | null>('/bonus/active');
 }
 
+export function getTodayBonus(): Promise<BonusOffer | null> {
+  return request<BonusOffer | null>('/bonus/today');
+}
+
 export function completeBonus(
   offerId: string,
   completionId: string,
@@ -780,6 +784,19 @@ export type PathDetail = {
 
 export function getPathDetail(slug: string): Promise<PathDetail> {
   return request<PathDetail>(`/paths/${encodeURIComponent(slug)}`);
+}
+
+export type PathActivateResponse = {
+  path: { slug: string; name: string; tagline: string; source_note: string };
+  activated: boolean;
+  tasks_seeded: string[];
+  bonus: BonusOffer | null;
+};
+
+export function activatePhilosophyPath(slug: string): Promise<PathActivateResponse> {
+  return request<PathActivateResponse>(`/paths/${encodeURIComponent(slug)}/activate`, {
+    method: 'POST',
+  });
 }
 
 export function getRecap(period: '7d' | '14d' | '30d' = '7d'): Promise<Recap> {
