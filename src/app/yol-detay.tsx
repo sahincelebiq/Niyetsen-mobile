@@ -124,8 +124,9 @@ export default function PathDetailScreen() {
     });
     setPendingChatMessage(
       `${detail.name} ile ilerlemek istiyorum — ${detail.tagline}. Bu yolu niyetime işler misin?`,
+      true,
     );
-    router.push('/' as Href);
+    router.replace('/' as Href);
   }
 
   const locked = !premiumLoading && !hasPremium;

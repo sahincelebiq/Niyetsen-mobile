@@ -126,6 +126,8 @@ export default function ChatScreen() {
   const [attaching, setAttaching] = useState(false);
   // Hızlı yanıt çipleri: modelin sorduğu soruya tek dokunuşla cevap (FAZ 7.5)
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [queuedPathMessage, setQueuedPathMessage] = useState<string | null>(null);
+  const keepComposerRef = useRef(false);
 
   // Kullanıcı geçmişi okmak için yukarı kaydırdıysa otomatik scroll devre dışı kalır;
   // yalnız listenin dibine yakınken yeni içerikte en alta iner (zorla zıplama biter).
@@ -156,7 +158,9 @@ export default function ChatScreen() {
       setReadyForPlan(session.ready_for_plan);
       setPlanHasContent(session.plan_has_content);
       setActivePlanName(session.active_plan_name || 'Planım');
-      setInput('');
+      if (!keepComposerRef.current) {
+        setInput('');
+      }
       setPendingAttachment(null);
       setSuggestions([]);
       setError(null);
@@ -212,15 +216,17 @@ export default function ChatScreen() {
     void refreshStreak();
   }, [refreshStreak]);
 
-  // Yeni niyet dönüşünde bekleyen mesajı koy. Odakta her seferinde
-  // /chat/session çekmek sohbeti yavaşlatıyordu (sekme değişince takılma).
+  // Felsefe Yolları "bu yolla başla" mesajını oturum yükü silmeden alır.
   useFocusEffect(
     useCallback(() => {
       const pending = consumePendingChatMessage();
-      if (pending) {
-        setInput(pending);
-        scrollToEnd(true);
+      if (!pending) return;
+      keepComposerRef.current = pending.autoSend;
+      setInput(pending.message);
+      if (pending.autoSend) {
+        setQueuedPathMessage(pending.message);
       }
+      scrollToEnd(true);
     }, [scrollToEnd]),
   );
 
@@ -278,6 +284,24 @@ export default function ChatScreen() {
     },
     [collected, refreshStreak, router, scrollToEnd],
   );
+
+  useEffect(() => {
+    if (!queuedPathMessage || loadingHistory || sending || !aiAllowed) {
+      return;
+    }
+    const text = queuedPathMessage;
+    setQueuedPathMessage(null);
+    keepComposerRef.current = false;
+    const nextMessages: ChatMessage[] = [
+      ...messages,
+      { id: generateMessageId(), role: 'user', content: text },
+    ];
+    setMessages(nextMessages);
+    setInput('');
+    setSuggestions([]);
+    scrollToEnd(true);
+    void doSend(nextMessages);
+  }, [aiAllowed, doSend, loadingHistory, messages, queuedPathMessage, scrollToEnd, sending]);
 
   const handleSend = useCallback(() => {
     if (!aiAllowed) {
@@ -351,7 +375,7 @@ export default function ChatScreen() {
     setError(null);
     setLastAction('generate');
     try {
-      const days = collected.duration_days ?? 7;
+      const days = collected.duration_days ?? 365;
       await generatePlan(collected, days);
       void trackEvent('first_plan_generated');
       setPlanHasContent(true);

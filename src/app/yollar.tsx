@@ -78,8 +78,9 @@ export default function PhilosophyPathsScreen() {
     void trackEvent('mystic_secret_entry', { module: 'felsefe_yolu', path: path.name });
     setPendingChatMessage(
       `${path.name} ile ilerlemek istiyorum — ${path.tagline}. Bu yolu niyetime işler misin?`,
+      true,
     );
-    router.push('/' as Href);
+    router.replace('/' as Href);
   }
 
   const locked = !premiumLoading && !hasPremium;
@@ -207,43 +208,43 @@ export default function PhilosophyPathsScreen() {
                         </View>
                       </Pressable>
 
-                      {isOpen ? (
-                        <View style={styles.openBody}>
+                      <View style={styles.openBody}>
+                        {isOpen ? (
                           <ThemedText type="small" themeColor="textSecondary">
                             {path.philosophy}
                           </ThemedText>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`${path.name} detayını aç`}
-                            onPress={() => openDetail(path)}
-                            style={({ pressed }) => [
-                              styles.secondaryButton,
-                              {
-                                borderColor: theme.border,
-                                opacity: pressed ? 0.88 : 1,
-                              },
-                            ]}>
-                            <ThemedText type="smallBold" themeColor="tint">
-                              Yolu incele
-                            </ThemedText>
-                          </Pressable>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`${path.name} ile sohbete başla`}
-                            onPress={() => startWithPath(path)}
-                            style={({ pressed }) => [
-                              styles.startButton,
-                              {
-                                backgroundColor: theme.accentWarm,
-                                opacity: pressed ? 0.88 : 1,
-                              },
-                            ]}>
-                            <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                              Bu yolla sohbete başla
-                            </ThemedText>
-                          </Pressable>
-                        </View>
-                      ) : null}
+                        ) : null}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${path.name} detayını aç`}
+                          onPress={() => openDetail(path)}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            {
+                              borderColor: theme.border,
+                              opacity: pressed ? 0.88 : 1,
+                            },
+                          ]}>
+                          <ThemedText type="smallBold" themeColor="tint">
+                            Yolu incele
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${path.name} ile sohbete başla`}
+                          onPress={() => startWithPath(path)}
+                          style={({ pressed }) => [
+                            styles.startButton,
+                            {
+                              backgroundColor: theme.accentWarm,
+                              opacity: pressed ? 0.88 : 1,
+                            },
+                          ]}>
+                          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                            Bu yolla sohbete başla
+                          </ThemedText>
+                        </Pressable>
+                      </View>
                     </SurfaceCard>
                   </Animated.View>
                 );
