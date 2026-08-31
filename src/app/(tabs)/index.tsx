@@ -51,6 +51,7 @@ import {
   isPaywallError,
   sendChatMessage,
   uploadChatAttachment,
+  ensureTodayPlan,
 } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
 import { consumePendingChatMessage } from '@/lib/pending-chat';
@@ -102,7 +103,7 @@ export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const composerRef = useRef<View>(null);
-  const { lift: keyboardLift } = useKeyboardDockLift(composerRef);
+  const { lift: keyboardLift, open: keyboardOpen } = useKeyboardDockLift(composerRef);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -201,13 +202,24 @@ export default function ChatScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let session: Awaited<ReturnType<typeof getChatSession>> | null = null;
       try {
-        const session = await getChatSession();
+        session = await getChatSession();
         if (!cancelled) await applySession(session);
       } catch {
         if (!cancelled) setMessages([await loadWelcomeMessage()]);
       } finally {
         if (!cancelled) setLoadingHistory(false);
+      }
+      if (cancelled || !session?.plan_has_content) return;
+      try {
+        await ensureTodayPlan();
+        if (cancelled || session.messages.length > 0) return;
+        const greeting = await getChatGreeting();
+        if (cancelled) return;
+        setMessages([{ id: 'welcome', role: 'assistant', content: greeting.message }]);
+      } catch {
+        // Bugün sekmesi aynı ensure çağrısını tekrar dener.
       }
     })();
     return () => {
@@ -556,6 +568,7 @@ export default function ChatScreen() {
               onAttach={() => void handleAttach()}
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
+              keyboardOpen={keyboardOpen}
             />
           </View>
         </KeyboardAwareView>
@@ -590,8 +603,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    flexGrow: 1,
-    // inverted: paddingTop görsel olarak input'a yakın alt boşluk.
+    // inverted: flexGrow YOK — tek mesaj composer'a yapışır, boşluk üstte kalır.
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,

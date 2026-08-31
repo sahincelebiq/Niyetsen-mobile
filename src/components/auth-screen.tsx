@@ -35,6 +35,11 @@ export function AuthScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preferGoogle, setPreferGoogle] = useState(false);
+
+  function normalizedEmail() {
+    return email.trim().toLowerCase();
+  }
 
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
@@ -51,9 +56,11 @@ export function AuthScreen() {
           google_incomplete: t.auth.googleIncomplete,
           provider_not_enabled: t.auth.providerNotEnabled,
           session_failed: t.auth.sessionFailed,
+          recovery_expired: t.auth.recoveryExpired,
           generic: value.message || t.common.errorGeneric,
         }[value.code];
         setError(mapped);
+        if (value.code === 'wrong_password') setPreferGoogle(true);
       } else {
         setError(value instanceof Error ? value.message : t.common.errorGeneric);
       }
@@ -72,9 +79,9 @@ export function AuthScreen() {
         await auth.updatePassword(password);
         setMessage(t.auth.passwordUpdated);
       } else if (mode === 'sign-in') {
-        await auth.signInWithEmail(email.trim(), password);
+        await auth.signInWithEmail(normalizedEmail(), password);
       } else {
-        const needsVerification = await auth.signUpWithEmail(email.trim(), password);
+        const needsVerification = await auth.signUpWithEmail(normalizedEmail(), password);
         if (needsVerification) setMessage(t.auth.verifySent);
       }
     });
@@ -83,7 +90,7 @@ export function AuthScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ThemedView style={styles.flex}>
         <SafeAreaView style={styles.flex}>
           <ScrollView
@@ -139,7 +146,10 @@ export function AuthScreen() {
                   placeholder={t.auth.email}
                   placeholderTextColor={theme.textSecondary}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    setPreferGoogle(false);
+                  }}
                   style={[
                     styles.input,
                     {
@@ -191,13 +201,17 @@ export function AuthScreen() {
 
               {mode === 'sign-in' && !auth.recovery && (
                 <Pressable
-                  disabled={!email.trim() || !!busy}
-                  onPress={() =>
+                  disabled={!!busy}
+                  onPress={() => {
+                    if (!normalizedEmail()) {
+                      setError(t.auth.resetEmailRequired);
+                      return;
+                    }
                     void run('reset', async () => {
-                      await auth.resetPassword(email.trim());
+                      await auth.resetPassword(normalizedEmail());
                       setMessage(t.auth.resetLinkSent);
-                    })
-                  }>
+                    });
+                  }}>
                   <ThemedText type="small" themeColor="tint" style={styles.center}>
                     {t.auth.forgotPassword}
                   </ThemedText>
@@ -217,6 +231,7 @@ export function AuthScreen() {
                   <AuthButton
                     label={t.auth.continueWithGoogle}
                     busy={busy === 'google'}
+                    highlighted={preferGoogle}
                     onPress={() => void run('google', auth.signInWithGoogle)}
                   />
                   <AuthButton
@@ -287,11 +302,13 @@ function AuthButton({
   busy,
   onPress,
   primary = false,
+  highlighted = false,
 }: {
   label: string;
   busy: boolean;
   onPress: () => void;
   primary?: boolean;
+  highlighted?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -303,7 +320,12 @@ function AuthButton({
         styles.button,
         {
           backgroundColor: primary ? theme.accentWarm : theme.background,
-          borderColor: primary ? theme.accentWarm : theme.border,
+          borderColor: primary
+            ? theme.accentWarm
+            : highlighted
+              ? theme.tint
+              : theme.border,
+          borderWidth: highlighted && !primary ? 2 : 1,
           opacity: pressed || busy ? 0.7 : 1,
         },
       ]}>
@@ -312,7 +334,7 @@ function AuthButton({
       ) : (
         <ThemedText
           type="smallBold"
-          style={{ color: primary ? theme.onAccent : theme.text }}>
+          style={{ color: primary ? theme.onAccent : highlighted ? theme.tint : theme.text }}>
           {label}
         </ThemedText>
       )}

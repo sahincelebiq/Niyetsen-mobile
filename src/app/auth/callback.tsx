@@ -5,11 +5,11 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
-import { supabase } from '@/lib/supabase';
+import { completeAuthFromUrl } from '@/lib/auth-redirect';
 
 /**
- * E-posta onay / OAuth dönüşü: niyetsen://auth/callback
- * Token veya PKCE code varsa oturumu kurar; yoksa ana ekrana döner.
+ * E-posta onay / OAuth / şifre sıfırlama dönüşü: niyetsen://auth/callback
+ * PKCE code, hash token veya token_hash varsa oturumu kurar.
  */
 export default function AuthCallbackScreen() {
   const theme = useTheme();
@@ -21,28 +21,10 @@ export default function AuthCallbackScreen() {
       try {
         const url = await Linking.getInitialURL();
         if (url) {
-          const parsed = Linking.parse(url);
-          const query = parsed.queryParams ?? {};
-          const hash = url.includes('#') ? new URLSearchParams(url.split('#')[1]) : null;
-          const pick = (key: string): string | undefined => {
-            const fromQuery = query[key];
-            if (typeof fromQuery === 'string' && fromQuery) return fromQuery;
-            return hash?.get(key) || undefined;
-          };
-          const code = pick('code');
-          const tokenHash = pick('token_hash') ?? pick('token');
-          const type = pick('type');
-          if (code) {
-            await supabase.auth.exchangeCodeForSession(code);
-          } else if (tokenHash && type) {
-            await supabase.auth.verifyOtp({
-              token_hash: tokenHash,
-              type: type as 'signup' | 'email' | 'recovery' | 'invite',
-            });
-          }
+          await completeAuthFromUrl(url);
         }
       } catch {
-        // Onay linki bozuksa giriş ekranına düşer.
+        // Onay/sıfırlama linki bozuksa giriş ekranına düşer.
       } finally {
         if (!cancelled) router.replace('/');
       }

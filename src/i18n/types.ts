@@ -62,6 +62,8 @@ export type Messages = {
     languageRegionHint: string;
     forgotPassword: string;
     resetLinkSent: string;
+    resetEmailRequired: string;
+    recoveryExpired: string;
     orDivider: string;
     continueWithGoogle: string;
     continueWithApple: string;

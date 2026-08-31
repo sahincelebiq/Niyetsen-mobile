@@ -36,11 +36,12 @@ export function useKeyboardHeight(): number {
 }
 
 /**
- * NativeTabs + edge-to-edge'de KeyboardAvoidingView / "pencere küçüldü mü"
- * tahmini kutucuğu klavyenin altında bırakıyordu.
+ * NativeTabs + edge-to-edge'de KeyboardAvoidingView kutuyu klavyenin altında
+ * bırakıyordu. Yazı kutusunu ekranda ölç, klavye üstüyle çakışan pikseli lift et.
  *
- * Yazı kutusunu ekranda ölç, klavye üstüyle çakışan pikseli lift et.
- * Pencere zaten küçüldüyse çakışma ~0 → lift 0 (çift kaydırma yok).
+ * Pencere Android'de zaten küçüldüyse çakışma ~0 → lift 0 (çift kaydırma yok).
+ * Lift uygulandıktan sonra tekrar ölçülürse `measured + currentLift` ile gerçek
+ * dinlenme konumu geri hesaplanır — çift lift olmaz.
  */
 export function useKeyboardDockLift(
   dockRef: RefObject<View | null>,
@@ -48,9 +49,29 @@ export function useKeyboardDockLift(
 ): { lift: number; height: number; open: boolean } {
   const [height, setHeight] = useState(0);
   const [lift, setLift] = useState(0);
-  const restBottomRef = useRef(0);
   const liftRef = useRef(0);
   liftRef.current = lift;
+  const keyboardTopRef = useRef(0);
+
+  const applyFromMeasure = useCallback(
+    (keyboardTop: number, open: boolean) => {
+      if (!open) {
+        setLift(0);
+        return;
+      }
+      const node = dockRef.current;
+      if (!node || typeof node.measureInWindow !== 'function') {
+        return;
+      }
+      node.measureInWindow((_x, y, _w, h) => {
+        const measuredBottom = y + h;
+        if (measuredBottom <= 1) return;
+        const restBottom = measuredBottom + liftRef.current;
+        setLift(Math.max(0, Math.round(restBottom + gap - keyboardTop)));
+      });
+    },
+    [dockRef, gap],
+  );
 
   const applyEvent = useCallback(
     (event: KeyboardEvent) => {
@@ -58,42 +79,29 @@ export function useKeyboardDockLift(
       const keyboardTop = event.endCoordinates?.screenY ?? 0;
       const open = nextHeight > OPEN_PX;
       setHeight(open ? nextHeight : 0);
+      keyboardTopRef.current = keyboardTop;
       if (!open) {
-        restBottomRef.current = 0;
         setLift(0);
         return;
       }
-
-      const fromStoredRest = () => {
-        const rest = restBottomRef.current;
-        if (rest <= 0) return;
-        setLift(Math.max(0, Math.round(rest + gap - keyboardTop)));
-      };
-
-      if (liftRef.current > 0) {
-        fromStoredRest();
-        return;
-      }
-
-      const node = dockRef.current;
-      if (!node || typeof node.measureInWindow !== 'function') {
-        fromStoredRest();
-        return;
-      }
-
-      node.measureInWindow((_x, y, _w, h) => {
-        const bottom = y + h;
-        if (bottom > 1) restBottomRef.current = bottom;
-        setLift(Math.max(0, Math.round(bottom + gap - keyboardTop)));
-      });
+      applyFromMeasure(keyboardTop, true);
     },
-    [dockRef, gap],
+    [applyFromMeasure],
   );
 
   useEffect(() => {
     const subs = subscribeKeyboard(applyEvent);
     return () => subs.forEach((sub) => sub.remove());
   }, [applyEvent]);
+
+  // Composer padding klavye ile değişince bir kare sonra yeniden ölç.
+  useEffect(() => {
+    if (height <= OPEN_PX) return;
+    const timer = setTimeout(() => {
+      applyFromMeasure(keyboardTopRef.current, true);
+    }, 48);
+    return () => clearTimeout(timer);
+  }, [applyFromMeasure, height]);
 
   return { lift, height, open: height > 0 };
 }

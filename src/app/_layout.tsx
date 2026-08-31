@@ -44,9 +44,11 @@ import { SubscriptionProvider } from '@/providers/subscription-provider';
 
 SplashScreen.preventAutoHideAsync();
 
+const FONT_WAIT_MS = 2500;
+
 export default function TabLayout() {
   const pathname = usePathname();
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -54,13 +56,21 @@ export default function TabLayout() {
     Fraunces_500Medium,
     Fraunces_600SemiBold,
   });
+  const [fontWaitOver, setFontWaitOver] = useState(false);
 
   useEffect(() => {
-    if (!fontsLoaded) return;
-    void SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsLoaded]);
+    const timer = setTimeout(() => setFontWaitOver(true), FONT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
-  if (!fontsLoaded) return null;
+  const fontsReady = fontsLoaded || !!fontError || fontWaitOver;
+
+  useEffect(() => {
+    if (!fontsReady) return;
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontsReady]);
+
+  if (!fontsReady) return null;
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -75,20 +85,14 @@ export default function TabLayout() {
 
 function RootNavigation({ pathname }: { pathname: string }) {
   const colorScheme = useColorScheme();
+  const publicRoute =
+    pathname.startsWith('/legal/') || pathname.startsWith('/auth/');
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      {pathname.startsWith('/legal/') ? (
-        <Slot />
-      ) : pathname.startsWith('/auth/') ? (
-        <AuthProvider>
-          <Slot />
-        </AuthProvider>
-      ) : (
-        <AuthProvider>
-          <AuthenticatedApp />
-        </AuthProvider>
-      )}
+      <AuthProvider>
+        {publicRoute ? <Slot /> : <AuthenticatedApp />}
+      </AuthProvider>
     </ThemeProvider>
   );
 }

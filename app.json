@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "niyetsen",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
       "usesAppleSignIn": true,
@@ -40,6 +40,9 @@
               "scheme": "niyetsen",
               "host": "auth",
               "pathPrefix": "/callback"
+            },
+            {
+              "scheme": "niyetsen"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]

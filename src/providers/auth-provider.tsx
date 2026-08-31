@@ -1,4 +1,3 @@
-import { makeRedirectUri } from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,6 +13,11 @@ import {
 } from 'react';
 import { InteractionManager, Platform } from 'react-native';
 
+import {
+  completeAuthFromUrl,
+  getAuthRedirectUri,
+  looksLikeAuthCallback,
+} from '@/lib/auth-redirect';
 import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
@@ -27,6 +31,7 @@ export type AuthFlowCode =
   | 'google_incomplete'
   | 'provider_not_enabled'
   | 'session_failed'
+  | 'recovery_expired'
   | 'generic';
 
 export class AuthFlowError extends Error {
@@ -52,10 +57,21 @@ function toAuthFlowError(error: unknown): AuthFlowError {
   if (text.includes('provider is not enabled')) {
     return new AuthFlowError('provider_not_enabled', raw);
   }
+  if (
+    text.includes('otp_expired') ||
+    text.includes('token has expired') ||
+    (text.includes('expired') && text.includes('token'))
+  ) {
+    return new AuthFlowError('recovery_expired', raw);
+  }
   if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
     return new AuthFlowError('google_incomplete', raw);
   }
   return new AuthFlowError('generic', raw);
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 type AuthContextValue = {
@@ -73,18 +89,36 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const NATIVE_REDIRECT = 'niyetsen://auth/callback';
-const redirectTo =
-  Platform.OS === 'web'
-    ? makeRedirectUri({ path: 'auth/callback' })
-    : NATIVE_REDIRECT;
+
+const SESSION_BOOT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(label)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 async function openOAuth(provider: 'google' | 'apple') {
+  const redirectTo = getAuthRedirectUri();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo,
       skipBrowserRedirect: Platform.OS !== 'web',
+      queryParams:
+        provider === 'google'
+          ? { prompt: 'select_account', access_type: 'offline' }
+          : undefined,
     },
   });
   if (error) throw toAuthFlowError(error);
@@ -94,56 +128,10 @@ async function openOAuth(provider: 'google' | 'apple') {
   if (result.type !== 'success') {
     throw new AuthFlowError('google_incomplete', 'Giriş işlemi tamamlanmadı.');
   }
-  const rawParams = result.url.includes('#')
-    ? result.url.split('#')[1]
-    : result.url.split('?')[1] ?? '';
-  const params = new URLSearchParams(rawParams);
-  const errorDescription = params.get('error_description');
-  if (errorDescription) throw new Error(errorDescription);
-
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  if (accessToken && refreshToken) {
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-    if (sessionError) throw toAuthFlowError(sessionError);
-    return;
-  }
   const exchanged = await completeAuthFromUrl(result.url);
-  if (!exchanged) {
+  if (!exchanged.handled) {
     throw new AuthFlowError('session_failed', 'Supabase oturumu alınamadı.');
   }
-}
-
-async function completeAuthFromUrl(url: string): Promise<boolean> {
-  const parsed = Linking.parse(url);
-  const query = parsed.queryParams ?? {};
-  const hash = url.includes('#') ? new URLSearchParams(url.split('#')[1]) : null;
-  const pick = (key: string): string | undefined => {
-    const fromQuery = query[key];
-    if (typeof fromQuery === 'string' && fromQuery) return fromQuery;
-    const fromHash = hash?.get(key);
-    return fromHash || undefined;
-  };
-  const code = pick('code');
-  const tokenHash = pick('token_hash') ?? pick('token');
-  const type = pick('type');
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) throw toAuthFlowError(error);
-    return true;
-  }
-  if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: type as 'signup' | 'email' | 'recovery' | 'invite',
-    });
-    if (error) throw toAuthFlowError(error);
-    return true;
-  }
-  return false;
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -153,27 +141,50 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session);
-        setLoading(false);
+
+    const applyUrl = async (url: string | null) => {
+      if (!url || !looksLikeAuthCallback(url)) return;
+      try {
+        const result = await completeAuthFromUrl(url);
+        if (mounted && result.recovery) setRecovery(true);
+      } catch (error) {
+        console.warn('OAuth geri dönüşü tamamlanamadı', error);
       }
-    });
+    };
+
+    void (async () => {
+      try {
+        const { data } = await withTimeout(
+          supabase.auth.getSession(),
+          SESSION_BOOT_MS,
+          'session_timeout',
+        );
+        if (mounted) setSession(data.session);
+      } catch (error) {
+        console.warn('Oturum okunamadı', error);
+        // Timeout'ta session'ı silme — OAuth/onAuthStateChange gelmiş olabilir.
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+      if (event === 'SIGNED_OUT') setRecovery(false);
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
-        // Hesap değişince PostHog kimliği sıfırlanır; aksi hâlde yeni hesabın
-        // event'leri önceki kullanıcıya yazılıyordu.
         resetAnalyticsIdentity();
       }
       setLoading(false);
     });
-    const linking = Linking.addEventListener('url', ({ url }) => {
-      void completeAuthFromUrl(url).catch((error) => {
-        console.warn('OAuth geri dönüşü tamamlanamadı', error);
-      });
+
+    void Linking.getInitialURL().then((url) => {
+      if (mounted) void applyUrl(url);
     });
+    const linking = Linking.addEventListener('url', ({ url }) => {
+      void applyUrl(url);
+    });
+
     return () => {
       mounted = false;
       data.subscription.unsubscribe();
@@ -194,24 +205,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [session?.user?.id]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: normalizeEmail(email),
+      password,
+    });
     if (error) throw toAuthFlowError(error);
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
+    const redirectTo = getAuthRedirectUri();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizeEmail(email),
       password,
       options: { emailRedirectTo: redirectTo },
     });
     if (error) throw toAuthFlowError(error);
-    // true = e-posta onayı bekleniyor (oturum henüz yok).
     return !data.session;
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
+      redirectTo: getAuthRedirectUri(),
     });
     if (error) throw toAuthFlowError(error);
   }, []);
@@ -247,6 +261,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     await logOutPurchases();
+    setRecovery(false);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }, []);

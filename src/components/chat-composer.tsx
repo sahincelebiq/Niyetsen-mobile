@@ -27,6 +27,8 @@ export type ChatComposerProps = {
   onAttach?: () => void;
   onClearAttachment?: () => void;
   attaching?: boolean;
+  /** Klavye açıkken tab payı düşer — aksi halde kutu klavyenin altında / üstünde çift boşluk. */
+  keyboardOpen?: boolean;
 };
 
 export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatComposer(
@@ -40,6 +42,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
     onAttach,
     onClearAttachment,
     attaching = false,
+    keyboardOpen = false,
   },
   ref,
 ) {
@@ -47,9 +50,9 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Tab payı her zaman durur — klavye lift'i kolon padding'inde.
-  // Açıkken tab inset'i düşürmek, lift 0 kalırsa kutuyu klavyenin altına indirmişti.
-  const bottomPadding = Math.max(insets.bottom, Spacing.one) + BottomTabInset;
+  const bottomPadding = keyboardOpen
+    ? Spacing.one
+    : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
     <ThemedView
