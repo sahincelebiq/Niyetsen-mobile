@@ -24,9 +24,9 @@ export type StorePrices = {
 const ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_RC_ENTITLEMENT_ID?.trim() || 'premium';
 
-const PACKAGE_IDS: Record<PurchasePlan, string | undefined> = {
-  monthly: process.env.EXPO_PUBLIC_RC_MONTHLY_PACKAGE?.trim(),
-  yearly: process.env.EXPO_PUBLIC_RC_YEARLY_PACKAGE?.trim(),
+const PACKAGE_IDS: Record<PurchasePlan, string> = {
+  monthly: process.env.EXPO_PUBLIC_RC_MONTHLY_PACKAGE?.trim() || '$rc_monthly',
+  yearly: process.env.EXPO_PUBLIC_RC_YEARLY_PACKAGE?.trim() || '$rc_annual',
 };
 
 let configured = false;
@@ -71,6 +71,35 @@ function getApiKey(): string | undefined {
 
 function isPurchasesError(error: unknown): error is PurchasesError {
   return typeof error === 'object' && error !== null && 'userCancelled' in error;
+}
+
+function purchaseErrorMessage(error: unknown): string {
+  if (isPurchasesError(error) && error.userCancelled) {
+    return 'Satın alma iptal edildi.';
+  }
+  const text = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  if (text.includes('not available') || text.includes('productnotavailable')) {
+    return 'Bu paket henüz bu cihazda görünmüyor. Play’de uygulamayı güncelleyip tekrar dene.';
+  }
+  if (text.includes('network') || text.includes('offline')) {
+    return 'Bağlantı koptu. Birazdan tekrar dene.';
+  }
+  if (text.includes('not allowed') || text.includes('purchasenotallowed')) {
+    return 'Bu Google hesabında satın alma kapalı. Lisans testi e-postasını kullan.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Satın alma tamamlanamadı. Birazdan tekrar dener misin?';
+}
+
+async function loadPackages(): Promise<PurchasesPackage[]> {
+  const first = await Purchases.getOfferings();
+  let packages = first.current?.availablePackages ?? [];
+  if (packages.length) return packages;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const second = await Purchases.getOfferings();
+  return second.current?.availablePackages ?? [];
 }
 
 function pickPackage(
@@ -138,8 +167,7 @@ export async function getStorePrices(): Promise<StorePrices> {
     return { monthly: null, yearly: null };
   }
   try {
-    const offerings = await Purchases.getOfferings();
-    const packages = offerings.current?.availablePackages ?? [];
+    const packages = await loadPackages();
     const monthly = pickPackage(packages, 'monthly');
     const yearly = pickPackage(packages, 'yearly');
     return {
@@ -191,13 +219,12 @@ export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> 
   }
 
   try {
-    const offerings = await Purchases.getOfferings();
-    const packages = offerings.current?.availablePackages ?? [];
+    const packages = await loadPackages();
     const selected = pickPackage(packages, plan);
     if (!selected) {
       return {
         ok: false,
-        message: 'Mağaza paketi bulunamadı. RevenueCat offering ayarlarını kontrol et.',
+        message: 'Mağaza paketi bulunamadı. Birazdan fiyatları yenileyip tekrar dene.',
       };
     }
 
@@ -215,10 +242,7 @@ export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> 
     if (isPurchasesError(error) && error.userCancelled) {
       return { ok: false, message: 'Satın alma iptal edildi.' };
     }
-    const message = error instanceof Error
-      ? error.message
-      : 'Satın alma tamamlanamadı. Birazdan tekrar dener misin?';
-    return { ok: false, message };
+    return { ok: false, message: purchaseErrorMessage(error) };
   }
 }
 

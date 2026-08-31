@@ -212,9 +212,10 @@ export default function ChatScreen() {
         if (!cancelled) setLoadingHistory(false);
       }
       if (cancelled || !session?.plan_has_content) return;
+      if (session.messages.length > 0) return;
       try {
         await ensureTodayPlan();
-        if (cancelled || session.messages.length > 0) return;
+        if (cancelled) return;
         const greeting = await getChatGreeting();
         if (cancelled) return;
         setMessages([{ id: 'welcome', role: 'assistant', content: greeting.message }]);

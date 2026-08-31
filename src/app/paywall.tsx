@@ -43,20 +43,30 @@ export default function PaywallScreen() {
     storeUnavailableReason() ? 'unavailable' : 'loading',
   );
 
+  function applyPrices(prices: Awaited<ReturnType<typeof getStorePrices>>) {
+    if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
+    if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
+    setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
+  }
+
   useEffect(() => {
     let mounted = true;
     void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
     if (storeUnavailableReason()) return undefined;
     void getStorePrices().then((prices) => {
-      if (!mounted) return;
-      if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
-      if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
-      setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
+      if (mounted) applyPrices(prices);
     });
     return () => {
       mounted = false;
     };
   }, []);
+
+  async function refreshPrices() {
+    setPriceState('loading');
+    setMessage(null);
+    const prices = await getStorePrices();
+    applyPrices(prices);
+  }
 
   const shouldRedirectHome = Boolean(status?.has_premium_access && !status.show_paywall);
   useEffect(() => {
@@ -148,7 +158,16 @@ export default function PaywallScreen() {
             <ThemedText themeColor="textSecondary">
               {t.paywall.body}
             </ThemedText>
-            {status?.trial_days_remaining === 0 && status.status === 'trial' ? (
+            {status?.status === 'trial' && (status.trial_days_remaining ?? 0) > 0 ? (
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.paywall.trialRemaining.replace(
+                  '{n}',
+                  String(status.trial_days_remaining),
+                )}
+              </ThemedText>
+            ) : null}
+            {(status?.trial_days_remaining === 0
+              && (status.status === 'expired' || status.status === 'trial')) ? (
               <ThemedText type="smallBold" themeColor="accentWarm">
                 {t.paywall.trialEnded}
               </ThemedText>
@@ -168,13 +187,33 @@ export default function PaywallScreen() {
                 </ThemedText>
               </View>
             ))}
+            <View style={styles.benefitRow}>
+              <View style={[styles.benefitDot, { backgroundColor: theme.accentWarm }]} />
+              <ThemedText type="small" themeColor="tint" style={styles.benefitText}>
+                {t.paywall.benefitFortune}
+              </ThemedText>
+            </View>
           </ThemedView>
 
+          {priceState === 'loading' ? (
+            <ActivityIndicator color={theme.tint} style={styles.priceSpinner} />
+          ) : null}
+
           {priceState === 'unavailable' ? (
-            <ThemedText themeColor="textSecondary" style={styles.message}>
-              {t.paywall.storeUnavailable}
-            </ThemedText>
-          ) : (
+            <ThemedView style={styles.retryBlock}>
+              <ThemedText themeColor="textSecondary" style={styles.message}>
+                {t.paywall.storeUnavailable}
+              </ThemedText>
+              <Pressable
+                onPress={() => void refreshPrices()}
+                accessibilityRole="button"
+                style={[styles.retryHit, { borderColor: theme.tint }]}>
+                <ThemedText type="smallBold" themeColor="tint">
+                  {t.paywall.retryPrices}
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          ) : priceState === 'ready' ? (
             <>
               <PlanCard
                 recommended
@@ -199,10 +238,10 @@ export default function PaywallScreen() {
                 onPress={() => void handlePurchase('monthly')}
               />
             </>
-          )}
+          ) : null}
 
           {message ? (
-            <ThemedText themeColor="textSecondary" style={styles.message}>
+            <ThemedText themeColor="danger" style={styles.message}>
               {message}
             </ThemedText>
           ) : null}
@@ -258,6 +297,7 @@ function PlanCard({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const scale = useSharedValue(1);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -283,6 +323,13 @@ function PlanCard({
         },
         animated,
       ]}>
+      {recommended ? (
+        <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]}>
+          <ThemedText type="smallBold" themeColor="tint">
+            {t.paywall.recommendedBadge}
+          </ThemedText>
+        </View>
+      ) : null}
       <ThemedText type="subtitle" themeColor={recommended ? 'tint' : 'text'}>
         {title}
       </ThemedText>
@@ -368,6 +415,25 @@ const styles = StyleSheet.create({
     borderRadius: Radii.large,
     padding: Spacing.four,
     gap: Spacing.two,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    minHeight: 28,
+    justifyContent: 'center',
+  },
+  priceSpinner: { marginVertical: Spacing.three },
+  retryBlock: { gap: Spacing.three, alignItems: 'center' },
+  retryHit: {
+    minHeight: 44,
+    minWidth: 160,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   button: {
     minHeight: 48,

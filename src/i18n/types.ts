@@ -228,9 +228,13 @@ export type Messages = {
     restoreSyncing: string;
     priceLoading: string;
     storeUnavailable: string;
+    retryPrices: string;
+    trialRemaining: string;
+    recommendedBadge: string;
     benefitPlan: string;
     benefitProof: string;
     benefitReport: string;
+    benefitFortune: string;
     terms: string;
     privacy: string;
   };
