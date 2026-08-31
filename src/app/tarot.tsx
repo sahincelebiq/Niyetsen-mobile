@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,26 +13,35 @@ import { MysticGrantButton, MysticScreenShell, useMysticColors } from '@/compone
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { trackEvent } from '@/lib/analytics';
-import { ApiError, drawTarot, getFortuneRights, type TarotDraw } from '@/lib/api';
+import { ApiError, drawTarot, getFortuneRights, isPaywallError, type TarotDraw } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
+import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
 export default function TarotScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
+  const { t } = useLocale();
   const { profile } = useProfile();
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [busy, setBusy] = useState(false);
   const [granting, setGranting] = useState(false);
   const [draw, setDraw] = useState<TarotDraw | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsPro, setNeedsPro] = useState(false);
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
 
   useEffect(() => {
     let mounted = true;
     void getFortuneRights()
       .then((rights) => {
-        if (mounted && rights.rights.tarot.used > 0) return drawTarot();
+        if (!mounted) return;
+        const tarot = rights.rights.tarot;
+        if (tarot.remaining === 0 && !rights.is_premium) {
+          setNeedsPro(true);
+          return null;
+        }
+        if (tarot.used > 0) return drawTarot();
         return null;
       })
       .then((existing) => {
@@ -57,7 +66,7 @@ export default function TarotScreen() {
         marketing: consentStatus.marketing_communications.accepted,
       });
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.mystic.grantSaveFailed);
     } finally {
       setGranting(false);
     }
@@ -66,7 +75,7 @@ export default function TarotScreen() {
   async function handleDraw() {
     if (busy) return;
     if (!aiAllowed) {
-      setError('Tarot için AI işleme onayı gerekli — aşağıdan verebilirsin.');
+      setError(t.mystic.grantNeededTarot);
       return;
     }
     setBusy(true);
@@ -77,9 +86,12 @@ export default function TarotScreen() {
       void trackEvent('mystic_secret_entry', { module: 'tarot' });
     } catch (value) {
       if (value instanceof ApiError && value.status === 403) {
-        setError('Tarot için AI işleme onayı gerekli — aşağıdan verebilirsin.');
+        setError(t.mystic.grantNeededTarot);
+      } else if (isPaywallError(value)) {
+        setNeedsPro(true);
+        setError(t.mystic.tarotQuota);
       } else {
-        setError(value instanceof Error ? value.message : 'Kartlara şu an ulaşılamıyor.');
+        setError(value instanceof Error ? value.message : t.mystic.tarotUnreachable);
       }
     } finally {
       setBusy(false);
@@ -89,8 +101,8 @@ export default function TarotScreen() {
   return (
     <MysticScreenShell
       symbol="◈"
-      title="Günlük Tarot"
-      subtitle="Her gün tek çekim: geçmiş · şimdi · niyetinin yönü. Kart bir kader değil, bir ayna."
+      title={t.mystic.tarotScreenTitle}
+      subtitle={t.mystic.tarotSubtitle}
       zodiacSign={profile?.zodiac_sign}>
       {draw === null ? (
         <>
@@ -99,7 +111,7 @@ export default function TarotScreen() {
               <Pressable
                 key={index}
                 accessibilityRole="button"
-                accessibilityLabel="Günün kartlarını çek"
+                accessibilityLabel={t.mystic.tarotDrawHint}
                 disabled={busy}
                 onPress={() => void handleDraw()}>
                 <Animated.View
@@ -132,17 +144,30 @@ export default function TarotScreen() {
               <ActivityIndicator color={colors.background} />
             ) : (
               <ThemedText type="smallBold" style={{ color: colors.background }}>
-                Günün Kartlarını Çek
+                {t.mystic.tarotDraw}
               </ThemedText>
             )}
           </Pressable>
+          {needsPro ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/paywall' as Href)}
+              style={({ pressed }) => [
+                styles.button,
+                { backgroundColor: colors.accentWarm, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: colors.background }}>
+                {t.mystic.tarotProCta}
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </>
       ) : (
         <>
           {draw.already_drawn_today ? (
             <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
               <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                BUGÜNKÜ ÇEKİMİN
+                {t.mystic.tarotToday}
               </ThemedText>
             </View>
           ) : null}
@@ -166,7 +191,7 @@ export default function TarotScreen() {
               </View>
               <ThemedText type="subtitle" style={{ color: colors.text }}>
                 {card.name}
-                {card.reversed ? ' (ters)' : ''}
+                {card.reversed ? ` ${t.mystic.tarotReversed}` : ''}
               </ThemedText>
               {card.meaning ? (
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
@@ -197,7 +222,7 @@ export default function TarotScreen() {
 
       {!aiAllowed ? (
         <MysticGrantButton
-          label="AI onayını ver ve çek"
+          label={t.mystic.grantAiTarot}
           granting={granting}
           onGrant={() => void grantAiConsent()}
         />
@@ -209,7 +234,7 @@ export default function TarotScreen() {
           onPress={() => router.push(mysticHref.chat)}
           style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" style={{ color: colors.tint }}>
-            Mistik rehberle yorumla
+            {t.mystic.interpretWithGuide}
           </ThemedText>
         </Pressable>
       ) : null}
@@ -219,7 +244,7 @@ export default function TarotScreen() {
         onPress={() => router.replace(mysticHref.chat)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
-          Mistik sohbete dön
+          {t.mystic.backToChat}
         </ThemedText>
       </Pressable>
     </MysticScreenShell>

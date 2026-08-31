@@ -38,6 +38,7 @@ import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, Motion, Radii, Spacing } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 import {
   CATEGORIES,
   getRecap,
@@ -129,7 +130,8 @@ function dashboardFromSources(
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { hasPremium } = usePremiumAccess();
+  const { t } = useLocale();
+  const { hasPaidAccess } = usePremiumAccess();
   const [period, setPeriod] = useState<RecapPeriod>('7d');
   const [mode, setMode] = useState<RecapMode>('panel');
   const [recap, setRecap] = useState<Recap | null>(null);
@@ -158,11 +160,11 @@ export default function RecapScreen() {
         setRecap(null);
         return;
       }
-      setError('Raporun şu an yüklenemedi. Birazdan tekrar dene.');
+      setError(t.common.errorGeneric);
     } finally {
       setRecapLoading(false);
     }
-  }, [period]);
+  }, [period, t]);
 
   useEffect(() => {
     void getState()
@@ -207,7 +209,8 @@ export default function RecapScreen() {
   const isClosing = card?.kind === 'closing';
   const dashboard = dashboardFromSources(recap, state)
     ?? (stateReady ? emptyDashboard() : null);
-  const storyLocked = !hasPremium || cards.length === 0;
+  const detailedLocked = period === '30d' && !hasPaidAccess;
+  const storyLocked = detailedLocked || cards.length === 0;
 
   const advance = useCallback(
     (dir: 1 | -1) => {
@@ -275,12 +278,12 @@ export default function RecapScreen() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'image/png',
-          dialogTitle: 'Niyetsen Raporunu paylaş',
+          dialogTitle: t.recap.shareTitle,
         });
       } else {
         await Share.share({
           url: uri,
-          message: 'Niyetsen Raporum',
+          message: t.recap.shareMessage,
         });
       }
     } catch {
@@ -289,7 +292,7 @@ export default function RecapScreen() {
       setSharing(false);
       setPaused(false);
     }
-  }, [sharing]);
+  }, [sharing, t]);
 
   const goBack = () => {
     if (mode === 'story') {
@@ -305,20 +308,20 @@ export default function RecapScreen() {
       <View style={styles.topBar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Geri"
+          accessibilityLabel={t.common.back}
           onPress={goBack}
           hitSlop={12}
           style={styles.backHit}>
           <ThemedText type="smallBold" themeColor="tint">
-            ‹ Geri
+            ‹ {t.common.back}
           </ThemedText>
         </Pressable>
         <View style={styles.titleBlock}>
           <ThemedText type="screenTitle" numberOfLines={1}>
-            Raporun
+            {t.recap.title}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-            {period === '7d' ? 'Son 7 günün izi' : 'Son 30 günün izi'}
+            {period === '7d' ? t.recap.period7 : t.recap.period30}
           </ThemedText>
         </View>
         {mode === 'panel' ? (
@@ -328,8 +331,8 @@ export default function RecapScreen() {
               { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
             ]}>
             {([
-              { id: '7d' as const, label: '7 gün' },
-              { id: '30d' as const, label: '30 gün' },
+              { id: '7d' as const, label: t.recap.days7 },
+              { id: '30d' as const, label: t.recap.days30 },
             ]).map((option) => {
               const active = period === option.id;
               return (
@@ -346,6 +349,7 @@ export default function RecapScreen() {
                     type="smallBold"
                     style={{ color: active ? theme.onAccent : theme.textSecondary }}>
                     {option.label}
+                    {option.id === '30d' && !hasPaidAccess ? ' · PRO' : ''}
                   </ThemedText>
                 </Pressable>
               );
@@ -354,12 +358,12 @@ export default function RecapScreen() {
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Panele dön"
+            accessibilityLabel={t.recap.backToPanel}
             onPress={closeStory}
             hitSlop={8}
             style={styles.panelLink}>
             <ThemedText type="smallBold" themeColor="tint">
-              Panel
+              {t.recap.panel}
             </ThemedText>
           </Pressable>
         )}
@@ -396,14 +400,13 @@ export default function RecapScreen() {
             ]}>
             <ThemedText style={styles.lockGlyph}>🌱</ThemedText>
             <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
-              Yolculuğunun hikâyesi burada
+              {t.recap.lockTitle}
             </ThemedText>
             <ThemedText
               type="small"
               themeColor="textSecondary"
               style={{ textAlign: 'center' }}>
-              Paneldeki kazanımların açık. Haftalık ve aylık hikâye kartları
-              PRO ile açılır — dışarı atılmazsın.
+              {t.recap.lockBody}
             </ThemedText>
             <Pressable
               accessibilityRole="button"
@@ -413,7 +416,7 @@ export default function RecapScreen() {
                 { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                PRO ile aç
+                {t.common.proCta}
               </ThemedText>
             </Pressable>
             <Pressable
@@ -422,7 +425,7 @@ export default function RecapScreen() {
               hitSlop={8}
               style={styles.panelLink}>
               <ThemedText type="small" themeColor="textSecondary">
-                Panele dön
+                {t.recap.backToPanel}
               </ThemedText>
             </Pressable>
           </View>
@@ -443,7 +446,7 @@ export default function RecapScreen() {
         <View style={styles.center}>
           <ThemedText themeColor="danger">{error}</ThemedText>
           <Pressable onPress={() => void load(period)} style={styles.retry}>
-            <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+            <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
           </Pressable>
         </View>
       ) : null}
@@ -480,7 +483,7 @@ export default function RecapScreen() {
       {mode === 'story' && isClosing && Platform.OS !== 'web' ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Raporu paylaş"
+          accessibilityLabel={t.recap.share}
           onPress={() => void shareClosing()}
           disabled={sharing}
           style={[
@@ -491,7 +494,7 @@ export default function RecapScreen() {
             },
           ]}>
           <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-            {sharing ? 'Hazırlanıyor…' : 'Paylaş'}
+            {sharing ? t.recap.sharing : t.recap.share}
           </ThemedText>
         </Pressable>
       ) : null}
@@ -505,7 +508,7 @@ export default function RecapScreen() {
           onLongPress={() => setPaused(true)}
           onPressOut={() => setPaused(false)}
           delayLongPress={180}
-          accessibilityLabel="Önceki kart"
+          accessibilityLabel={t.recap.prevCard}
         />
         <Pressable
           style={styles.tapZone}
@@ -513,7 +516,7 @@ export default function RecapScreen() {
           onLongPress={() => setPaused(true)}
           onPressOut={() => setPaused(false)}
           delayLongPress={180}
-          accessibilityLabel="Sonraki kart"
+          accessibilityLabel={t.recap.nextCard}
         />
       </View>
     </SafeAreaView>
@@ -532,6 +535,7 @@ function DashboardPanel({
   onOpenStory: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
   const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
   const emptyTrail = dashboard.completed_tasks === 0;
@@ -551,7 +555,7 @@ function DashboardPanel({
       <Animated.View entering={enter(0)}>
         <SurfaceCard hero>
           <ThemedText type="smallBold" themeColor="tint">
-            Niyetsen'de {Math.max(dashboard.days_in, 1)}. günün
+            {t.recap.dayIn(Math.max(dashboard.days_in, 1))}
           </ThemedText>
           <View style={styles.heroRow}>
             <CountUpText
@@ -559,19 +563,17 @@ function DashboardPanel({
               style={[styles.heroCount, { color: theme.tint }]}
             />
             <ThemedText type="small" themeColor="textSecondary" style={styles.heroUnit}>
-              görev tamamlandı
+              {t.recap.tasksDone}
             </ThemedText>
           </View>
           <ProgressBar progress={Math.min(dashboard.completion_rate / 100, 1)} />
           <ThemedText type="small" themeColor="textSecondary">
-            %{dashboard.completion_rate} tamamlama
-            {dashboard.proofed_tasks > 0
-              ? ` · ${dashboard.proofed_tasks} fotoğraflı kanıt`
-              : ''}
+            {t.recap.completion(dashboard.completion_rate)}
+            {dashboard.proofed_tasks > 0 ? t.recap.proofs(dashboard.proofed_tasks) : ''}
           </ThemedText>
           {emptyTrail ? (
             <ThemedText type="small" themeColor="textSecondary">
-              İlk görevin tamamlanınca burası dolacak. Acele yok — iz birikir.
+              {t.recap.emptyTrail}
             </ThemedText>
           ) : null}
         </SurfaceCard>
@@ -583,7 +585,7 @@ function DashboardPanel({
             elevated
             style={{ borderColor: theme.tint, borderWidth: StyleSheet.hairlineWidth }}>
             <ThemedText type="smallBold" themeColor="tint">
-              Ayna
+              {t.recap.mirror}
             </ThemedText>
             <ThemedText>{dashboard.mirror_line}</ThemedText>
           </SurfaceCard>
@@ -591,15 +593,15 @@ function DashboardPanel({
       ) : null}
 
       <Animated.View entering={enter(Motion.stagger * 2)} style={styles.kpiGrid}>
-        <KpiTile label="Şu anki zincir" value={`${dashboard.streak_len}`} suffix="gün" />
-        <KpiTile label="En uzun zincir" value={`${dashboard.best_streak}`} suffix="gün" />
-        <KpiTile label="Toplam puan" value={`${dashboard.total_points}`} />
+        <KpiTile label={t.recap.streakNow} value={`${dashboard.streak_len}`} suffix={t.recap.daysUnit} />
+        <KpiTile label={t.recap.streakBest} value={`${dashboard.best_streak}`} suffix={t.recap.daysUnit} />
+        <KpiTile label={t.recap.totalPoints} value={`${dashboard.total_points}`} />
       </Animated.View>
 
       <Animated.View entering={enter(Motion.stagger * 3)}>
         <SurfaceCard>
           <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-            Gelişim · son 8 hafta
+            {t.recap.growth}
           </ThemedText>
           <View style={styles.weeklyRow}>
             {dashboard.weekly_completed.map((count, i) => {
@@ -621,7 +623,7 @@ function DashboardPanel({
                     {count}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.weeklyLabel}>
-                    {last ? 'Bu hf' : ''}
+                    {last ? t.recap.thisWeek : ''}
                   </ThemedText>
                 </View>
               );
@@ -634,7 +636,7 @@ function DashboardPanel({
         <Animated.View entering={enter(Motion.stagger * 3.5)}>
           <SurfaceCard>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-              Örüntüler
+              {t.recap.patterns}
             </ThemedText>
             {dashboard.weekday_done?.some((n) => n > 0) ? (
               <WeekdayBars done={dashboard.weekday_done} missed={dashboard.weekday_missed} />
@@ -656,7 +658,7 @@ function DashboardPanel({
       <Animated.View entering={enter(Motion.stagger * 4)}>
         <SurfaceCard>
           <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-            Kazanılan yönler
+            {t.recap.gained}
           </ThemedText>
           {Object.entries(dashboard.category_counts).map(([category, count]) => (
             <View key={category} style={styles.categoryRow}>
@@ -681,7 +683,7 @@ function DashboardPanel({
           ))}
           {dashboard.plans_count > 1 ? (
             <ThemedText type="small" themeColor="textSecondary">
-              {dashboard.plans_count} niyeti birden yürütüyorsun.
+              {t.recap.multiPlan(dashboard.plans_count)}
             </ThemedText>
           ) : null}
         </SurfaceCard>
@@ -689,7 +691,7 @@ function DashboardPanel({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={locked ? 'Hikâye raporu, PRO ile açılır' : 'Hikâye olarak gör'}
+        accessibilityLabel={locked ? t.recap.openStoryLocked : t.recap.openStory}
         onPress={onOpenStory}
         style={({ pressed }) => [
           styles.storyCta,
@@ -704,24 +706,20 @@ function DashboardPanel({
             <ThemedText
               type="smallBold"
               style={{ color: locked ? theme.tint : theme.onAccent }}>
-              Hikâye olarak gör
+              {t.recap.openStory}
             </ThemedText>
             {locked ? <ProBadge /> : null}
           </View>
           <ThemedText
             type="small"
             style={{ color: locked ? theme.textSecondary : theme.onAccent }}>
-            {locked
-              ? 'Kartlar içeride kilitli — panelin açık kalır.'
-              : 'Dokunarak ilerle, uzun basınca durur.'}
+            {locked ? t.recap.openStoryLocked : t.recap.openStoryHint}
           </ThemedText>
         </View>
       </Pressable>
     </ScrollView>
   );
 }
-
-const WEEKDAY_SHORT = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
 
 function WeekdayBars({
   done,
@@ -731,12 +729,14 @@ function WeekdayBars({
   missed?: number[];
 }) {
   const theme = useTheme();
+  const { t } = useLocale();
+  const labels = t.recap.weekday;
   const doneSafe = done && done.length === 7 ? done : [0, 0, 0, 0, 0, 0, 0];
   const missedSafe = missed && missed.length === 7 ? missed : [0, 0, 0, 0, 0, 0, 0];
   const maxVal = Math.max(...doneSafe, ...missedSafe, 1);
   return (
     <View style={styles.weekdayRow}>
-      {WEEKDAY_SHORT.map((label, i) => (
+      {labels.map((label, i) => (
         <View key={label} style={styles.weekdayCol}>
           <View style={[styles.weekdayTrack, { backgroundColor: theme.progressTrack }]}>
             <View

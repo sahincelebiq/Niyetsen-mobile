@@ -130,10 +130,14 @@ export default function PaywallScreen() {
     return null;
   }
 
-  const benefits = [
+  const catalog = [
+    t.paywall.benefitChat,
     t.paywall.benefitPlan,
     t.paywall.benefitProof,
+    t.paywall.benefitPaths,
+    t.paywall.benefitFortune,
     t.paywall.benefitReport,
+    t.paywall.benefitCompanion,
   ];
 
   return (
@@ -179,7 +183,13 @@ export default function PaywallScreen() {
               styles.benefitCard,
               { borderColor: theme.border, backgroundColor: theme.backgroundElement },
             ]}>
-            {benefits.map((line) => (
+            <ThemedText type="smallBold" themeColor="tint">
+              {t.paywall.catalogFreeTitle}
+            </ThemedText>
+            <ThemedText type="smallBold" themeColor="accentWarm">
+              {t.paywall.catalogProTitle}
+            </ThemedText>
+            {catalog.map((line) => (
               <View key={line} style={styles.benefitRow}>
                 <View style={[styles.benefitDot, { backgroundColor: theme.tint }]} />
                 <ThemedText type="small" style={styles.benefitText}>
@@ -187,12 +197,6 @@ export default function PaywallScreen() {
                 </ThemedText>
               </View>
             ))}
-            <View style={styles.benefitRow}>
-              <View style={[styles.benefitDot, { backgroundColor: theme.accentWarm }]} />
-              <ThemedText type="small" themeColor="tint" style={styles.benefitText}>
-                {t.paywall.benefitFortune}
-              </ThemedText>
-            </View>
           </ThemedView>
 
           {priceState === 'loading' ? (

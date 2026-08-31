@@ -129,24 +129,71 @@ export type CompanionGrowth = {
   nextLabel: string;
 };
 
+export type CompanionLabels = {
+  filiz: string;
+  sproutMotto: string;
+  stageBaby: string;
+  stageMature: string;
+  stageAdult: string;
+  age: (n: number) => string;
+  animalNames: readonly string[];
+  animalMottos: readonly string[];
+};
+
+const DEFAULT_LABELS: CompanionLabels = {
+  filiz: 'Filiz',
+  sproutMotto: 'Küçük bir filiz; her gün bir yaprak daha.',
+  stageBaby: 'Bebek',
+  stageMature: 'Olgun',
+  stageAdult: 'Erişkin',
+  age: (n) => `Yaş ${n}`,
+  animalNames: CHAIN_ANIMALS.map((item) => item.name),
+  animalMottos: CHAIN_ANIMALS.map((item) => item.motto),
+};
+
+export function companionLabelsFromMessages(copy: {
+  filiz: string;
+  sproutMotto: string;
+  stageBaby: string;
+  stageMature: string;
+  stageAdult: string;
+  age: (n: number) => string;
+  animalNames: readonly string[];
+  animalMottos: readonly string[];
+}): CompanionLabels {
+  return {
+    filiz: copy.filiz,
+    sproutMotto: copy.sproutMotto,
+    stageBaby: copy.stageBaby,
+    stageMature: copy.stageMature,
+    stageAdult: copy.stageAdult,
+    age: copy.age,
+    animalNames: copy.animalNames,
+    animalMottos: copy.animalMottos,
+  };
+}
+
 /** Seçili yoldaşın kendi günleri — zincir kırılsa bile olgunluk silinmez. */
-export function companionGrowth(investedDays: number): CompanionGrowth {
+export function companionGrowth(
+  investedDays: number,
+  labels: CompanionLabels = DEFAULT_LABELS,
+): CompanionGrowth {
   const days = Math.max(0, Math.floor(investedDays));
   if (days < 10) {
-    return { key: 'bebek', label: 'Bebek', year: 0, nextLabel: 'Olgun' };
+    return { key: 'bebek', label: labels.stageBaby, year: 0, nextLabel: labels.stageMature };
   }
   if (days < 20) {
-    return { key: 'olgun', label: 'Olgun', year: 0, nextLabel: 'Erişkin' };
+    return { key: 'olgun', label: labels.stageMature, year: 0, nextLabel: labels.stageAdult };
   }
   if (days < 30) {
-    return { key: 'eriskin', label: 'Erişkin', year: 0, nextLabel: 'Yaş 1' };
+    return { key: 'eriskin', label: labels.stageAdult, year: 0, nextLabel: labels.age(1) };
   }
   const year = Math.max(1, Math.floor(days / 30));
   return {
     key: 'yas',
-    label: `Yaş ${year}`,
+    label: labels.age(year),
     year,
-    nextLabel: `Yaş ${year + 1}`,
+    nextLabel: labels.age(year + 1),
   };
 }
 
@@ -182,14 +229,18 @@ export function companionVisual(
   investedDays: number,
   streakDays: number,
   baseIcon = 30,
+  labels: CompanionLabels = DEFAULT_LABELS,
 ): CompanionVisual {
+  const nameOf = (index: number, fallback: string) => labels.animalNames[index] ?? fallback;
+  const mottoOf = (index: number, fallback: string) => labels.animalMottos[index] ?? fallback;
+
   if (id === SPROUT_ID) {
-    const growth = companionGrowth(investedDays);
+    const growth = companionGrowth(investedDays, labels);
     return {
       id,
       icon: sproutIcon(growth.key),
-      name: 'Filiz',
-      motto: 'Küçük bir filiz; her gün bir yaprak daha.',
+      name: labels.filiz,
+      motto: labels.sproutMotto,
       stageLabel: growth.label,
       nextLabel: growth.nextLabel,
       iconSize: growthIconSize(growth.key, baseIcon),
@@ -197,25 +248,46 @@ export function companionVisual(
   }
   if (typeof id === 'number' && id >= 0 && id < CHAIN_ANIMALS.length) {
     const animal = CHAIN_ANIMALS[id];
-    const growth = companionGrowth(investedDays);
+    const growth = companionGrowth(investedDays, labels);
     return {
       id,
       icon: animal.icon,
-      name: animal.name,
-      motto: animal.motto,
+      name: nameOf(id, animal.name),
+      motto: mottoOf(id, animal.motto),
       stageLabel: growth.label,
       nextLabel: growth.nextLabel,
       iconSize: growthIconSize(growth.key, baseIcon),
     };
   }
   const evolution = chainEvolution(streakDays);
+  const animal = evolution.animal;
+  const localizedName = nameOf(animal.index, animal.name);
+  const stageLabel =
+    evolution.stage === 'bebek'
+      ? labels.stageBaby
+      : evolution.stage === 'genc'
+        ? labels.stageMature
+        : labels.stageAdult;
+  let nextLabel = evolution.nextLabel;
+  if (evolution.stage === 'bebek') {
+    nextLabel = `${labels.stageMature} ${localizedName}`;
+  } else if (evolution.stage === 'genc') {
+    nextLabel = `${labels.stageAdult} ${localizedName}`;
+  } else {
+    const year = Math.max(1, Math.floor(Math.max(0, streakDays) / CHAIN_CYCLE_DAYS));
+    const atLast = animal.index === CHAIN_ANIMALS.length - 1;
+    const nextAnimal = CHAIN_ANIMALS[Math.min(animal.index + 1, CHAIN_ANIMALS.length - 1)];
+    nextLabel = atLast
+      ? `${labels.age(year)} ${localizedName}`
+      : `${labels.stageBaby} ${nameOf(nextAnimal.index, nextAnimal.name)}`;
+  }
   return {
     id: null,
-    icon: evolution.animal.icon,
-    name: evolution.animal.name,
-    motto: evolution.animal.motto,
-    stageLabel: STAGE_LABELS[evolution.stage],
-    nextLabel: evolution.nextLabel,
+    icon: animal.icon,
+    name: localizedName,
+    motto: mottoOf(animal.index, animal.motto),
+    stageLabel,
+    nextLabel,
     iconSize: stageIconSize(evolution.stage, baseIcon),
   };
 }

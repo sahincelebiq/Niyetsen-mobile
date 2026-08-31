@@ -41,10 +41,15 @@ export function getZodiacGlyph(sign: string | null | undefined): string {
   return ZODIAC_GLYPHS[sign] ?? '';
 }
 
-/** "Yengeç ♋" gibi birleşik etiket; burç yoksa boş döner. */
-export function zodiacLabel(sign: string | null | undefined): string {
+/** "Yengeç ♋" — etiket dile göre; backend burç adı Türkçe kalır. */
+export function zodiacLabel(
+  sign: string | null | undefined,
+  names?: Record<string, string>,
+): string {
   const glyph = getZodiacGlyph(sign);
-  return glyph && sign ? `${sign} ${glyph}` : '';
+  if (!glyph || !sign) return '';
+  const name = names?.[sign] ?? sign;
+  return `${name} ${glyph}`;
 }
 
 /**

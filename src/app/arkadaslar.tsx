@@ -27,6 +27,7 @@ import {
   leaveLeague,
 } from '@/lib/api';
 import { showConfirm } from '@/lib/web-alert';
+import { useLocale } from '@/providers/locale-provider';
 
 /**
  * faz8.13/4 — Arkadaşlar & Lig: opt-in takma adlı gelişim ligi
@@ -36,6 +37,7 @@ import { showConfirm } from '@/lib/web-alert';
  */
 export default function LeagueScreen() {
   const theme = useTheme();
+  const { t } = useLocale();
   const screenInsets = useScreenInsets();
   const [league, setLeague] = useState<League | null>(null);
   const [alias, setAlias] = useState('');
@@ -55,13 +57,13 @@ export default function LeagueScreen() {
       setLeague(await getLeague());
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Lig şu an yüklenemedi — tekrar dene.',
+        err instanceof ApiError ? err.message : t.league.loadFailed,
       );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -78,22 +80,22 @@ export default function LeagueScreen() {
       setLeague(await joinLeague(cleaned));
       setAlias('');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Katılım başarısız — tekrar dene.');
+      setError(err instanceof ApiError ? err.message : t.league.joinFailed);
     } finally {
       setBusy(false);
     }
   }
 
   function confirmLeave() {
-    showConfirm('Ligden ayrıl', 'Rumuzun ve puanın listeden tamamen silinir. Emin misin?', {
-      confirmLabel: 'Ayrıl',
+    showConfirm(t.league.leaveTitle, t.league.leaveBody, {
+      confirmLabel: t.league.leaveAction,
       onConfirm: () => {
         void (async () => {
           setBusy(true);
           try {
             setLeague(await leaveLeague());
           } catch {
-            setError('Ayrılma işlemi başarısız — tekrar dene.');
+            setError(t.league.leaveFailed);
           } finally {
             setBusy(false);
           }
@@ -105,27 +107,25 @@ export default function LeagueScreen() {
   const header = (
     <View style={styles.headerBlock}>
       <ScreenHeader
-        title="Arkadaşlar & Lig"
-        subtitle="Gelişim rekabeti — rumuzunla katıl, zincirin ve puanınla yüksel."
+        title={t.league.title}
+        subtitle={t.league.subtitle}
       />
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
       {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
 
       {!loading && league && !league.opted_in ? (
         <SurfaceCard elevated>
-          <ThemedText type="subtitle">Lige katıl</ThemedText>
+          <ThemedText type="subtitle">{t.league.joinTitle}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Katılım tamamen isteğe bağlı. Gerçek adın ve verilerin GÖRÜNMEZ —
-            yalnız seçtiğin rumuz, toplam puanın ve zincir uzunluğun listelenir.
-            İstediğin an ayrılabilirsin; kaydın tamamen silinir.
+            {t.league.joinBody}
           </ThemedText>
           <TextInput
             value={alias}
             onChangeText={setAlias}
-            placeholder="Rumuzun (ör. Kartal 34)"
+            placeholder={t.league.aliasPlaceholder}
             placeholderTextColor={theme.textSecondary}
             maxLength={24}
-            accessibilityLabel="Lig rumuzu"
+            accessibilityLabel={t.league.aliasA11y}
             style={[
               styles.aliasInput,
               { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
@@ -146,7 +146,7 @@ export default function LeagueScreen() {
               <ActivityIndicator color={theme.onAccent} />
             ) : (
               <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                Rumuzla katıl
+                {t.league.joinCta}
               </ThemedText>
             )}
           </Pressable>
@@ -160,19 +160,19 @@ export default function LeagueScreen() {
               <ThemedText type="smallBold">☘ {league.alias}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {league.my_rank
-                  ? `Şu an ${league.my_rank}. sıradasın — zincirin seni taşıyor.`
-                  : 'Sıralaman ilk 50 dışında — her görev +50 puan.'}
+                  ? t.league.ranked(league.my_rank)
+                  : t.league.unranked}
               </ThemedText>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Ligden ayrıl"
+              accessibilityLabel={t.league.leaveA11y}
               disabled={busy}
               onPress={confirmLeave}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={({ pressed }) => [styles.leaveButton, pressed && { opacity: 0.6 }]}>
               <ThemedText type="small" themeColor="textSecondary">
-                Ayrıl
+                {t.league.leaveAction}
               </ThemedText>
             </Pressable>
           </View>
@@ -181,10 +181,9 @@ export default function LeagueScreen() {
 
       {!loading && league && league.members.length === 0 ? (
         <SurfaceCard>
-          <ThemedText type="subtitle">Lig yeni kuruluyor 🌱</ThemedText>
+          <ThemedText type="subtitle">{t.league.emptyTitle}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            İlk katılanlardan ol — arkadaşlarını davet et, gelişim yolculuğunuzu
-            birlikte sürdürün.
+            {t.league.emptyBody}
           </ThemedText>
         </SurfaceCard>
       ) : null}
@@ -211,6 +210,7 @@ export default function LeagueScreen() {
 
 function MemberRow({ member }: { member: LeagueMember }) {
   const theme = useTheme();
+  const { t } = useLocale();
   const medal = member.rank === 1 ? '🥇' : member.rank === 2 ? '🥈' : member.rank === 3 ? '🥉' : null;
   return (
     <View
@@ -227,10 +227,10 @@ function MemberRow({ member }: { member: LeagueMember }) {
       <View style={styles.memberText}>
         <ThemedText type="smallBold" numberOfLines={1}>
           {member.alias}
-          {member.is_me ? ' (sen)' : ''}
+          {member.is_me ? t.league.youSuffix : ''}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          🔥 {member.streak} günlük zincir
+          {t.league.streakDays(member.streak)}
         </ThemedText>
       </View>
       <ThemedText type="smallBold" themeColor="tint">

@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProBadge } from '@/components/pro-badge';
-import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { SurfaceCard } from '@/components/ui/surface-card';
@@ -33,21 +32,18 @@ import {
   type PathDetailSection,
 } from '@/lib/api';
 import { setPendingChatMessage } from '@/lib/pending-chat';
+import { useLocale } from '@/providers/locale-provider';
 
-const SECTION_TITLES: Record<string, string> = {
-  core_beliefs: 'Temel inançlar',
-  mindset: 'Zihin yapısı',
-  habits: 'Alışkanlıklar',
-  daily_routine: 'Günlük rutin',
-  decision_style: 'Karar stili',
-  failure_and_recovery: 'Düşüş ve toparlanma',
-  lessons_for_users: 'Sana dersler',
-  books: 'Kitaplar / kaynaklar',
-};
-
-function sectionTitle(key: string): string {
-  return SECTION_TITLES[key] ?? key.split('_').join(' ');
-}
+const SECTION_KEYS = [
+  'core_beliefs',
+  'mindset',
+  'habits',
+  'daily_routine',
+  'decision_style',
+  'failure_and_recovery',
+  'lessons_for_users',
+  'books',
+] as const;
 
 function SectionBody({ value }: { value: string | string[] }) {
   if (Array.isArray(value)) {
@@ -75,8 +71,9 @@ function SectionBody({ value }: { value: string | string[] }) {
  */
 export default function PathDetailScreen() {
   const theme = useTheme();
+  const { t } = useLocale();
   const router = useRouter();
-  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
+  const { hasPaidAccess, loading: premiumLoading } = usePremiumAccess();
   const params = useLocalSearchParams<{ slug?: string }>();
   const slug = useMemo(() => {
     const raw = params.slug;
@@ -89,33 +86,22 @@ export default function PathDetailScreen() {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    if (!slug || !hasPremium) return;
+    if (!slug) return;
     setLoading(true);
     setError(null);
     try {
       setDetail(await getPathDetail(slug));
     } catch (value) {
-      if (isPaywallError(value)) {
-        setDetail(null);
-        setError(null);
-        return;
-      }
-      setError(value instanceof ApiError ? value.message : 'Yol detayı yüklenemedi.');
+      setError(value instanceof ApiError ? value.message : t.paths.detailLoadFailed);
       setDetail(null);
     } finally {
       setLoading(false);
     }
-  }, [hasPremium, slug]);
+  }, [slug]);
 
   useEffect(() => {
-    if (premiumLoading) return;
-    if (!hasPremium) {
-      setDetail(null);
-      setLoading(false);
-      return;
-    }
     void load();
-  }, [hasPremium, load, premiumLoading]);
+  }, [load]);
 
   async function applyToPlan() {
     if (!detail) return;
@@ -123,6 +109,10 @@ export default function PathDetailScreen() {
       module: 'felsefe_yolu_uygula',
       path: detail.name,
     });
+    if (!hasPaidAccess) {
+      router.push('/paywall' as Href);
+      return;
+    }
     try {
       await activatePhilosophyPath(detail.slug || slug);
     } catch (value) {
@@ -131,17 +121,13 @@ export default function PathDetailScreen() {
         return;
       }
     }
-    setPendingChatMessage(
-      `${detail.name} ile ilerlemek istiyorum — ${detail.tagline}. Bu yolu niyetime işler misin?`,
-      true,
-    );
+    setPendingChatMessage(t.paths.startChat(detail.name, detail.tagline), true);
     router.replace('/' as Href);
   }
 
-  const locked = !premiumLoading && !hasPremium;
+  const activateLocked = !premiumLoading && !hasPaidAccess;
   const sourceNote =
-    detail?.source_note ||
-    'Bu yol kamuya açık yaklaşımlardan ilham alır; anılan kişilerle bağlantılı değildir.';
+    detail?.source_note || t.paths.sourceFallback;
 
   return (
     <ThemedView style={styles.flex}>
@@ -149,20 +135,20 @@ export default function PathDetailScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Geri"
+            accessibilityLabel={t.common.back}
             hitSlop={12}
             onPress={() => router.back()}
             style={styles.back}>
             <ThemedText type="smallBold" themeColor="tint">
-              ← Yollar
+              {t.paths.back}
             </ThemedText>
           </Pressable>
 
           <View style={styles.titleRow}>
             <ThemedText type="screenTitle" style={{ fontFamily: Fonts.serif, flex: 1 }}>
-              {detail?.name ?? 'Felsefe yolu'}
+              {detail?.name ?? t.paths.fallbackTitle}
             </ThemedText>
-            {locked ? <ProBadge /> : null}
+            {activateLocked ? <ProBadge /> : null}
           </View>
           {detail?.tagline ? (
             <ThemedText type="small" themeColor="textSecondary">
@@ -170,22 +156,20 @@ export default function PathDetailScreen() {
             </ThemedText>
           ) : null}
 
-          {locked ? (
+          {activateLocked ? (
             <View
               style={[
                 styles.lockCard,
                 { backgroundColor: theme.backgroundElement, borderColor: theme.border },
               ]}>
-              <ThemedText style={styles.lockGlyph}>{sproutGlyph(2)}</ThemedText>
-              <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
-                Yolun iç yüzü burada
+              <ThemedText type="smallBold" style={{ color: theme.tint, textAlign: 'center' }}>
+                {t.paths.detailLockTitle}
               </ThemedText>
               <ThemedText
                 type="small"
                 themeColor="textSecondary"
                 style={{ textAlign: 'center' }}>
-                Alışkanlıklar, rutin, karar stili ve dersler — PRO ile açılır.
-                Sonra sohbete bağlayıp niyetine işlersin.
+                {t.paths.detailLockBody}
               </ThemedText>
               <Pressable
                 accessibilityRole="button"
@@ -195,13 +179,13 @@ export default function PathDetailScreen() {
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  PRO ile aç
+                  {t.paths.applyPro}
                 </ThemedText>
               </Pressable>
             </View>
           ) : null}
 
-          {(premiumLoading || loading) && !locked ? (
+          {(premiumLoading || loading) && !detail ? (
             <ActivityIndicator color={theme.tint} style={{ marginTop: Spacing.four }} />
           ) : null}
 
@@ -209,17 +193,17 @@ export default function PathDetailScreen() {
             <View style={styles.errorBlock}>
               <ThemedText themeColor="danger">{error}</ThemedText>
               <Pressable onPress={() => void load()} hitSlop={12}>
-                <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+                <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
               </Pressable>
             </View>
           ) : null}
 
-          {detail && hasPremium ? (
+          {detail ? (
             <>
               {detail.philosophy ? (
                 <SurfaceCard style={styles.card}>
                   <ThemedText type="smallBold" themeColor="textSecondary">
-                    FELSEFE
+                    {t.paths.philosophy}
                   </ThemedText>
                   <ThemedText type="small">{detail.philosophy}</ThemedText>
                 </SurfaceCard>
@@ -228,7 +212,9 @@ export default function PathDetailScreen() {
               {detail.sections.map((section: PathDetailSection) => (
                 <SurfaceCard key={section.key} style={styles.card}>
                   <ThemedText type="subtitle" style={{ fontFamily: Fonts.serifMedium }}>
-                    {sectionTitle(section.key)}
+                    {SECTION_KEYS.includes(section.key as (typeof SECTION_KEYS)[number])
+                      ? t.paths[section.key as (typeof SECTION_KEYS)[number]]
+                      : section.key.split('_').join(' ')}
                   </ThemedText>
                   <SectionBody value={section.value} />
                 </SurfaceCard>
@@ -236,14 +222,14 @@ export default function PathDetailScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Bu yolu planıma uygula"
+                accessibilityLabel={t.paths.apply}
                 onPress={applyToPlan}
                 style={({ pressed }) => [
                   styles.applyCta,
                   { backgroundColor: theme.accentWarm, opacity: pressed ? 0.88 : 1 },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  Bu yolu planıma uygula
+                  {activateLocked ? t.paths.applyPro : t.paths.apply}
                 </ThemedText>
               </Pressable>
             </>

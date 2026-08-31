@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
 import { Slot, Stack, usePathname, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, InteractionManager, Pressable, StyleSheet, useColorScheme, View,
 } from 'react-native';
@@ -32,12 +32,12 @@ import {
   openLastNotificationResponse,
 } from '@/lib/push-notifications';
 import { trackEvent } from '@/lib/analytics';
-import { pingHealth } from '@/lib/api';
+import { pingHealth, updateProfile } from '@/lib/api';
 import { initSentry } from '@/lib/sentry';
 import { Motion } from '@/constants/theme';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
-import { isAppLocale } from '@/i18n/catalog';
+import { coerceAppLocale } from '@/i18n/catalog';
 import { LocaleProvider, useI18n } from '@/providers/locale-provider';
 import { ProfileProvider, useProfile } from '@/providers/profile-provider';
 import { SubscriptionProvider } from '@/providers/subscription-provider';
@@ -121,14 +121,56 @@ function ProfileGate() {
   const { profile, loading, error, offline, refresh } = useProfile();
   const { signOut } = useAuth();
   const theme = useTheme();
-  const { t, setLocale } = useI18n();
+  const { t, locale, timezone, setLocale, hasStoredPreference, ready: localeReady } = useI18n();
   const [retrying, setRetrying] = useState(false);
+  const syncedLocaleRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const lang = profile?.preferred_language;
-    if (!isAppLocale(lang)) return;
-    void setLocale(lang).catch(() => undefined);
-  }, [profile?.preferred_language, setLocale]);
+    if (!localeReady || !profile) return;
+    const profileLang = coerceAppLocale(profile.preferred_language);
+
+    // Yeni cihaz: kayıtlı yerel tercih yoksa profil dili UI'ya gelir.
+    if (!hasStoredPreference && profileLang && profileLang !== locale) {
+      void setLocale(profileLang).catch(() => undefined);
+      return;
+    }
+
+    // Giriş/Profil seçici kazansın — eski tr profili Almanca seçimi ezmesin.
+    if (!hasStoredPreference) return;
+    if (profileLang === locale) {
+      syncedLocaleRef.current = locale;
+      return;
+    }
+    if (!profile.name || !profile.birth_date) return;
+    // Aynı dile ikinci PATCH yok — refresh gecikirse döngü oluşmasın.
+    if (syncedLocaleRef.current === locale) return;
+    syncedLocaleRef.current = locale;
+    void updateProfile({
+      name: profile.name,
+      birth_date: profile.birth_date,
+      timezone: profile.timezone || timezone,
+      preferred_language: locale,
+      notif_hour: profile.notif_hour ?? 8,
+      notif_minute: profile.notif_minute ?? 0,
+      irade_modu_active: profile.irade_modu_active ?? false,
+      gender: profile.gender,
+    })
+      .then(() => refresh())
+      .catch(() => {
+        syncedLocaleRef.current = null;
+      });
+  }, [
+    localeReady,
+    hasStoredPreference,
+    locale,
+    timezone,
+    profile,
+    profile?.preferred_language,
+    profile?.name,
+    profile?.birth_date,
+    refresh,
+    setLocale,
+  ]);
 
   async function retry() {
     setRetrying(true);

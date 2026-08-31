@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { DevSettings, I18nManager, Platform } from 'react-native';
 
-import { isAppLocale, messagesFor } from '@/i18n/catalog';
+import { coerceAppLocale, messagesFor } from '@/i18n/catalog';
 import { regionById, regionByLocale, REGIONS } from '@/i18n/regions';
 import type { AppLocale, Messages, RegionId } from '@/i18n/types';
 import { setApiLocale } from '@/lib/api-locale';
@@ -25,6 +25,8 @@ type LocaleContextValue = {
   t: Messages;
   ready: boolean;
   isRtl: boolean;
+  /** Cihazda bir dil seçilmiş / kaydedilmiş — profil bunu ezemez. */
+  hasStoredPreference: boolean;
   setLocale: (locale: AppLocale) => Promise<void>;
   setRegion: (regionId: RegionId) => Promise<void>;
   /**
@@ -62,6 +64,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<AppLocale>('tr');
   const [regionId, setRegionState] = useState<RegionId>('TR');
   const [ready, setReady] = useState(false);
+  const [hasStoredPreference, setHasStoredPreference] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,15 +75,17 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
           AsyncStorage.getItem(STORAGE_REGION),
         ]);
         if (cancelled) return;
+        const coerced = coerceAppLocale(storedLocale);
         const region = storedRegion
           ? regionById(storedRegion)
-          : isAppLocale(storedLocale)
-            ? regionByLocale(storedLocale)
+          : coerced
+            ? regionByLocale(coerced)
             : REGIONS[0];
-        const nextLocale = isAppLocale(storedLocale) ? storedLocale : region.locale;
+        const nextLocale = coerced ?? region.locale;
         setRegionState(region.id);
         setLocaleState(nextLocale);
         setApiLocale(nextLocale);
+        if (storedLocale || storedRegion) setHasStoredPreference(true);
         // Soğuk açılışta kaydedilmiş RTL'i uygula (önceki oturumda onaylanmış).
         applyRtl(nextLocale);
       } finally {
@@ -101,6 +106,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setLocaleState(nextLocale);
     setRegionState(nextRegion);
     setApiLocale(nextLocale);
+    setHasStoredPreference(true);
     applyRtl(nextLocale);
     await Promise.all([
       AsyncStorage.setItem(STORAGE_LOCALE, nextLocale),
@@ -117,6 +123,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setLocaleState(next);
     setApiLocale(next);
     setRegionState(matched.id);
+    setHasStoredPreference(true);
     await Promise.all([
       AsyncStorage.setItem(STORAGE_LOCALE, next),
       AsyncStorage.setItem(STORAGE_REGION, matched.id),
@@ -132,6 +139,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setRegionState(region.id);
     setLocaleState(region.locale);
     setApiLocale(region.locale);
+    setHasStoredPreference(true);
     await Promise.all([
       AsyncStorage.setItem(STORAGE_REGION, region.id),
       AsyncStorage.setItem(STORAGE_LOCALE, region.locale),
@@ -146,6 +154,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       t: messagesFor(locale),
       ready,
       isRtl: isRtlLocale(locale),
+      hasStoredPreference,
       setLocale,
       setRegion,
       wouldChangeRtl,
@@ -156,6 +165,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       locale,
       regionId,
       ready,
+      hasStoredPreference,
       setLocale,
       setRegion,
       wouldChangeRtl,

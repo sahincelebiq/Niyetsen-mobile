@@ -12,10 +12,11 @@ import { useI18n } from '@/providers/locale-provider';
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = scheme === 'dark' ? Colors.dark : Colors.light;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   return (
     <NativeTabs
+      key={locale}
       backgroundColor={colors.backgroundElement}
       indicatorColor={colors.backgroundSelected}
       labelStyle={{

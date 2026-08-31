@@ -24,12 +24,16 @@ import { useLocale } from '@/providers/locale-provider';
 import { supabaseConfigured } from '@/lib/supabase';
 
 type Mode = 'sign-in' | 'sign-up';
+type Step = 'form' | 'otp';
 
 export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
   const { t, regionId, setRegion } = useLocale();
   const [mode, setMode] = useState<Mode>('sign-in');
+  const [step, setStep] = useState<Step>('form');
+  const [otpPurpose, setOtpPurpose] = useState<'recovery' | 'signup'>('recovery');
+  const [otp, setOtp] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -57,6 +61,7 @@ export function AuthScreen() {
           provider_not_enabled: t.auth.providerNotEnabled,
           session_failed: t.auth.sessionFailed,
           recovery_expired: t.auth.recoveryExpired,
+          invalid_otp: t.auth.invalidOtp,
           generic: value.message || t.common.errorGeneric,
         }[value.code];
         setError(mapped);
@@ -70,19 +75,50 @@ export function AuthScreen() {
   }
 
   function submitEmail() {
-    if ((!auth.recovery && !email.trim()) || password.length < 6) {
+    if (auth.recovery) {
+      if (password.length < 6) {
+        setError(t.auth.invalidCredentials);
+        return;
+      }
+      void run('email', async () => {
+        await auth.updatePassword(password);
+        setMessage(t.auth.passwordUpdated);
+        setStep('form');
+        setOtp('');
+      });
+      return;
+    }
+    if (!email.trim() || password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
     }
     void run('email', async () => {
-      if (auth.recovery) {
-        await auth.updatePassword(password);
-        setMessage(t.auth.passwordUpdated);
-      } else if (mode === 'sign-in') {
+      if (mode === 'sign-in') {
         await auth.signInWithEmail(normalizedEmail(), password);
       } else {
         const needsVerification = await auth.signUpWithEmail(normalizedEmail(), password);
-        if (needsVerification) setMessage(t.auth.verifySent);
+        if (needsVerification) {
+          setOtpPurpose('signup');
+          setStep('otp');
+          setOtp('');
+          setMessage(t.auth.otpSent);
+        }
+      }
+    });
+  }
+
+  function submitOtp() {
+    if (!normalizedEmail() || otp.replace(/\s/g, '').length < 6) {
+      setError(t.auth.invalidOtp);
+      return;
+    }
+    void run('otp', async () => {
+      await auth.verifyEmailOtp(normalizedEmail(), otp, otpPurpose);
+      setMessage(otpPurpose === 'recovery' ? t.auth.newPasswordHint : t.auth.passwordUpdated);
+      if (otpPurpose === 'recovery') {
+        setStep('form');
+        setOtp('');
+        setPassword('');
       }
     });
   }
@@ -98,15 +134,18 @@ export function AuthScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <View style={styles.topBar}>
-              <View style={styles.langWrap}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {t.auth.languageRegion}
+              <ThemedView
+                type="backgroundElement"
+                style={[styles.langCard, { borderColor: theme.tint }]}>
+                <ThemedText type="smallBold">{t.auth.languageRegion}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.auth.languageRegionHint}
                 </ThemedText>
                 <RegionLanguageSheet
                   value={regionId}
                   onChange={(id) => void setRegion(id)}
                 />
-              </View>
+              </ThemedView>
             </View>
 
             <View style={styles.hero}>
@@ -132,11 +171,81 @@ export function AuthScreen() {
               <ThemedText type="subtitle">
                 {auth.recovery
                   ? t.auth.newPassword
-                  : mode === 'sign-in'
-                    ? t.auth.welcomeBack
-                    : t.auth.startJourney}
+                  : step === 'otp'
+                    ? t.auth.otpVerify
+                    : mode === 'sign-in'
+                      ? t.auth.welcomeBack
+                      : t.auth.startJourney}
               </ThemedText>
 
+              {auth.recovery ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.auth.newPasswordHint}
+                </ThemedText>
+              ) : null}
+
+              {step === 'otp' && !auth.recovery ? (
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {t.auth.otpHint}
+                  </ThemedText>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    placeholder={t.auth.otpPlaceholder}
+                    placeholderTextColor={theme.textSecondary}
+                    value={otp}
+                    onChangeText={(value) => setOtp(value.replace(/[^\d]/g, '').slice(0, 6))}
+                    onSubmitEditing={submitOtp}
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: theme.border,
+                        color: theme.text,
+                        fontFamily: Fonts.sans,
+                        letterSpacing: 6,
+                        textAlign: 'center',
+                      },
+                    ]}
+                  />
+                  {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+                  {message && <ThemedText themeColor="success">{message}</ThemedText>}
+                  <AuthButton
+                    label={t.auth.otpVerify}
+                    busy={busy === 'otp'}
+                    onPress={submitOtp}
+                    primary
+                  />
+                  <Pressable
+                    disabled={!!busy}
+                    onPress={() => {
+                      void run('reset', async () => {
+                        await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
+                        setMessage(t.auth.otpSent);
+                      });
+                    }}>
+                    <ThemedText type="small" themeColor="tint" style={styles.center}>
+                      {t.auth.otpResend}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    disabled={!!busy}
+                    onPress={() => {
+                      setStep('form');
+                      setOtp('');
+                      setError(null);
+                      setMessage(null);
+                    }}>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+                      {t.common.back}
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : (
+                <>
               {!auth.recovery && (
                 <TextInput
                   autoCapitalize="none"
@@ -197,6 +306,7 @@ export function AuthScreen() {
                 busy={busy === 'email'}
                 onPress={submitEmail}
                 primary
+                warm={mode === 'sign-up' && !auth.recovery}
               />
 
               {mode === 'sign-in' && !auth.recovery && (
@@ -208,8 +318,11 @@ export function AuthScreen() {
                       return;
                     }
                     void run('reset', async () => {
-                      await auth.resetPassword(normalizedEmail());
-                      setMessage(t.auth.resetLinkSent);
+                      await auth.sendEmailOtp(normalizedEmail(), 'recovery');
+                      setOtpPurpose('recovery');
+                      setStep('otp');
+                      setOtp('');
+                      setMessage(t.auth.otpSent);
                     });
                   }}>
                   <ThemedText type="small" themeColor="tint" style={styles.center}>
@@ -217,8 +330,10 @@ export function AuthScreen() {
                   </ThemedText>
                 </Pressable>
               )}
+                </>
+              )}
 
-              {!auth.recovery && (
+              {step !== 'otp' && !auth.recovery && (
                 <>
                   <View style={styles.dividerRow}>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -245,6 +360,8 @@ export function AuthScreen() {
                       setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
                       setError(null);
                       setMessage(null);
+                      setStep('form');
+                      setOtp('');
                     }}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
                       {mode === 'sign-in'
@@ -303,14 +420,18 @@ function AuthButton({
   onPress,
   primary = false,
   highlighted = false,
+  warm = false,
 }: {
   label: string;
   busy: boolean;
   onPress: () => void;
   primary?: boolean;
   highlighted?: boolean;
+  warm?: boolean;
 }) {
   const theme = useTheme();
+  const fill = primary ? (warm ? theme.accentWarm : theme.tint) : theme.background;
+  const onFill = primary ? theme.onAccent : highlighted ? theme.tint : theme.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -319,9 +440,9 @@ function AuthButton({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: primary ? theme.accentWarm : theme.background,
+          backgroundColor: fill,
           borderColor: primary
-            ? theme.accentWarm
+            ? fill
             : highlighted
               ? theme.tint
               : theme.border,
@@ -334,7 +455,7 @@ function AuthButton({
       ) : (
         <ThemedText
           type="smallBold"
-          style={{ color: primary ? theme.onAccent : highlighted ? theme.tint : theme.text }}>
+          style={{ color: onFill }}>
           {label}
         </ThemedText>
       )}
@@ -356,6 +477,12 @@ const styles = StyleSheet.create({
   },
   topBar: {
     alignItems: 'stretch',
+  },
+  langCard: {
+    borderWidth: 1.5,
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+    gap: Spacing.two,
   },
   langWrap: {
     gap: Spacing.one,

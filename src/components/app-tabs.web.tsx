@@ -15,9 +15,9 @@ import { BottomTabInset, MaxContentWidth, Shadows, Spacing } from '@/constants/t
 import { useI18n } from '@/providers/locale-provider';
 
 export default function AppTabs() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
-    <Tabs>
+    <Tabs key={locale}>
       <TabSlot style={{ height: '100%', paddingBottom: BottomTabInset }} />
       <TabList asChild>
         <CustomTabList>

@@ -32,6 +32,7 @@ export type AuthFlowCode =
   | 'provider_not_enabled'
   | 'session_failed'
   | 'recovery_expired'
+  | 'invalid_otp'
   | 'generic';
 
 export class AuthFlowError extends Error {
@@ -64,6 +65,14 @@ function toAuthFlowError(error: unknown): AuthFlowError {
   ) {
     return new AuthFlowError('recovery_expired', raw);
   }
+  if (
+    text.includes('invalid otp') ||
+    text.includes('token not found') ||
+    text.includes('otp_disabled') ||
+    (text.includes('invalid') && (text.includes('otp') || text.includes('token')))
+  ) {
+    return new AuthFlowError('invalid_otp', raw);
+  }
   if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
     return new AuthFlowError('google_incomplete', raw);
   }
@@ -82,6 +91,8 @@ type AuthContextValue = {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
+  sendEmailOtp: (email: string, purpose: 'recovery' | 'signup') => Promise<void>;
+  verifyEmailOtp: (email: string, token: string, purpose: 'recovery' | 'signup') => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
@@ -223,12 +234,60 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return !data.session;
   }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
-      redirectTo: getAuthRedirectUri(),
+  const sendEmailOtp = useCallback(async (email: string, purpose: 'recovery' | 'signup') => {
+    const normalized = normalizeEmail(email);
+    const redirectTo = getAuthRedirectUri();
+    if (purpose === 'signup') {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: normalized,
+        options: { emailRedirectTo: redirectTo },
+      });
+      if (error) throw toAuthFlowError(error);
+      return;
+    }
+    // Şifre unuttum: 6 haneli OTP (şablon {{ .Token }}). Magic-link yedek değil —
+    // kapalı testte deep link kırılıyordu.
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalized,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: redirectTo,
+      },
     });
     if (error) throw toAuthFlowError(error);
   }, []);
+
+  const resetPassword = useCallback(
+    async (email: string) => {
+      await sendEmailOtp(email, 'recovery');
+    },
+    [sendEmailOtp],
+  );
+
+  const verifyEmailOtp = useCallback(
+    async (email: string, token: string, purpose: 'recovery' | 'signup') => {
+      const normalized = normalizeEmail(email);
+      const code = token.replace(/\s/g, '');
+      const order: Array<'recovery' | 'email' | 'signup'> =
+        purpose === 'signup' ? ['signup', 'email'] : ['email', 'recovery'];
+      let lastError: unknown;
+      for (const type of order) {
+        const { error } = await supabase.auth.verifyOtp({
+          email: normalized,
+          token: code,
+          type,
+        });
+        if (!error) {
+          if (purpose === 'recovery') setRecovery(true);
+          return;
+        }
+        lastError = error;
+      }
+      throw toAuthFlowError(lastError);
+    },
+    [],
+  );
 
   const updatePassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password });
@@ -275,6 +334,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithEmail,
       signUpWithEmail,
       resetPassword,
+      sendEmailOtp,
+      verifyEmailOtp,
       updatePassword,
       signInWithGoogle,
       signInWithApple,
@@ -284,6 +345,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       loading,
       recovery,
       resetPassword,
+      sendEmailOtp,
       session,
       signInWithApple,
       signInWithEmail,
@@ -291,6 +353,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       signUpWithEmail,
       updatePassword,
+      verifyEmailOtp,
     ],
   );
 

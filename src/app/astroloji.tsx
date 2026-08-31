@@ -16,11 +16,13 @@ import { getZodiacGlyph } from '@/constants/zodiac';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, getDailyHoroscope, type Horoscope } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
+import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
 export default function AstrologyScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
+  const { t } = useLocale();
   const { profile } = useProfile();
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const [loading, setLoading] = useState(true);
@@ -43,9 +45,9 @@ export default function AstrologyScreen() {
       if (value instanceof ApiError && value.status === 400) {
         setNeedsProfile(true);
       } else if (value instanceof ApiError && value.status === 403) {
-        setError('Günlük burç için Ayarlar > Gizlilik bölümünden AI işleme onayı gerekli.');
+        setError(t.mystic.astroConsent);
       } else {
-        setError(value instanceof Error ? value.message : 'Gökyüzüne şu an ulaşılamıyor.');
+        setError(value instanceof Error ? value.message : t.mystic.astroUnreachable);
       }
     } finally {
       setLoading(false);
@@ -64,7 +66,7 @@ export default function AstrologyScreen() {
       });
       await load(period);
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.mystic.grantSaveFailed);
     } finally {
       setGranting(false);
     }
@@ -77,7 +79,7 @@ export default function AstrologyScreen() {
   return (
     <MysticScreenShell
       symbol="✦"
-      title={period === 'weekly' ? 'Haftalık Burç' : 'Günlük Burç'}
+      title={period === 'weekly' ? t.mystic.astroWeekly : t.mystic.astroDaily}
       zodiacSign={profile?.zodiac_sign}>
       <View style={styles.periodRow}>
         {(['daily', 'weekly'] as const).map((target) => (
@@ -96,7 +98,7 @@ export default function AstrologyScreen() {
             <ThemedText
               type="smallBold"
               style={{ color: period === target ? colors.background : colors.tint }}>
-              {target === 'daily' ? 'Bugün' : 'Bu Hafta'}
+              {target === 'daily' ? t.mystic.astroToday : t.mystic.astroThisWeek}
             </ThemedText>
           </Pressable>
         ))}
@@ -110,7 +112,9 @@ export default function AstrologyScreen() {
           style={styles.resultBlock}>
           <View style={[styles.badge, { backgroundColor: colors.backgroundSelected }]}>
             <ThemedText type="smallBold" style={{ color: colors.tint }}>
-              {getZodiacGlyph(horoscope.sign)} {horoscope.sign.toUpperCase()} · {horoscope.day}
+              {getZodiacGlyph(horoscope.sign)}{' '}
+              {(t.zodiac[horoscope.sign as keyof typeof t.zodiac] ?? horoscope.sign).toUpperCase()}{' '}
+              · {horoscope.day}
             </ThemedText>
           </View>
           <ThemedText style={{ color: colors.text }}>{horoscope.interpretation}</ThemedText>
@@ -121,7 +125,7 @@ export default function AstrologyScreen() {
       ) : needsProfile ? (
         <>
           <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-            Burcunu bilmem için doğum tarihine ihtiyacım var.
+            {t.mystic.astroNeedBirth}
           </ThemedText>
           <Pressable
             accessibilityRole="button"
@@ -131,14 +135,14 @@ export default function AstrologyScreen() {
               { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
             ]}>
             <ThemedText type="smallBold" style={{ color: colors.background }}>
-              Profili Tamamla
+              {t.mystic.astroCompleteProfile}
             </ThemedText>
           </Pressable>
         </>
       ) : !aiAllowed ? (
         <MysticGrantButton
-          label="AI onayını ver ve burcu aç"
-          hint="Günlük burç ücretsizdir; onay yalnız yorum üretimi içindir."
+          label={t.mystic.astroGrant}
+          hint={t.mystic.astroGrantHint}
           granting={granting}
           onGrant={() => void grantAiConsent()}
         />
@@ -155,7 +159,7 @@ export default function AstrologyScreen() {
               { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
             ]}>
             <ThemedText type="smallBold" style={{ color: colors.background }}>
-              Tekrar Dene
+              {t.common.retry}
             </ThemedText>
           </Pressable>
         </>
@@ -166,7 +170,7 @@ export default function AstrologyScreen() {
         onPress={() => router.replace(mysticHref.hub)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
-          Mistik Keşfe Dön
+          {t.mystic.backToDiscover}
         </ThemedText>
       </Pressable>
     </MysticScreenShell>

@@ -6,18 +6,8 @@ import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { getFortuneHistory, type FortuneHistoryItem } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
+import { useLocale } from '@/providers/locale-provider';
 import { useRouter } from 'expo-router';
-
-const TYPE_META: Record<FortuneHistoryItem['type'], { symbol: string; label: string }> = {
-  tarot: { symbol: '◈', label: 'Tarot' },
-  kahve: { symbol: '☕', label: 'Kahve Falı' },
-  el: { symbol: '✋', label: 'El Falı' },
-  burc: { symbol: '✦', label: 'Günlük Burç' },
-};
-
-function typeMeta(type: string): { symbol: string; label: string } {
-  return TYPE_META[type as FortuneHistoryItem['type']] ?? { symbol: '☾', label: 'Fal' };
-}
 
 function formatDay(iso: string): string {
   const datePart = iso.slice(0, 10);
@@ -29,9 +19,21 @@ function formatDay(iso: string): string {
 export default function FortuneHistoryScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
+  const { t } = useLocale();
   const [items, setItems] = useState<FortuneHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function typeMeta(type: string): { symbol: string; label: string } {
+    const labels: Record<string, { symbol: string; label: string }> = {
+      tarot: { symbol: '◈', label: t.mystic.typeTarot },
+      kahve: { symbol: '☕', label: t.mystic.typeCoffee },
+      el: { symbol: '✋', label: t.mystic.typePalm },
+      burc: { symbol: '✦', label: t.mystic.typeHoroscope },
+      chat: { symbol: '✶', label: t.mystic.typeChat },
+    };
+    return labels[type] ?? { symbol: '☾', label: t.mystic.typeGeneric };
+  }
 
   const load = useCallback(async () => {
     setError(null);
@@ -39,9 +41,9 @@ export default function FortuneHistoryScreen() {
       setItems(await getFortuneHistory(30));
     } catch (value) {
       setItems([]);
-      setError(value instanceof Error ? value.message : 'Geçmiş yüklenemedi.');
+      setError(value instanceof Error ? value.message : t.mystic.historyLoadFailed);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -50,14 +52,14 @@ export default function FortuneHistoryScreen() {
   return (
     <MysticScreenShell
       symbol="☾"
-      title="Fal Geçmişin"
-      subtitle="Aynaya önceki bakışların — hangi gün ne fısıldamıştı?">
+      title={t.mystic.historyScreenTitle}
+      subtitle={t.mystic.historySubtitle}>
       {items === null ? (
         <ActivityIndicator color={colors.tint} />
       ) : items.length === 0 ? (
         <View style={[styles.empty, { borderColor: colors.border, backgroundColor: colors.background }]}>
           <ThemedText type="small" style={[styles.center, { color: colors.textSecondary }]}>
-            {error ?? 'Henüz kayıtlı bir fal yok. İlk çekimini tarot ile yapabilirsin.'}
+            {error ?? t.mystic.historyEmpty}
           </ThemedText>
           {error ? (
             <Pressable
@@ -68,7 +70,7 @@ export default function FortuneHistoryScreen() {
                 { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: colors.background }}>
-                Tekrar Dene
+                {t.common.retry}
               </ThemedText>
             </Pressable>
           ) : (
@@ -80,7 +82,7 @@ export default function FortuneHistoryScreen() {
                 { backgroundColor: colors.tint, opacity: pressed ? 0.75 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: colors.background }}>
-                Tarot çek
+                {t.mystic.drawTarot}
               </ThemedText>
             </Pressable>
           )}
@@ -88,7 +90,7 @@ export default function FortuneHistoryScreen() {
       ) : (
         items.map((item) => {
           const meta = typeMeta(item.type);
-          const interpretation = item.result?.interpretation ?? '';
+          const interpretation = item.result?.interpretation ?? item.result?.preview ?? '';
           const expanded = expandedId === item.id;
           return (
             <Pressable
@@ -120,7 +122,7 @@ export default function FortuneHistoryScreen() {
               {item.result?.cards?.length ? (
                 <ThemedText type="small" style={{ color: colors.accentWarm }}>
                   {item.result.cards
-                    .map((card) => `${card.name}${card.reversed ? ' (ters)' : ''}`)
+                    .map((card) => `${card.name}${card.reversed ? ` ${t.mystic.tarotReversed}` : ''}`)
                     .join(' · ')}
                 </ThemedText>
               ) : null}
@@ -147,7 +149,7 @@ export default function FortuneHistoryScreen() {
         onPress={() => router.replace(mysticHref.hub)}
         style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
         <ThemedText type="smallBold" style={{ color: colors.tint }}>
-          Mistik Keşfe Dön
+          {t.mystic.hubTitle}
         </ThemedText>
       </Pressable>
     </MysticScreenShell>

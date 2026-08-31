@@ -6,46 +6,13 @@ import { useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Shadows, Spacing } from '@/constants/theme';
 import { mysticHref } from '@/lib/mystic-routes';
+import { useLocale } from '@/providers/locale-provider';
 
 /**
  * faz8.13/2a — Mistiğin yeni evi: Bugün sekmesi. Bu panel Bugün'deki ☾
  * rozetinden açılır (bottom sheet); mistikle ilgili HER ŞEY buradan ulaşılır.
  * Fal ÜCRETSİZDİR (kilitli karar) — panelde kilit/paywall yoktur.
  */
-
-const ENTRIES: { symbol: string; title: string; description: string; href: Href }[] = [
-  {
-    symbol: '✶',
-    title: 'Mistik Sohbet',
-    description: 'Rehberinle konuş; fallarını birlikte yorumlayın.',
-    href: mysticHref.chat,
-  },
-  { symbol: '◈', title: 'Tarot', description: 'Günün üç kartını çek.', href: mysticHref.tarot },
-  {
-    symbol: '☕',
-    title: 'Kahve Falı',
-    description: 'Fincanını çek, telveyi yorumlat.',
-    href: mysticHref.kahve,
-  },
-  {
-    symbol: '✋',
-    title: 'El Falı',
-    description: 'Avuç içi çizgilerine bak.',
-    href: mysticHref.el,
-  },
-  {
-    symbol: '✦',
-    title: 'Astroloji',
-    description: 'Günlük ve haftalık burç yorumun.',
-    href: mysticHref.astroloji,
-  },
-  {
-    symbol: '☾',
-    title: 'Fal Geçmişin',
-    description: 'Önceki çekimlerine dön.',
-    href: mysticHref.history,
-  },
-];
 
 type MysticPanelProps = {
   visible: boolean;
@@ -55,6 +22,41 @@ type MysticPanelProps = {
 export function MysticPanel({ visible, onClose }: MysticPanelProps) {
   const router = useRouter();
   const { colors, edge } = useMysticColors();
+  const { t } = useLocale();
+
+  const entries: { symbol: string; title: string; description: string; href: Href }[] = [
+    {
+      symbol: '✶',
+      title: t.mystic.chatTitle,
+      description: t.mystic.chatDesc,
+      href: mysticHref.chat,
+    },
+    { symbol: '◈', title: t.mystic.tarotTitle, description: t.mystic.tarotDesc, href: mysticHref.tarot },
+    {
+      symbol: '☕',
+      title: t.mystic.coffeeTitle,
+      description: t.mystic.coffeeDesc,
+      href: mysticHref.kahve,
+    },
+    {
+      symbol: '✋',
+      title: t.mystic.palmTitle,
+      description: t.mystic.palmDesc,
+      href: mysticHref.el,
+    },
+    {
+      symbol: '✦',
+      title: t.mystic.astroTitle,
+      description: t.mystic.astroDesc,
+      href: mysticHref.astroloji,
+    },
+    {
+      symbol: '☾',
+      title: t.mystic.historyScreenTitle,
+      description: t.mystic.historyHint,
+      href: mysticHref.history,
+    },
+  ];
 
   function open(href: Href) {
     // Önce push: Modal kapanırken Native/Stack geçişi yutulmasın.
@@ -66,7 +68,7 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Mistik paneli kapat"
+        accessibilityLabel={t.mystic.panelClose}
         onPress={onClose}
         style={styles.backdrop}
       />
@@ -82,16 +84,16 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
         ]}>
         <View style={[styles.grabber, { backgroundColor: colors.border }]} />
         <ThemedText type="screenTitle" style={[styles.title, { color: colors.text }]}>
-          Mistik ☾
+          {t.mystic.panelTitle}
         </ThemedText>
         <ThemedText type="small" style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Sembolik rehberlik — planın merkezde kalır, ayna burada.
+          {t.mystic.panelSubtitle}
         </ThemedText>
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled">
-          {ENTRIES.map((entry) => (
+          {entries.map((entry) => (
             <Pressable
               key={entry.title}
               accessibilityRole="button"
@@ -124,7 +126,7 @@ export function MysticPanel({ visible, onClose }: MysticPanelProps) {
           ))}
         </ScrollView>
         <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-          Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
+          {t.mystic.disclaimer}
         </ThemedText>
       </View>
     </Modal>

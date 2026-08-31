@@ -92,7 +92,7 @@ export default function PlanScreen() {
             setError(
               extendError instanceof ApiError
                 ? extendError.message
-                : 'Bu haftanın planı üretilemedi. Birazdan tekrar dene.',
+                : t.plan.generateFailed,
             );
           } finally {
             setExtending(false);
@@ -101,12 +101,12 @@ export default function PlanScreen() {
       }
       setPlan(next);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Plan yüklenemedi.');
+      setError(e instanceof ApiError ? e.message : t.plan.loadFailed);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useWarmFocusReload(load, plan != null);
 
@@ -119,7 +119,7 @@ export default function PlanScreen() {
     plan?.days.find((item) => item.day === todayDay)?.theme ||
     plan?.days.find((item) => item.day === nearestGeneratedDay(plan.days, todayDay))?.theme ||
     plan?.name ||
-    'Planım';
+    t.plan.title;
   const activeDay =
     focusedDay ?? (plan ? nearestGeneratedDay(plan.days, todayDay) : 1);
   const visibleDays = useMemo(() => {
@@ -396,7 +396,7 @@ function VisionTaskCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityHint={editable ? 'Uzun basarak taşı, düzenle veya sil' : undefined}
+      accessibilityHint={editable ? t.common.longPressEdit : undefined}
       delayLongPress={380}
       onLongPress={() => {
         if (!editable) {
@@ -421,25 +421,25 @@ function VisionTaskCard({
             </View>
             {!!task.image_attribution && (
               <Pressable
-                accessibilityLabel="Fotoğraf atfı"
-                accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+                accessibilityLabel={t.common.photoCredit}
+                accessibilityHint={t.common.photoCreditHint}
                 hitSlop={8}
                 onLongPress={() => {
                   Alert.alert(
-                    'Fotoğraf atfı',
+                    t.common.photoCredit,
                     task.image_attribution,
                     task.image_attribution_url
                       ? [
-                          { text: 'Kapat', style: 'cancel' },
+                          { text: t.common.cancel, style: 'cancel' },
                           {
                             text:
                               task.image_source === 'gemini_nano_banana'
-                                ? 'Kaynağı aç'
-                                : 'Unsplash’ta aç',
+                                ? t.common.openSource
+                                : t.common.openUnsplash,
                             onPress: () => void Linking.openURL(task.image_attribution_url),
                           },
                         ]
-                      : [{ text: 'Kapat', style: 'cancel' }],
+                      : [{ text: t.common.cancel, style: 'cancel' }],
                   );
                 }}
                 style={styles.attributionBadge}>

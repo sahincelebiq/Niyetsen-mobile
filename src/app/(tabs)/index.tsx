@@ -12,7 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
 import { ChatMessageBody } from '@/components/chat-message-body';
@@ -59,20 +59,16 @@ import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
 import { useSubscription } from '@/providers/subscription-provider';
 
-const FALLBACK_WELCOME: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content:
-    'Merhaba 🌙 Ben Niyetsen. Bu yılı nasıl geçirmek istediğini birlikte konuşalım — ' +
-    'hangi şehirdesin, neyle vakit geçirmeyi seviyorsun, haftada ne kadar zamanın var?',
-};
+function welcomeMessage(text: string): ChatMessage {
+  return { id: 'welcome', role: 'assistant', content: text };
+}
 
-async function loadWelcomeMessage(): Promise<ChatMessage> {
+async function loadWelcomeMessage(fallback: string): Promise<ChatMessage> {
   try {
     const greeting = await getChatGreeting();
-    return { id: 'welcome', role: 'assistant', content: greeting.message };
+    return welcomeMessage(greeting.message);
   } catch {
-    return FALLBACK_WELCOME;
+    return welcomeMessage(fallback);
   }
 }
 
@@ -99,7 +95,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
 });
 
 export default function ChatScreen() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const theme = useTheme();
   const router = useRouter();
   const composerRef = useRef<View>(null);
@@ -110,13 +106,13 @@ export default function ChatScreen() {
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([FALLBACK_WELCOME]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [collected, setCollected] = useState<CollectedIntent>(EMPTY_COLLECTED);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [readyForPlan, setReadyForPlan] = useState(false);
   const [planHasContent, setPlanHasContent] = useState(false);
-  const [activePlanName, setActivePlanName] = useState('Planım');
+  const [activePlanName, setActivePlanName] = useState('');
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<'send' | 'generate' | null>(null);
@@ -155,12 +151,12 @@ export default function ChatScreen() {
       if (session.messages.length > 0) {
         setMessages(session.messages);
       } else {
-        setMessages([await loadWelcomeMessage()]);
+        setMessages([await loadWelcomeMessage(t.chat.welcomeFallback)]);
       }
       setCollected(session.collected);
       setReadyForPlan(session.ready_for_plan);
       setPlanHasContent(session.plan_has_content);
-      setActivePlanName(session.active_plan_name || 'Planım');
+      setActivePlanName(session.active_plan_name || t.chat.defaultPlanName);
       if (!keepComposerRef.current) {
         setInput('');
       }
@@ -168,7 +164,7 @@ export default function ChatScreen() {
       setSuggestions([]);
       setError(null);
     },
-    [],
+    [t],
   );
 
   const handleProjectChanged = useCallback(async () => {
@@ -182,7 +178,7 @@ export default function ChatScreen() {
     try {
       await applySession(await getChatSession());
     } catch {
-      setMessages([await loadWelcomeMessage()]);
+      setMessages([await loadWelcomeMessage(t.chat.welcomeFallback)]);
     } finally {
       setLoadingHistory(false);
       scrollToEnd();
@@ -207,7 +203,7 @@ export default function ChatScreen() {
         session = await getChatSession();
         if (!cancelled) await applySession(session);
       } catch {
-        if (!cancelled) setMessages([await loadWelcomeMessage()]);
+        if (!cancelled) setMessages([await loadWelcomeMessage(t.chat.welcomeFallback)]);
       } finally {
         if (!cancelled) setLoadingHistory(false);
       }
@@ -226,7 +222,34 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [applySession]);
+  }, [applySession, t.chat.welcomeFallback]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const greeting = await getChatGreeting();
+        if (cancelled) return;
+        setMessages((current) => {
+          if (current.length === 1 && current[0]?.id === 'welcome') {
+            return [welcomeMessage(greeting.message)];
+          }
+          return current;
+        });
+      } catch {
+        if (cancelled) return;
+        setMessages((current) => {
+          if (current.length === 1 && current[0]?.id === 'welcome') {
+            return [welcomeMessage(t.chat.welcomeFallback)];
+          }
+          return current;
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, t.chat.welcomeFallback]);
 
   useEffect(() => {
     void refreshStreak();
@@ -266,7 +289,7 @@ export default function ChatScreen() {
               try {
                 return await executeDeviceTool(call);
               } catch {
-                return { ok: false, message: 'Cihaz işlemi tamamlanamadı.' };
+                return { ok: false, message: t.chat.deviceFailed };
               }
             }),
         );
@@ -293,12 +316,12 @@ export default function ChatScreen() {
           router.push('/paywall');
           return;
         }
-        setError(e instanceof ApiError ? e.message : 'Beklenmeyen bir hata oluştu.');
+        setError(e instanceof ApiError ? e.message : t.chat.unexpectedError);
       } finally {
         setSending(false);
       }
     },
-    [collected, refreshStreak, router, scrollToEnd],
+    [collected, refreshStreak, router, scrollToEnd, t],
   );
 
   useEffect(() => {
@@ -321,7 +344,7 @@ export default function ChatScreen() {
 
   const handleSend = useCallback(() => {
     if (!aiAllowed) {
-      setError('AI sohbeti rızan kapalı. Ayarlar’dan tercihini değiştirebilirsin.');
+      setError(t.chat.aiConsentOff);
       return;
     }
     const text = buildOutgoingText(input, pendingAttachment);
@@ -335,7 +358,7 @@ export default function ChatScreen() {
     setSuggestions([]);
     scrollToEnd(true);
     void doSend(nextMessages);
-  }, [aiAllowed, doSend, input, messages, pendingAttachment, scrollToEnd, sending]);
+  }, [aiAllowed, doSend, input, messages, pendingAttachment, scrollToEnd, sending, t]);
 
   const handleSuggestionTap = useCallback(
     (suggestion: string) => {
@@ -376,15 +399,15 @@ export default function ChatScreen() {
       );
       setPendingAttachment(ingested);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Dosya okunamadı.');
+      setError(e instanceof ApiError ? e.message : t.chat.fileReadFailed);
     } finally {
       setAttaching(false);
     }
-  }, [aiAllowed, attaching]);
+  }, [aiAllowed, attaching, t]);
 
   const handleGeneratePlan = useCallback(async () => {
     if (!aiAllowed) {
-      setError('Plan oluşturmak için AI sohbeti rızası gerekli.');
+      setError(t.chat.planConsentOff);
       return;
     }
     setGeneratingPlan(true);
@@ -408,11 +431,11 @@ export default function ChatScreen() {
         setReadyForPlan(false);
         return;
       }
-      setError(e instanceof ApiError ? e.message : 'Plan oluşturulamadı, tekrar dener misin?');
+      setError(e instanceof ApiError ? e.message : t.chat.planFailed);
     } finally {
       setGeneratingPlan(false);
     }
-  }, [aiAllowed, collected, router]);
+  }, [aiAllowed, collected, router, t]);
 
   const handleRetry = useCallback(() => {
     if (lastAction === 'generate') {
@@ -493,9 +516,9 @@ export default function ChatScreen() {
             router.push(mysticHref.chat);
           }}
         />
-        {activePlanName !== 'Planım' ? (
+        {activePlanName && activePlanName !== t.chat.defaultPlanName ? (
           <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
-            Aktif niyet: {activePlanName}
+            {t.chat.activeIntent(activePlanName)}
           </ThemedText>
         ) : null}
         <KeyboardAwareView>
@@ -553,7 +576,7 @@ export default function ChatScreen() {
                 onPress={() => router.push('/settings')}
                 style={[styles.consentBanner, { borderColor: theme.border }]}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  AI sohbeti kapalı · Ayarlar’dan tercihini değiştirebilirsin
+                  {t.chat.aiConsentOff}
                 </ThemedText>
               </Pressable>
             ) : null}

@@ -179,15 +179,15 @@ export function OnboardingScreen() {
               {current.id === 'name' && (
                 <>
                   <ThemedText themeColor="textSecondary">
-                    Planın ve rehberin sana bu isimle seslenecek.
+                    {t.onboarding.nameHint}
                   </ThemedText>
-                  <Field value={name} onChangeText={setName} placeholder="İsmin" />
+                  <Field value={name} onChangeText={setName} placeholder={t.onboarding.namePlaceholder} />
                 </>
               )}
               {current.id === 'gender' && (
                 <>
                   <ThemedText themeColor="textSecondary">
-                    İstersen paylaş — yalnız hitabı kişiselleştirmek için. Atlayabilirsin.
+                    {t.onboarding.genderHint}
                   </ThemedText>
                   <View style={styles.genderRow}>
                     {GENDER_OPTIONS.map((option) => {
@@ -197,7 +197,7 @@ export function OnboardingScreen() {
                           key={option}
                           accessibilityRole="button"
                           accessibilityState={{ selected }}
-                          accessibilityLabel={option}
+                          accessibilityLabel={t.gender[option]}
                           onPress={() => setGender(option)}
                           style={({ pressed }) => [
                             styles.genderChip,
@@ -218,7 +218,7 @@ export function OnboardingScreen() {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Cinsiyet sorusunu atla"
+                    accessibilityLabel={t.onboarding.skipGender}
                     hitSlop={12}
                     onPress={() => {
                       setGender(null);
@@ -226,7 +226,7 @@ export function OnboardingScreen() {
                       setStep((value) => Math.min(value + 1, steps.length - 1));
                     }}>
                     <ThemedText type="small" themeColor="textSecondary">
-                      Şimdilik atla
+                      {t.onboarding.skipGender}
                     </ThemedText>
                   </Pressable>
                 </>
@@ -234,7 +234,7 @@ export function OnboardingScreen() {
               {current.id === 'birth' && (
                 <>
                   <ThemedText themeColor="textSecondary">
-                    Burcunu otomatik hesaplamak için kullanılır.
+                    {t.onboarding.birthHint}
                   </ThemedText>
                   <BirthDateField value={birthDate} onChangeText={setBirthDate} />
                 </>
@@ -242,13 +242,13 @@ export function OnboardingScreen() {
               {current.id === 'notif' && (
                 <>
                   <ThemedText themeColor="textSecondary">
-                    Günlük görev hatırlatıcını hangi saatte almak istersin?
+                    {t.onboarding.notifHint}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.notifEnable}
                   </ThemedText>
                   <TimeOfDayField
-                    label="Bildirim saati"
+                    label={t.onboarding.notifHourLabel}
                     value={notifTime}
                     onChange={setNotifTime}
                   />

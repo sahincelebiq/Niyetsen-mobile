@@ -7,6 +7,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { getApiLocale } from '@/lib/api-locale';
+import { uiCopy } from '@/lib/ui-copy';
 import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
@@ -66,7 +67,7 @@ async function request<T>(
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
   if (!accessToken) {
-    throw new ApiError(401, 'Oturumun sona erdi. Lütfen yeniden giriş yap.');
+    throw new ApiError(401, uiCopy().common.sessionExpired);
   }
   let res: Response;
   const controller = new AbortController();
@@ -87,21 +88,15 @@ async function request<T>(
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError(
-        0,
-        'Sunucu yanıt vermedi. Biraz bekleyip tekrar dene — bağlantın yavaş olabilir.',
-      );
+      throw new ApiError(0, uiCopy().common.timeout);
     }
-    throw new ApiError(
-      0,
-      'Sunucuya ulaşılamıyor. Backend çalışıyor mu ve EXPO_PUBLIC_API_URL doğru mu kontrol et.',
-    );
+    throw new ApiError(0, uiCopy().common.unreachable);
   } finally {
     clearTimeout(timeoutId);
   }
 
   if (!res.ok) {
-    let detail = 'Şu an yıldızlara ulaşamıyorum, birazdan tekrar dener misin? ✨';
+    let detail = uiCopy().common.starsUnreachable;
     let code: string | undefined;
     try {
       const body = await res.json();
@@ -117,7 +112,7 @@ async function request<T>(
       // yanıt JSON değilse varsayılan mesaj kalır
     }
     if (res.status === 429) {
-      detail = 'Çok hızlı denedin — bir dakika bekleyip tekrar dene.';
+      detail = uiCopy().common.rateLimited;
     }
     throw new ApiError(res.status, detail, code);
   }
@@ -571,7 +566,7 @@ export async function waitForPremiumAccess(
   }
   throw new ApiError(
     402,
-    'Abonelik henüz aktifleşmedi. Birkaç saniye sonra Geri Yükle veya tekrar dene.',
+    uiCopy().paywall.notYetActive,
     'paywall_required',
   );
 }
@@ -693,7 +688,7 @@ export type FortuneRightsItem = {
 
 export type FortuneRights = {
   is_premium: boolean;
-  rights: Record<'tarot' | 'kahve' | 'el' | 'burc', FortuneRightsItem>;
+  rights: Record<'tarot' | 'kahve' | 'el' | 'burc' | 'chat', FortuneRightsItem>;
   disclaimer: string;
 };
 
@@ -896,7 +891,7 @@ export function sendMysticChat(messages: MysticChatMessage[]): Promise<MysticCha
 
 export type FortuneHistoryItem = {
   id: string;
-  type: 'tarot' | 'kahve' | 'el' | 'burc';
+  type: 'tarot' | 'kahve' | 'el' | 'burc' | 'chat';
   day: string;
   result: {
     interpretation?: string;
@@ -904,6 +899,7 @@ export type FortuneHistoryItem = {
     sign?: string;
     question?: string;
     cards?: TarotCard[];
+    preview?: string;
   };
   created_at: string;
 };

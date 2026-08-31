@@ -18,60 +18,61 @@ import {
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
 import { mysticHref } from '@/lib/mystic-routes';
 import { useAppearance } from '@/providers/appearance-provider';
+import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
-
-const MODULES: {
-  title: string;
-  symbol: string;
-  description: string;
-  href: Href;
-}[] = [
-  {
-    // faz8.13/2b: merkez ekran — rehberle serbest sohbet + fal kısayolları.
-    title: 'Mistik Sohbet',
-    symbol: '✶',
-    description: 'Rehberinle konuş; kartlarını ve fallarını birlikte yorumlayın.',
-    href: mysticHref.chat,
-  },
-  {
-    title: 'Astroloji',
-    symbol: '✦',
-    description: 'Doğum haritan ve günlük gökyüzü rehberin.',
-    href: mysticHref.astroloji,
-  },
-  {
-    title: 'Tarot',
-    symbol: '◈',
-    description: 'Niyetine eşlik edecek sembolik kart yorumları.',
-    href: mysticHref.tarot,
-  },
-  {
-    title: 'Kahve Falı',
-    symbol: '☕',
-    description: 'Fincanı çek, telveyi yorumlat.',
-    href: mysticHref.kahve,
-  },
-  {
-    title: 'El Falı',
-    symbol: '✋',
-    description: 'Avuç içi çizgilerine bak.',
-    href: mysticHref.el,
-  },
-];
 
 export default function MysticHubScreen() {
   const router = useRouter();
   const { isDark } = useAppearance();
+  const { t } = useLocale();
   const colors = MysticColors[isDark ? 'dark' : 'light'];
   const edge = isDark ? SurfaceEdge.dark : SurfaceEdge.light;
   const { profile } = useProfile();
   const zodiac = profile?.zodiac_sign;
   const glyph = getZodiacGlyph(zodiac);
-  const label = zodiacLabel(zodiac);
+  const label = zodiacLabel(zodiac, t.zodiac);
 
-  // KİLİTLİ KARAR (FAZ 7 / algoritma §5): fal ÜCRETSİZ katmanda paywall'suz
-  // çalışır — günlük hak sayaçları sunucuda; premium yalnız EK hak açar.
-  // Buradaki eski paywall yönlendirmesi "mistik çalışmıyor" hatasının kökü idi.
+  const modules: {
+    title: string;
+    symbol: string;
+    description: string;
+    href: Href;
+  }[] = [
+    {
+      title: t.mystic.chatTitle,
+      symbol: '✶',
+      description: t.mystic.chatDesc,
+      href: mysticHref.chat,
+    },
+    {
+      title: t.mystic.astroTitle,
+      symbol: '✦',
+      description: t.mystic.astroDesc,
+      href: mysticHref.astroloji,
+    },
+    {
+      title: t.mystic.tarotTitle,
+      symbol: '◈',
+      description: t.mystic.tarotDesc,
+      href: mysticHref.tarot,
+    },
+    {
+      title: t.mystic.coffeeTitle,
+      symbol: '☕',
+      description: t.mystic.coffeeDesc,
+      href: mysticHref.kahve,
+    },
+    {
+      title: t.mystic.palmTitle,
+      symbol: '✋',
+      description: t.mystic.palmDesc,
+      href: mysticHref.el,
+    },
+  ];
+
+  // Kapı içeride: ekranlar açık. Ücretsiz 1 kahve + 1 tarot + 1 el +
+  // sınırlı mistik sohbet; hak bitince PRO CTA. Burç sınırsız.
+  // replace('/paywall') YOK — geçmişte "mistik çalışmıyor" hatası.
   function openModule(href: Href) {
     router.push(href);
   }
@@ -94,18 +95,18 @@ export default function MysticHubScreen() {
           ]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Geri"
+            accessibilityLabel={t.common.back}
             onPress={() => (router.canGoBack() ? router.back() : router.replace(mysticHref.today))}
             hitSlop={12}
             style={({ pressed }) => [styles.backHit, pressed && { opacity: 0.6 }]}>
             <ThemedText type="smallBold" style={{ color: colors.tint }}>
-              ‹ Geri
+              ‹ {t.common.back}
             </ThemedText>
           </Pressable>
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <ThemedText type="screenTitle" style={{ color: colors.text }}>
-                Mistik Keşif
+                {t.mystic.hubTitle}
                 {glyph ? ` ${glyph}` : ''}
               </ThemedText>
               {null}
@@ -118,13 +119,12 @@ export default function MysticHubScreen() {
               </View>
             ) : null}
             <ThemedText style={[styles.center, { color: colors.textSecondary }]}>
-              Gizli kapıyı buldun ☾ Yaşam planın merkezde kalırken, sembolik
-              rehberlik alanları burada seni bekliyor.
+              {t.mystic.hubBody}
             </ThemedText>
           </View>
 
           <View style={styles.grid}>
-            {MODULES.map((module, index) => (
+            {modules.map((module, index) => (
               <Animated.View
                 key={module.title}
                 entering={FadeIn.delay(index * Motion.stagger)
@@ -133,7 +133,7 @@ export default function MysticHubScreen() {
                 style={styles.cardWrap}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityHint="Günlük hakların dahilinde ücretsiz"
+                  accessibilityHint={t.mystic.freeDailyHint}
                   onPress={() => openModule(module.href)}
                   style={({ pressed }) => [
                     styles.card,
@@ -159,7 +159,7 @@ export default function MysticHubScreen() {
                     {module.description}
                   </ThemedText>
                   <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                    Keşfet
+                    {t.mystic.discover}
                   </ThemedText>
                 </Pressable>
               </Animated.View>
@@ -175,17 +175,17 @@ export default function MysticHubScreen() {
             ]}>
             <View style={styles.historyTitle}>
               <ThemedText type="smallBold" style={{ color: colors.tint }}>
-                ☾ Fal Geçmişin
+                {t.mystic.historyTitle}
               </ThemedText>
               {null}
             </View>
             <ThemedText type="small" style={{ color: colors.textSecondary }}>
-              Önceki çekimlerine ve yorumlarına dön
+              {t.mystic.historyHint}
             </ThemedText>
           </Pressable>
 
           <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-            Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
+            {t.mystic.disclaimer}
           </ThemedText>
 
           <Pressable
@@ -199,7 +199,7 @@ export default function MysticHubScreen() {
               },
             ]}>
             <ThemedText type="smallBold" style={{ color: colors.background }}>
-              Uygulamaya Dön
+              {t.mystic.backToApp}
             </ThemedText>
           </Pressable>
         </ScrollView>

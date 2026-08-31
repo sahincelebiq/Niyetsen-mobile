@@ -36,6 +36,7 @@ import {
   type PhilosophyPath,
 } from '@/lib/api';
 import { setPendingChatMessage } from '@/lib/pending-chat';
+import { useLocale } from '@/providers/locale-provider';
 
 /**
  * Felsefe Yolları (İdol Modu) — İlkbahar paleti.
@@ -43,16 +44,16 @@ import { setPendingChatMessage } from '@/lib/pending-chat';
  */
 export default function PhilosophyPathsScreen() {
   const theme = useTheme();
+  const { t } = useLocale();
   const scheme = useColorScheme();
   const edge = scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
   const router = useRouter();
-  const { hasPremium, loading: premiumLoading } = usePremiumAccess();
+  const { hasPaidAccess, loading: premiumLoading } = usePremiumAccess();
   const [paths, setPaths] = useState<PhilosophyPath[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (premiumLoading || !hasPremium) return;
     let mounted = true;
     getPhilosophyPaths()
       .then((result) => {
@@ -60,20 +61,15 @@ export default function PhilosophyPathsScreen() {
       })
       .catch((value) => {
         if (!mounted) return;
-        if (isPaywallError(value)) {
-          // Kapı içeride — yönlendirme yok; kilit kartı gösterilir.
-          setPaths([]);
-          return;
-        }
         setPaths([]);
         setError(
-          value instanceof ApiError ? value.message : 'Yollar şu an yüklenemiyor.',
+          value instanceof ApiError ? value.message : t.paths.loadFailed,
         );
       });
     return () => {
       mounted = false;
     };
-  }, [hasPremium, premiumLoading]);
+  }, []);
 
   function openDetail(path: PhilosophyPath) {
     const key = path.slug?.trim() || path.name;
@@ -82,6 +78,10 @@ export default function PhilosophyPathsScreen() {
 
   async function startWithPath(path: PhilosophyPath) {
     void trackEvent('mystic_secret_entry', { module: 'felsefe_yolu', path: path.name });
+    if (!hasPaidAccess) {
+      router.push('/paywall' as Href);
+      return;
+    }
     try {
       await activatePhilosophyPath(path.slug?.trim() || path.name);
     } catch (value) {
@@ -90,14 +90,11 @@ export default function PhilosophyPathsScreen() {
         return;
       }
     }
-    setPendingChatMessage(
-      `${path.name} ile ilerlemek istiyorum — ${path.tagline}. Bu yolu niyetime işler misin?`,
-      true,
-    );
+    setPendingChatMessage(t.paths.startChat(path.name, path.tagline), true);
     router.replace('/' as Href);
   }
 
-  const locked = !premiumLoading && !hasPremium;
+  const activateLocked = !premiumLoading && !hasPaidAccess;
 
   return (
     <ThemedView style={styles.flex}>
@@ -113,64 +110,61 @@ export default function PhilosophyPathsScreen() {
               ]}>
               <ThemedText style={styles.sproutEmoji}>{sproutGlyph(3)}</ThemedText>
               <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                İlham → Yol
+                {t.paths.badge}
               </ThemedText>
             </View>
             <View style={styles.titleRow}>
               <ThemedText type="screenTitle" style={[styles.title, { fontFamily: Fonts.serif }]}>
-                Felsefe Yolları
+                {t.paths.title}
               </ThemedText>
-              {locked ? <ProBadge /> : null}
+              {activateLocked ? <ProBadge /> : null}
             </View>
             <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-              Bir insandan, bir filmden, bir kitaptan ilham aldın. O anı söndürme —
-              ilkbahar gibi yeşerten bir yola çevir.
+              {t.paths.subtitle}
             </ThemedText>
           </Animated.View>
 
-          {locked ? (
+          {activateLocked ? (
             <View
               style={[
                 styles.lockCard,
                 { backgroundColor: theme.backgroundElement, borderColor: theme.border },
               ]}>
-              <ThemedText style={styles.lockGlyph}>{sproutGlyph(2)}</ThemedText>
-              <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
-                İlhamını dosta çevir
+              <ThemedText type="smallBold" style={{ color: theme.tint, textAlign: 'center' }}>
+                {t.paths.lockTitle}
               </ThemedText>
               <ThemedText
                 type="small"
                 themeColor="textSecondary"
                 style={{ textAlign: 'center' }}>
-                Greenlights, Kaizen, İkigai ve diğer yolların ritüelleri, alışkanlıkları
-                ve dersleri — PRO ile açılır; sohbete bağlanıp niyetine işlersin.
+                {t.paths.lockBody}
               </ThemedText>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="PRO ile Felsefe Yollarını aç"
+                accessibilityLabel={t.paths.startPro}
                 onPress={() => router.push('/paywall' as Href)}
                 style={({ pressed }) => [
                   styles.lockCta,
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  PRO ile aç
+                  {t.paths.startPro}
                 </ThemedText>
               </Pressable>
             </View>
           ) : null}
 
-          {premiumLoading || (hasPremium && paths === null) ? (
+          {paths === null ? (
             <ActivityIndicator color={theme.tint} style={styles.loader} />
           ) : null}
 
-          {hasPremium && paths && paths.length === 0 ? (
+          {paths && paths.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-              {error ?? 'Henüz tanımlı yol yok.'}
+              {error ?? t.paths.empty}
             </ThemedText>
           ) : null}
 
-          {hasPremium && paths
+          {paths
             ? paths.map((path, index) => {
                 const isOpen = expanded === path.name;
                 return (
@@ -240,7 +234,7 @@ export default function PhilosophyPathsScreen() {
                             },
                           ]}>
                           <ThemedText type="smallBold" themeColor="tint">
-                            Yolu incele
+                            {t.paths.inspect}
                           </ThemedText>
                         </Pressable>
                         <Pressable
@@ -255,7 +249,7 @@ export default function PhilosophyPathsScreen() {
                             },
                           ]}>
                           <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                            Bu yolla sohbete başla
+                            {activateLocked ? t.paths.startPro : t.paths.start}
                           </ThemedText>
                         </Pressable>
                       </View>
@@ -266,8 +260,7 @@ export default function PhilosophyPathsScreen() {
             : null}
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
-            Yollar, kamuya açık kitap ve röportajlardan ilham alır; anılan
-            kişilerle bağlantılı değildir. İlke: taklit değil, tercüme.
+            {t.paths.disclaimer}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>

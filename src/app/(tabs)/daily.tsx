@@ -123,7 +123,7 @@ export default function DailyTasksScreen() {
             setError(
               value instanceof ApiError
                 ? value.message
-                : 'Görevler şu an üretilemedi. Birazdan tekrar dene.',
+                : t.daily.generateFailed,
             );
           }
         } finally {
@@ -148,12 +148,12 @@ export default function DailyTasksScreen() {
         }
       }
     } catch (value) {
-      setError(value instanceof ApiError ? value.message : 'Günlük görevler yüklenemedi.');
+      setError(value instanceof ApiError ? value.message : t.daily.loadFailed);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router, syncStreak, user?.id]);
+  }, [router, syncStreak, user?.id, t]);
 
   async function handleExtendPlan() {
     if (extending) return;
@@ -170,7 +170,7 @@ export default function DailyTasksScreen() {
       setError(
         value instanceof ApiError
           ? value.message
-          : 'Görevler şu an üretilemedi. Birazdan tekrar dene.',
+          : t.daily.generateFailed,
       );
     } finally {
       setExtending(false);
@@ -187,8 +187,7 @@ export default function DailyTasksScreen() {
     if (!consentStatus.proof_photo_processing.accepted) {
       setOutcome(task.id, {
         tone: 'danger',
-        message:
-          'Kanıt fotoğrafı rızan kapalı. Ayarlar > Gizlilik ve rıza tercihlerinden açabilirsin.',
+        message: t.daily.consentPhotoOff,
       });
       router.push('/settings');
       return;
@@ -196,7 +195,7 @@ export default function DailyTasksScreen() {
     if (Platform.OS === 'web') {
       setOutcome(task.id, {
         tone: 'danger',
-        message: 'Kanıt kamerası web sürümünde desteklenmiyor. iOS veya Android uygulamasını kullan.',
+        message: t.daily.cameraWeb,
       });
       return;
     }
@@ -207,8 +206,8 @@ export default function DailyTasksScreen() {
       setOutcome(task.id, {
         tone: 'danger',
         message: permission?.canAskAgain === false
-          ? 'Kamera izni kapalı. Cihaz ayarlarından Niyetsen için kamerayı açabilirsin.'
-          : 'Kamera izni olmadan kanıt çekilemez. Görev ve mazeret seçenekleri kullanılabilir.',
+          ? t.daily.cameraDenied
+          : t.daily.cameraRequired,
       });
       return;
     }
@@ -230,7 +229,7 @@ export default function DailyTasksScreen() {
         imageType: 'jpg',
         skipProcessing: false,
       });
-      if (!picture?.uri) throw new Error('Fotoğraf oluşturulamadı.');
+      if (!picture?.uri) throw new Error(t.daily.photoFailed);
       setCameraTask(null);
       const result = await uploadTaskProof(task.id, picture.uri);
       void trackEvent('proof_uploaded', {
@@ -251,9 +250,9 @@ export default function DailyTasksScreen() {
           ? value.message
           : value instanceof Error
             ? value.message
-            : 'Kanıt yüklenemedi.';
+            : t.daily.proofFailed;
       if (value instanceof ApiError && value.status === 409) {
-        message = 'Önceki fotoğraf hâlâ işleniyor. Birkaç saniye bekle, sonra yeni kare dene.';
+        message = t.daily.proofBusy;
       }
       setOutcome(task.id, {
         tone: 'danger',
@@ -265,7 +264,7 @@ export default function DailyTasksScreen() {
   }
 
   function showProofOutcome(task: Task, result: ProofResult) {
-    const declaration = result.accepted_by_declaration ? ' Beyanınla kabul edildi.' : '';
+    const declaration = result.accepted_by_declaration ? t.daily.declarationAccepted : '';
     setOutcome(task.id, {
       tone: result.approved ? 'success' : 'danger',
       message: result.approved
@@ -283,7 +282,7 @@ export default function DailyTasksScreen() {
     } catch (value) {
       setOutcome(task.id, {
         tone: 'danger',
-        message: value instanceof Error ? value.message : 'Mazeret kaydedilemedi.',
+        message: value instanceof Error ? value.message : t.common.errorGeneric,
       });
     } finally {
       setBusy(null);
@@ -291,14 +290,14 @@ export default function DailyTasksScreen() {
   }
 
   function confirmExcuse(task: Task) {
-    const message = 'Mazeret puanı sabit −25 olur ve sessiz kaçırma sayacı sıfırlanır.';
+    const message = t.daily.excuseBody;
     if (Platform.OS === 'web') {
       if (globalThis.confirm?.(message)) void performExcuse(task);
       return;
     }
-    Alert.alert('Mazeret kullan', message, [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Mazeret kullan', onPress: () => void performExcuse(task) },
+    Alert.alert(t.daily.excuse, message, [
+      { text: t.common.cancel, style: 'cancel' },
+      { text: t.daily.excuse, onPress: () => void performExcuse(task) },
     ]);
   }
 
@@ -313,7 +312,7 @@ export default function DailyTasksScreen() {
     } catch (value) {
       setOutcome(task.id, {
         tone: 'danger',
-        message: value instanceof Error ? value.message : 'Cihaz işlemi tamamlanamadı.',
+        message: value instanceof Error ? value.message : t.daily.deviceFailed,
       });
     } finally {
       setBusy(null);
@@ -373,7 +372,7 @@ export default function DailyTasksScreen() {
             {/* faz8.13/2a: mistiğin yeni evi Bugün — ☾ panel buradan açılır. */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Mistik paneli aç"
+              accessibilityLabel={t.daily.mysticOpen}
               onPress={mysticPanel.open}
               style={({ pressed }) => [
                 styles.bonusLink,
@@ -386,14 +385,14 @@ export default function DailyTasksScreen() {
             {/* faz8.13/3: rapor girişi Bugün'den de görünür (kapı-içeride). */}
             <Pressable
               accessibilityRole="link"
-              accessibilityLabel="Raporum"
+              accessibilityLabel={t.daily.reportShort}
               onPress={() => router.push('/rapor' as Href)}
               style={({ pressed }) => [
                 styles.bonusLink,
                 { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                Rapor
+                {t.daily.reportShort}
               </ThemedText>
             </Pressable>
             <Pressable
@@ -404,7 +403,7 @@ export default function DailyTasksScreen() {
                 { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
-                Bonus
+                {t.daily.bonusShort}
               </ThemedText>
             </Pressable>
           </View>
@@ -414,7 +413,7 @@ export default function DailyTasksScreen() {
         <View style={styles.progressBlock}>
           <View style={styles.progressMeta}>
             <ThemedText type="small" themeColor="textSecondary">
-              Günün ilerlemesi
+              {t.daily.dayProgress}
             </ThemedText>
             <ThemedText type="smallBold" themeColor="tint">
               <CountUpText value={doneCount} />/{tasks.length}
@@ -525,12 +524,12 @@ export default function DailyTasksScreen() {
               active={cameraTask !== null}
               onCameraReady={() => setCameraReady(true)}
               onMountError={(event) => {
-                const message = event.message || 'Kamera başlatılamadı.';
+                const message = event.message || t.daily.cameraFailed;
                 setCameraError(message);
                 if (cameraTask) {
                   setOutcome(cameraTask.id, {
                     tone: 'danger',
-                    message: `Kamera açılamadı: ${message}`,
+                    message: t.daily.cameraOpenFailed(message),
                   });
                 }
                 setCameraTask(null);
@@ -543,11 +542,11 @@ export default function DailyTasksScreen() {
                 onPress={() => setCameraTask(null)}
                 style={styles.cameraTextButton}>
                 <ThemedText type="smallBold" style={styles.cameraText}>
-                  Kapat
+                  {t.daily.closeCamera}
                 </ThemedText>
               </Pressable>
               <ThemedText type="smallBold" style={styles.cameraText}>
-                {cameraReady ? 'Fotoğraf yalnız şimdi çekilir' : 'Kamera hazırlanıyor…'}
+                {cameraReady ? t.daily.photoOnlyNow : t.daily.cameraPreparing}
               </ThemedText>
             </View>
             {cameraError ? (
@@ -556,7 +555,7 @@ export default function DailyTasksScreen() {
               </ThemedText>
             ) : null}
             <Pressable
-              accessibilityLabel="Kanıt fotoğrafı çek"
+              accessibilityLabel={t.daily.captureProof}
               disabled={!cameraReady || busy !== null}
               onPress={() => void captureAndUpload()}
               style={({ pressed }) => [
@@ -619,7 +618,7 @@ const TaskCard = memo(function TaskCard({
     <View style={styles.cardShell}>
       <Pressable
         accessibilityRole="button"
-        accessibilityHint={pending ? 'Uzun basarak taşı, düzenle veya sil' : undefined}
+        accessibilityHint={pending ? t.common.longPressEdit : undefined}
         delayLongPress={380}
         onLongPress={onLongPressEdit}>
         <SurfaceCard
@@ -639,25 +638,25 @@ const TaskCard = memo(function TaskCard({
               />
               {!!task.image_attribution && (
                 <Pressable
-                  accessibilityLabel="Fotoğraf atfı"
-                  accessibilityHint="Uzun basarak fotoğrafçı bilgisini gör"
+                  accessibilityLabel={t.common.photoCredit}
+                  accessibilityHint={t.common.photoCreditHint}
                   hitSlop={8}
                   onLongPress={() => {
                     Alert.alert(
-                      'Fotoğraf atfı',
+                      t.common.photoCredit,
                       task.image_attribution,
                       task.image_attribution_url
                         ? [
-                            { text: 'Kapat', style: 'cancel' },
+                            { text: t.daily.closeCamera, style: 'cancel' },
                             {
                               text:
                                 task.image_source === 'gemini_nano_banana'
-                                  ? 'Kaynağı aç'
-                                  : 'Unsplash’ta aç',
+                                  ? t.common.openSource
+                                  : t.common.openUnsplash,
                               onPress: () => void Linking.openURL(task.image_attribution_url),
                             },
                           ]
-                        : [{ text: 'Kapat', style: 'cancel' }],
+                        : [{ text: t.daily.closeCamera, style: 'cancel' }],
                     );
                   }}
                   style={styles.attributionBadge}>
@@ -707,26 +706,26 @@ const TaskCard = memo(function TaskCard({
             {pending ? (
               <View style={styles.actions}>
                 <TaskButton
-                  label={outcome?.tone === 'danger' ? 'Yeni Kare Dene' : t.daily.addProof}
+                  label={outcome?.tone === 'danger' ? t.daily.retryPhoto : t.daily.addProof}
                   primary
                   busy={busy === `proof:${task.id}`}
                   onPress={onOpenCamera}
                 />
                 <TaskButton
-                  label="Mazeret"
+                  label={t.daily.excuse}
                   busy={busy === `excuse:${task.id}`}
                   onPress={onExcuse}
                 />
                 {willpowerTask && iradeActive ? (
                   <TaskButton
-                    label="Hatırlat"
+                    label={t.daily.remind}
                     busy={busy === `notification:${task.id}`}
                     onPress={() => onDeviceAction('notification')}
                   />
                 ) : null}
                 {willpowerTask ? (
                   <TaskButton
-                    label="Takvime Ekle"
+                    label={t.daily.addToCalendar}
                     busy={busy === `calendar:${task.id}`}
                     onPress={() => onDeviceAction('calendar')}
                   />
@@ -742,11 +741,12 @@ const TaskCard = memo(function TaskCard({
 });
 
 function StatusPill({ status }: { status: Task['status'] }) {
+  const { t } = useLocale();
   const labels: Record<Task['status'], string> = {
-    pending: 'Bekliyor',
-    done: 'Tamamlandı',
-    missed_silent: 'Kaçırıldı',
-    missed_excused: 'Mazeretli',
+    pending: t.daily.statusPending,
+    done: t.daily.statusDone,
+    missed_silent: t.daily.statusMissed,
+    missed_excused: t.daily.statusExcused,
   };
   return (
     <ThemedView type="backgroundSelected" style={styles.pill}>

@@ -47,7 +47,7 @@ export default function RankScreen() {
   const theme = useTheme();
   const { t } = useLocale();
   const router = useRouter();
-  const { hasPremium } = usePremiumAccess();
+  const { hasPaidAccess } = usePremiumAccess();
   const { companionId, investedDays, investedFor, selectCompanion, syncStreak } =
     useCompanionAnimal();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -64,12 +64,12 @@ export default function RankScreen() {
       const nextState = await getState();
       setState(nextState);
     } catch (value) {
-      setError(value instanceof ApiError ? value.message : 'Rütbe bilgisi yüklenemedi.');
+      setError(value instanceof ApiError ? value.message : t.chain.loadFailed);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useWarmFocusReload(load, state != null);
 
@@ -103,9 +103,9 @@ export default function RankScreen() {
           <>
             <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Niyetsen raporunu aç"
+                accessibilityLabel={t.chain.recapOpen}
                 accessibilityHint={
-                  hasPremium ? undefined : 'Panel açık; hikâye PRO ile gelir'
+                  hasPaidAccess ? undefined : t.chain.recapHintFree
                 }
                 onPress={() => {
                   router.push('/rapor' as Href);
@@ -122,10 +122,10 @@ export default function RankScreen() {
                     <ThemedText type="smallBold" style={{ color: theme.tint }}>
                       {t.chain.reportReady}
                     </ThemedText>
-                    {!hasPremium ? <ProBadge /> : null}
+                    {!hasPaidAccess ? <ProBadge /> : null}
                   </View>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {hasPremium
+                    {hasPaidAccess
                       ? t.chain.reportReadyHint
                       : t.chain.reportProHint}
                   </ThemedText>
@@ -147,7 +147,7 @@ export default function RankScreen() {
                 {/* faz8.13/6: filiz → 12 hayvanlı evrim. Dokununca seçim paneli. */}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Yoldaşını seç — filiz veya 12 hayvan"
+                  accessibilityLabel={t.chain.pickCompanion}
                   onPress={() => setPickerOpen(true)}
                   hitSlop={12}
                   style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
@@ -164,7 +164,7 @@ export default function RankScreen() {
                     style={[styles.heroCount, { color: theme.onAccent }]}
                   />
                   <ThemedText style={[styles.heroUnit, { color: theme.onAccent }]}>
-                    gün
+                    {t.chain.daysUnit}
                   </ThemedText>
                 </View>
               </View>
@@ -180,7 +180,7 @@ export default function RankScreen() {
                 style={styles.pickHint}
                 hitSlop={8}>
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  Yoldaşı değiştir — filiz + 12 hayvan
+                  {t.chain.changeCompanion}
                 </ThemedText>
               </Pressable>
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
@@ -196,8 +196,8 @@ export default function RankScreen() {
                 {state.overall_rank}
               </ThemedText>
               <View style={styles.streakRow}>
-                <Metric value={`${state.best_streak}`} label="en iyi" />
-                <Metric value={`${state.freeze_tokens}`} label="koruma jetonu" />
+                <Metric value={`${state.best_streak}`} label={t.chain.bestStreak} />
+                <Metric value={`${state.freeze_tokens}`} label={t.chain.freezeToken} />
               </View>
             </SurfaceCard>
 
@@ -216,7 +216,7 @@ export default function RankScreen() {
                   </View>
                   <ProgressBar progress={Math.min(state.points[category] / 1000, 1)} />
                   <ThemedText type="small" themeColor="textSecondary">
-                    {state.points[category]} puan
+                    {t.chain.points(state.points[category])}
                   </ThemedText>
                 </View>
               ))}
@@ -247,6 +247,8 @@ export default function RankScreen() {
         investedFor={investedFor}
         streakDays={state?.streak_len ?? 0}
         onSelect={selectCompanion}
+        hasPaidAccess={hasPaidAccess}
+        onPaywall={() => router.push('/paywall' as Href)}
       />
     </ThemedView>
   );

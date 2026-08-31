@@ -91,13 +91,13 @@ export default function SettingsScreen() {
       })
       .catch((value) => {
         if (active) {
-          setPushError(value instanceof Error ? value.message : 'Bildirim durumu okunamadı.');
+          setPushError(value instanceof Error ? value.message : t.settings.pushStatusFailed);
         }
       });
     return () => {
       active = false;
     };
-  }, [auth.user?.id]);
+  }, [auth.user?.id, t.settings.pushStatusFailed]);
 
   const previewZodiac = useMemo(() => {
     const iso = birthDateIsoFromDisplay(birthDate);
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
     try {
       const isoBirthDate = birthDateIsoFromDisplay(birthDate);
       if (!isoBirthDate) {
-        setError('Doğum tarihini gün.ay.yıl olarak gir (ör. 10.04.1995).');
+        setError(t.settings.birthInvalid);
         setBusy(null);
         return;
       }
@@ -168,23 +168,23 @@ export default function SettingsScreen() {
         await deleteAccount();
         await auth.signOut();
       } catch (value) {
-        setError(value instanceof Error ? value.message : 'Hesap silinemedi.');
+        setError(value instanceof Error ? value.message : t.settings.deleteFailed);
       } finally {
         setBusy(null);
       }
     };
     if (Platform.OS === 'web') {
-      if (globalThis.confirm?.('Hesabın ve tüm verilerin kalıcı olarak silinsin mi?')) {
+      if (globalThis.confirm?.(t.settings.deleteConfirmBody)) {
         void perform();
       }
       return;
     }
     Alert.alert(
-      'Hesabımı sil',
-      'Planın, sohbetlerin ve kanıt fotoğrafların kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+      t.settings.deleteConfirmTitle,
+      t.settings.deleteConfirmBody,
       [
-        { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Kalıcı olarak sil', style: 'destructive', onPress: () => void perform() },
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.settings.deleteConfirmAction, style: 'destructive', onPress: () => void perform() },
       ],
     );
   }
@@ -232,7 +232,7 @@ export default function SettingsScreen() {
           key === 'marketing' ? accepted : consentStatus.marketing_communications.accepted,
       });
     } catch (value) {
-      setConsentError(value instanceof Error ? value.message : 'Tercih kaydedilemedi.');
+      setConsentError(value instanceof Error ? value.message : t.settings.consentSaveFailed);
     } finally {
       setConsentBusy(false);
     }
@@ -248,7 +248,7 @@ export default function SettingsScreen() {
         : await disablePushNotifications(auth.user.id);
       setPushStatus(nextStatus);
     } catch (value) {
-      setPushError(value instanceof Error ? value.message : 'Bildirim tercihi değiştirilemedi.');
+      setPushError(value instanceof Error ? value.message : t.settings.notifPrefFailed);
       setPushStatus(await getPushStatus(auth.user.id));
     } finally {
       setPushBusy(false);
@@ -271,13 +271,13 @@ export default function SettingsScreen() {
                 },
               ]}>
               <ThemedText type="smallBold" style={[styles.avatarLetter, { color: theme.tint }]}>
-                {(name.trim()[0] || 'S').toUpperCase()}
+                {(name.trim()[0] || t.settings.you).toUpperCase()}
               </ThemedText>
             </View>
             <View style={styles.profileMeta}>
               <View style={styles.nameGlyphRow}>
                 <ThemedText type="smallBold" style={styles.profileName} numberOfLines={1}>
-                  {name.trim() || 'Sen'}
+                  {name.trim() || t.settings.you}
                 </ThemedText>
                 {previewZodiac ? (
                   <ThemedText style={[styles.zodiacGlyph, { color: theme.tint }]}>
@@ -287,10 +287,10 @@ export default function SettingsScreen() {
               </View>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                 {previewZodiac
-                  ? zodiacLabel(previewZodiac)
+                  ? zodiacLabel(previewZodiac, t.zodiac)
                   : subscriptionStatus?.status === 'active'
-                    ? 'Abonelik aktif'
-                    : 'Deneme / ücretsiz'}
+                    ? t.settings.subActive
+                    : t.settings.subTrial(subscriptionStatus?.trial_days_remaining ?? 0)}
               </ThemedText>
             </View>
           </View>
@@ -301,35 +301,35 @@ export default function SettingsScreen() {
           type="backgroundElement"
           style={[styles.card, { borderColor: theme.border }]}>
           <SettingsRow
-            label="🏆  Arkadaşlar & Lig"
-            value="Haftalık gelişim"
+            label={t.settings.friends}
+            value={t.settings.leagueHint}
             onPress={() => router.push('/arkadaslar' as Href)}
           />
           <SettingsRow
-            label="☾  Mistik sohbet"
-            value="Rehber"
+            label={t.settings.mysticChat}
+            value={t.settings.mysticGuide}
             onPress={() => router.push(mysticHref.chat)}
           />
           <SettingsRow
-            label="Rapor paneli"
-            value="KPI"
+            label={t.settings.reportPanel}
+            value={t.settings.reportHint}
             onPress={() => router.push('/rapor' as Href)}
           />
         </ThemedView>
 
-        <CollapsibleCard title="HESAP" initiallyOpen>
-          <Field label="İsim" value={name} onChangeText={setName} />
+        <CollapsibleCard title={t.settings.account} initiallyOpen>
+          <Field label={t.settings.name} value={name} onChangeText={setName} />
           <View style={styles.field}>
-            <ThemedText type="smallBold">Doğum tarihi</ThemedText>
+            <ThemedText type="smallBold">{t.settings.birthDate}</ThemedText>
             <BirthDateField value={birthDate} onChangeText={setBirthDate} />
             {previewZodiac ? (
               <ThemedText type="small" themeColor="textSecondary">
-                Burç: {zodiacLabel(previewZodiac)}
+                {t.settings.zodiacPrefix}: {zodiacLabel(previewZodiac, t.zodiac)}
               </ThemedText>
             ) : null}
           </View>
           <View style={styles.field}>
-            <ThemedText type="smallBold">Cinsiyet</ThemedText>
+            <ThemedText type="smallBold">{t.settings.gender}</ThemedText>
             <View style={styles.genderRow}>
               {GENDER_OPTIONS.map((option) => {
                 const selected = gender === option;
@@ -361,7 +361,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           <TimeOfDayField
-            label="Bildirim saati"
+            label={t.settings.notifTime}
             value={notifTime}
             onChange={setNotifTime}
           />
@@ -374,7 +374,7 @@ export default function SettingsScreen() {
           />
         </CollapsibleCard>
 
-        <CollapsibleCard title="TERCİHLER & BİLDİRİMLER">
+        <CollapsibleCard title={t.settings.preferences}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <ThemedText type="smallBold">{t.profile.appearance}</ThemedText>
@@ -412,7 +412,7 @@ export default function SettingsScreen() {
               </ThemedText>
             </View>
             <Switch
-              accessibilityLabel="Push bildirimleri"
+              accessibilityLabel={t.profile.notifications}
               value={pushStatus?.enabled ?? false}
               disabled={pushBusy || pushStatus?.supported === false}
               onValueChange={(value) => void changePushPreference(value)}
@@ -440,7 +440,7 @@ export default function SettingsScreen() {
               </ThemedText>
             </View>
             <Switch
-              accessibilityLabel="İrade Modu"
+              accessibilityLabel={t.profile.willpowerMode}
               value={iradeMode}
               disabled={busy === 'irade'}
               onValueChange={(value) => void changeIradeMode(value)}
@@ -451,16 +451,16 @@ export default function SettingsScreen() {
           {busy === 'irade' ? <ActivityIndicator color={theme.tint} /> : null}
         </CollapsibleCard>
 
-        <CollapsibleCard title="ABONELİK">
+        <CollapsibleCard title={t.settings.subscription}>
           <SettingsRow
-            label="Durum"
+            label={t.settings.subStatus}
             value={
               subscriptionStatus?.status === 'active'
-                ? 'Premium'
+                ? t.settings.premium
                 : subscriptionStatus?.status === 'trial'
-                  ? `Deneme · ${subscriptionStatus.trial_days_remaining}g`
+                  ? t.settings.subTrial(subscriptionStatus.trial_days_remaining)
                   : subscriptionStatus?.show_paywall
-                    ? 'Bitti'
+                    ? t.settings.subEnded
                     : '…'
             }
           />
@@ -469,12 +469,12 @@ export default function SettingsScreen() {
               && subscriptionStatus.status !== 'trial'
               && subscriptionStatus.status !== 'active') ? (
             <SettingsRow
-              label="PRO'ya Geç"
+              label={t.settings.goPro}
               onPress={() => router.push('/paywall' as Href)}
             />
           ) : null}
           <SettingsRow
-            label="Aboneliği Yönet"
+            label={t.settings.manageSub}
             busy={busy === 'customer-center'}
             onPress={() => {
               void (async () => {
@@ -492,12 +492,12 @@ export default function SettingsScreen() {
                   return;
                 }
                 await refreshSubscription();
-                setMessage('Abonelik merkezi kapatıldı.');
+                setMessage(t.settings.customerCenterClosed);
               })();
             }}
           />
           <SettingsRow
-            label="Satın Alımları Geri Yükle"
+            label={t.settings.restorePurchases}
             busy={busy === 'restore'}
             onPress={() => {
               void (async () => {
@@ -511,58 +511,58 @@ export default function SettingsScreen() {
                   setError(result.message);
                   return;
                 }
-                setMessage('Satın alımlar geri yüklendi — PRO özellikler açıldı.');
+                setMessage(t.settings.restoreSuccess);
               })();
             }}
           />
         </CollapsibleCard>
 
-        <CollapsibleCard title="GÜVENLİK & GİZLİLİK">
+        <CollapsibleCard title={t.settings.privacy}>
           <ConsentSwitch
-            label="AI sohbeti"
-            detail="Kapalıysa sohbet/plan kilitlenir"
+            label={t.settings.consentAi}
+            detail={t.settings.consentAiHint}
             value={consentStatus.ai_chat_processing.accepted}
             disabled={consentBusy}
             onValueChange={(value) => void changeConsent('ai', value)}
           />
           <ConsentSwitch
-            label="Kanıt fotoğrafı"
-            detail="Kapalıysa kanıt yok"
+            label={t.settings.consentPhoto}
+            detail={t.settings.consentPhotoHint}
             value={consentStatus.proof_photo_processing.accepted}
             disabled={consentBusy}
             onValueChange={(value) => void changeConsent('proofPhoto', value)}
           />
           <ConsentSwitch
-            label="Pazarlama"
-            detail="Varsayılan kapalı"
+            label={t.settings.consentMarketing}
+            detail={t.settings.consentMarketingHint}
             value={consentStatus.marketing_communications.accepted}
             disabled={consentBusy}
             onValueChange={(value) => void changeConsent('marketing', value)}
           />
           {consentError && <ThemedText themeColor="danger">{consentError}</ThemedText>}
           <SettingsRow
-            label="Gizlilik Politikası"
+            label={t.auth.legalPrivacy}
             onPress={() => void openLegalDocument('privacy')}
           />
           <SettingsRow
-            label="KVKK Aydınlatma"
+            label={t.auth.legalKvkk}
             onPress={() => void openLegalDocument('kvkk')}
           />
           <SettingsRow
-            label="Açık Rıza Metni"
+            label={t.auth.legalConsent}
             onPress={() => void openLegalDocument('consent')}
           />
           <SettingsRow
-            label="Kullanım Koşulları"
+            label={t.auth.legalTerms}
             onPress={() => void openLegalDocument('terms')}
           />
         </CollapsibleCard>
 
-        <CollapsibleCard title="OTURUM">
-          <SettingsRow label="Hesap" value={auth.user?.email ?? '—'} />
-          <SettingsRow label="Çıkış Yap" onPress={() => void auth.signOut()} />
+        <CollapsibleCard title={t.settings.session}>
+          <SettingsRow label={t.settings.accountEmail} value={auth.user?.email ?? '—'} />
+          <SettingsRow label={t.settings.signOut} onPress={() => void auth.signOut()} />
           <SettingsRow
-            label="Hesabımı Sil"
+            label={t.settings.deleteAccount}
             danger
             busy={busy === 'delete'}
             onPress={confirmDelete}
@@ -588,6 +588,7 @@ function CollapsibleCard({
   initiallyOpen?: boolean;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [open, setOpen] = useState(initiallyOpen);
   return (
     <ThemedView
@@ -597,7 +598,7 @@ function CollapsibleCard({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={title}
-        accessibilityHint={open ? 'Bölümü kapat' : 'Bölümü aç'}
+        accessibilityHint={open ? t.settings.sectionClose : t.settings.sectionOpen}
         onPress={() => setOpen((value) => !value)}
         style={({ pressed }) => [styles.collapsibleHeader, pressed && { opacity: 0.75 }]}>
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionLabel}>

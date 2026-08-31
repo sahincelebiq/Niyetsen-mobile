@@ -12,8 +12,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { companionVisual, type CompanionId } from '@/constants/chain-animals';
+import { companionLabelsFromMessages, companionVisual, type CompanionId } from '@/constants/chain-animals';
 import { Motion, Radii, Spacing } from '@/constants/theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type ChainCompanionProps = {
   streakDays: number;
@@ -30,7 +31,9 @@ export function ChainCompanion({
   companionId = null,
   investedDays = 0,
 }: ChainCompanionProps) {
-  const visual = companionVisual(companionId, investedDays, streakDays, Math.round(size * 0.5));
+  const { t } = useLocale();
+  const labels = companionLabelsFromMessages(t.companion);
+  const visual = companionVisual(companionId, investedDays, streakDays, Math.round(size * 0.5), labels);
   const scale = useSharedValue(1);
   const stageKey = `${visual.name}-${visual.stageLabel}`;
   const previousKey = useRef(stageKey);
@@ -81,7 +84,9 @@ export function ChainCompanionCaption({
   companionId?: CompanionId | null;
   investedDays?: number;
 }) {
-  const visual = companionVisual(companionId, investedDays, streakDays);
+  const { t } = useLocale();
+  const labels = companionLabelsFromMessages(t.companion);
+  const visual = companionVisual(companionId, investedDays, streakDays, 30, labels);
   return (
     <View style={styles.caption}>
       <View style={[styles.stagePill, { borderColor: color }]}>
@@ -93,7 +98,7 @@ export function ChainCompanionCaption({
         {visual.motto}
       </ThemedText>
       <ThemedText type="small" style={[styles.captionText, { color, opacity: 0.85 }]}>
-        Sonra: {visual.nextLabel}
+        {t.chain.then}: {visual.nextLabel}
       </ThemedText>
     </View>
   );

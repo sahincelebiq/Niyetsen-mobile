@@ -60,11 +60,11 @@ export default function BonusScreen() {
       setCompleted(today?.status === 'completed');
       setAttested(false);
     } catch (value) {
-      setError(value instanceof ApiError ? value.message : 'Bonus görev yüklenemedi.');
+      setError(value instanceof ApiError ? value.message : t.bonus.loadFailed);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,7 +82,7 @@ export default function BonusScreen() {
       setCompleted(next.status === 'completed');
       setAttested(false);
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Bonus görev alınamadı.');
+      setError(value instanceof Error ? value.message : t.bonus.offerFailed);
     } finally {
       setBusy(null);
     }
@@ -119,7 +119,7 @@ export default function BonusScreen() {
       }
       const result = await completeBonus(offer.id, completionId);
       if (typeof result.awarded !== 'number' || result.awarded < 0) {
-        throw new Error('Beklenmeyen bonus yanıtı; rütbe durumunu yenile.');
+        throw new Error(t.bonus.unexpected);
       }
       setCompleted(true);
       setOffer({ ...offer, status: 'completed' });
@@ -129,7 +129,7 @@ export default function BonusScreen() {
         setCompleted(true);
         setOffer({ ...offer, status: 'completed' });
       } else {
-        setError(value instanceof Error ? value.message : 'Bonus görev tamamlanamadı.');
+        setError(value instanceof Error ? value.message : t.bonus.completeFailed);
       }
     } finally {
       setBusy(null);
@@ -154,9 +154,9 @@ export default function BonusScreen() {
           </Pressable>
 
           <View style={styles.header}>
-            <ThemedText type="title">Bonus Görev</ThemedText>
+            <ThemedText type="title">{t.bonus.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
-              Ana planından ayrı, fotoğraf istemeyen küçük bir hareket.
+              {t.bonus.subtitle}
             </ThemedText>
           </View>
 
@@ -167,12 +167,12 @@ export default function BonusScreen() {
             <ThemedView
               type="backgroundElement"
               style={[styles.empty, { borderColor: theme.border }]}>
-              <ThemedText type="subtitle">Bugünün küçük kıvılcımı</ThemedText>
+              <ThemedText type="subtitle">{t.bonus.sparkTitle}</ThemedText>
               <ThemedText themeColor="textSecondary">
-                Hazır olduğunda bugüne özel tek bir bonus görev al.
+                {t.bonus.sparkBody}
               </ThemedText>
               <BonusButton
-                label="Bonus Görev Al"
+                label={t.bonus.takeCta}
                 busy={busy === 'offer'}
                 onPress={() => void requestOffer()}
               />
@@ -188,7 +188,7 @@ export default function BonusScreen() {
                   <ThemedText type="smallBold">{offer.category}</ThemedText>
                 </ThemedView>
                 <ThemedText type="smallBold" themeColor="accentWarm">
-                  +{BONUS_POINTS} puan
+                  {t.bonus.points(BONUS_POINTS)}
                 </ThemedText>
               </View>
               <ThemedText type="subtitle">{offer.title}</ThemedText>
@@ -197,18 +197,18 @@ export default function BonusScreen() {
               {alreadyDone ? (
                 <ThemedView type="backgroundSelected" style={styles.success}>
                   <ThemedText type="smallBold" themeColor="success">
-                    Tamamlandı · +{BONUS_POINTS} puan
+                    {t.bonus.doneTitle(BONUS_POINTS)}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Bugünün bonus görevi bitti. Yarın yeni bir kıvılcım gelir.
+                    {t.bonus.doneBody}
                   </ThemedText>
                 </ThemedView>
               ) : (
                 <>
                   <ThemedText type="small" themeColor="textSecondary">
                     {remainingSec > 0
-                      ? `Görevi yap. Onay ${remainingSec} sn sonra açılır.`
-                      : 'Hareketi yaptıysan aşağıyı işaretle, sonra onayla.'}
+                      ? t.bonus.wait(remainingSec)
+                      : t.bonus.attestHint}
                   </ThemedText>
                   <Pressable
                     accessibilityRole="checkbox"
@@ -224,10 +224,10 @@ export default function BonusScreen() {
                         },
                       ]}
                     />
-                    <ThemedText type="small">Gerçekten yaptım</ThemedText>
+                    <ThemedText type="small">{t.bonus.attest}</ThemedText>
                   </Pressable>
                   <BonusButton
-                    label="Yaptım"
+                    label={t.bonus.didIt}
                     busy={busy === 'complete'}
                     disabled={!canComplete}
                     onPress={() => void markComplete()}
@@ -238,7 +238,7 @@ export default function BonusScreen() {
           )}
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-            Bonus görev ana 7/365 planını, zincirini veya fotoğraf kanıtı görevlerini değiştirmez.
+            {t.bonus.note}
           </ThemedText>
         </ScrollView>
       </SafeAreaView>

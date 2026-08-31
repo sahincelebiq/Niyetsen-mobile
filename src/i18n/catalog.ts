@@ -17,6 +17,41 @@ const CATALOG: Record<AppLocale, Messages> = {
   ar,
 };
 
+const ALIASES: Record<string, AppLocale> = {
+  en: 'en-US',
+  'en-us': 'en-US',
+  eng: 'en-US',
+  english: 'en-US',
+  'en-gb': 'en-GB',
+  gb: 'en-GB',
+  uk: 'en-GB',
+  de: 'de',
+  deu: 'de',
+  ger: 'de',
+  german: 'de',
+  fr: 'fr',
+  fra: 'fr',
+  french: 'fr',
+  ar: 'ar',
+  ara: 'ar',
+  arabic: 'ar',
+  tr: 'tr',
+  tur: 'tr',
+  turkish: 'tr',
+};
+
+/** "en" sızıntısını en-US'e çevir — UI'da ham "en" yazılmasın. */
+export function coerceAppLocale(value: string | null | undefined): AppLocale | null {
+  if (!value) return null;
+  const raw = value.trim().replace(/_/g, '-');
+  if ((LOCALES as string[]).includes(raw)) return raw as AppLocale;
+  const lower = raw.toLowerCase();
+  if ((LOCALES as string[]).includes(lower)) return lower as AppLocale;
+  if (ALIASES[lower]) return ALIASES[lower];
+  const lang = lower.split('-')[0];
+  return ALIASES[lang] ?? null;
+}
+
 export function messagesFor(locale: AppLocale): Messages {
   return CATALOG[locale] ?? tr;
 }

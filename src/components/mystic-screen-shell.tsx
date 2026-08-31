@@ -19,6 +19,7 @@ import {
 import { getZodiacGlyph, zodiacLabel } from '@/constants/zodiac';
 import { mysticHref } from '@/lib/mystic-routes';
 import { useAppearance } from '@/providers/appearance-provider';
+import { useLocale } from '@/providers/locale-provider';
 
 type MysticScreenShellProps = {
   symbol: string;
@@ -41,10 +42,11 @@ export function MysticScreenShell({
 }: MysticScreenShellProps) {
   const router = useRouter();
   const { isDark } = useAppearance();
+  const { t } = useLocale();
   const colors = MysticColors[isDark ? 'dark' : 'light'];
   const edge = isDark ? SurfaceEdge.dark : SurfaceEdge.light;
   const glyph = getZodiacGlyph(zodiacSign);
-  const label = zodiacLabel(zodiacSign);
+  const label = zodiacLabel(zodiacSign, t.zodiac);
 
   function goBack() {
     if (router.canGoBack()) router.back();
@@ -65,12 +67,12 @@ export function MysticScreenShell({
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Geri"
+            accessibilityLabel={t.common.back}
             onPress={goBack}
             hitSlop={12}
             style={({ pressed }) => [styles.backHit, pressed && { opacity: 0.6 }]}>
             <ThemedText type="smallBold" style={{ color: colors.tint }}>
-              ‹ Geri
+              ‹ {t.common.back}
             </ThemedText>
           </Pressable>
         </View>
@@ -142,6 +144,7 @@ export function MysticGrantButton({
   onGrant,
 }: MysticGrantButtonProps) {
   const { colors } = useMysticColors();
+  const { t } = useLocale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -155,7 +158,7 @@ export function MysticGrantButton({
         },
       ]}>
       <ThemedText type="smallBold" style={{ color: colors.background, textAlign: 'center' }}>
-        {granting ? 'Kaydediliyor…' : label}
+        {granting ? t.common.saving : label}
       </ThemedText>
       {hint ? (
         <ThemedText type="small" style={{ color: colors.background, textAlign: 'center', opacity: 0.85 }}>

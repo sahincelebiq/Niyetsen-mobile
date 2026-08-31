@@ -6,6 +6,7 @@ import {
   SPROUT_ID,
   type CompanionId,
 } from '@/constants/chain-animals';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
 
 const LEGACY_KEY = 'niyetsen.companion.animalIndex';
 const STORE_KEY = 'niyetsen.companion.v2';
@@ -94,6 +95,7 @@ async function loadStore(): Promise<CompanionStore> {
  * saklanır — başka ikona geçince bebekliğe düşmez.
  */
 export function useCompanionAnimal() {
+  const { hasPaidAccess } = usePremiumAccess();
   const [store, setStore] = useState<CompanionStore>(cached ?? EMPTY);
 
   useEffect(() => {
@@ -123,10 +125,11 @@ export function useCompanionAnimal() {
     void persist(next);
   }, []);
 
+  const visibleId: CompanionId | null = hasPaidAccess ? store.selected : SPROUT_ID;
   const investedDays =
-    store.selected == null
+    visibleId == null
       ? 0
-      : store.invested[companionStorageKey(store.selected)] ?? 0;
+      : store.invested[companionStorageKey(visibleId)] ?? 0;
 
   const investedFor = useCallback(
     (id: CompanionId) => store.invested[companionStorageKey(id)] ?? 0,
@@ -134,10 +137,12 @@ export function useCompanionAnimal() {
   );
 
   return {
-    companionId: store.selected,
+    companionId: visibleId,
+    storedId: store.selected,
     investedDays,
     investedFor,
     selectCompanion,
     syncStreak,
+    hasPaidAccess,
   };
 }

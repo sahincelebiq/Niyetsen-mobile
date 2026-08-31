@@ -1,5 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,23 +21,25 @@ import { mysticHref } from '@/lib/mystic-routes';
 import {
   ApiError,
   getFortuneRights,
+  isPaywallError,
   type FortuneRights,
   type PhotoFortune,
   uploadFortunePhoto,
 } from '@/lib/api';
+import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
 type FortuneKind = 'kahve' | 'el';
 
-const KIND_LABELS: Record<FortuneKind, { title: string; hint: string }> = {
-  kahve: { title: 'Kahve Falı', hint: 'Fincanı devirdikten sonra telveyi net ve yakından çek.' },
-  el: { title: 'El Falı', hint: 'Avuç içini iyi ışıkta, çizgiler seçilecek şekilde çek.' },
-};
-
 export default function FortuneScreen() {
   const router = useRouter();
   const { colors } = useMysticColors();
+  const { t } = useLocale();
   const { profile } = useProfile();
+  const kindLabels: Record<FortuneKind, { title: string; hint: string }> = {
+    kahve: { title: t.mystic.coffeeTitle, hint: t.mystic.coffeeHint },
+    el: { title: t.mystic.palmTitle, hint: t.mystic.palmHint },
+  };
   const { status: consentStatus, saveChoices } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -84,7 +86,7 @@ export default function FortuneScreen() {
         marketing: consentStatus.marketing_communications.accepted,
       });
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Onay kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.mystic.grantSaveFailed);
     } finally {
       setGranting(false);
     }
@@ -94,19 +96,24 @@ export default function FortuneScreen() {
     setError(null);
     setResult(null);
     setKind(selected);
+    const remaining = rights?.rights[selected]?.remaining;
+    if (remaining === 0 && !rights?.is_premium) {
+      setError(t.mystic.quotaUsed);
+      return;
+    }
     if (!consentStatus.proof_photo_processing.accepted) {
-      setError('Fal fotoğrafı için fotoğraf işleme onayı gerekli — aşağıdan verebilirsin.');
+      setError(t.mystic.grantNeededPhoto);
       return;
     }
     if (Platform.OS === 'web') {
-      setError('Fal kamerası web sürümünde desteklenmiyor. iOS veya Android uygulamasını kullan.');
+      setError(t.mystic.cameraWeb);
       return;
     }
     const permission = cameraPermission?.granted
       ? cameraPermission
       : await requestCameraPermission();
     if (!permission?.granted) {
-      setError('Kamera izni olmadan fal fotoğrafı çekilemez. Ayarlar’dan kamerayı aç.');
+      setError(t.mystic.cameraDenied);
       return;
     }
     setCameraReady(false);
@@ -122,7 +129,7 @@ export default function FortuneScreen() {
         imageType: 'jpg',
         skipProcessing: false,
       });
-      if (!picture?.uri) throw new Error('Fotoğraf oluşturulamadı.');
+      if (!picture?.uri) throw new Error(t.mystic.captureFailed);
       setCameraOpen(false);
       const fortune = await uploadFortunePhoto(kind, picture.uri);
       setResult(fortune);
@@ -130,10 +137,12 @@ export default function FortuneScreen() {
       void loadRights();
     } catch (value) {
       setCameraOpen(false);
-      if (value instanceof ApiError && value.status === 429) {
+      if (isPaywallError(value)) {
+        setError(t.mystic.quotaUsed);
+      } else if (value instanceof ApiError && value.status === 429) {
         setError(value.message);
       } else {
-        setError(value instanceof Error ? value.message : 'Fal yorumu alınamadı.');
+        setError(value instanceof Error ? value.message : t.mystic.interpretFailed);
       }
     } finally {
       setBusy(false);
@@ -143,15 +152,17 @@ export default function FortuneScreen() {
   function remainingLabel(target: FortuneKind): string {
     const item = rights?.rights[target];
     if (!item) return '';
-    return item.remaining > 0 ? `bugün ${item.remaining} hak` : 'bugünkü hak doldu';
+    if (item.remaining < 0) return t.mystic.unlimited;
+    if (item.remaining > 0) return t.mystic.remaining(item.remaining);
+    return t.mystic.quotaUsed;
   }
 
   return (
     <>
       <MysticScreenShell
         symbol="☾"
-        title="Fal"
-        subtitle={`${KIND_LABELS[kind].title} — ${KIND_LABELS[kind].hint} Fal bir kader değil, bir ayna.`}
+        title={t.mystic.falTitle}
+        subtitle={`${kindLabels[kind].title} — ${kindLabels[kind].hint} ${t.mystic.falSubtitle}`}
         zodiacSign={profile?.zodiac_sign}>
         {(['kahve', 'el'] as FortuneKind[]).map((target, index) => (
           <Animated.View
@@ -177,10 +188,10 @@ export default function FortuneScreen() {
               ]}>
               <View style={styles.kindText}>
                 <ThemedText type="subtitle" style={{ color: colors.text }}>
-                  {KIND_LABELS[target].title}
+                  {kindLabels[target].title}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                  {KIND_LABELS[target].hint}
+                  {kindLabels[target].hint}
                 </ThemedText>
                 {rights ? (
                   <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
@@ -201,11 +212,11 @@ export default function FortuneScreen() {
               { borderColor: colors.border, backgroundColor: colors.background },
             ]}>
             <ThemedText type="smallBold" style={{ color: colors.accentWarm }}>
-              {KIND_LABELS[result.kind].title.toUpperCase()}
+              {kindLabels[result.kind].title.toUpperCase()}
             </ThemedText>
             {result.symbols.length > 0 ? (
               <ThemedText type="small" style={{ color: colors.textSecondary }}>
-                Görülen semboller: {result.symbols.join(' · ')}
+                {t.mystic.symbolsSeen}: {result.symbols.join(' · ')}
               </ThemedText>
             ) : null}
             <ThemedText style={{ color: colors.text }}>{result.interpretation}</ThemedText>
@@ -221,10 +232,32 @@ export default function FortuneScreen() {
           </ThemedText>
         ) : null}
 
+        {rights &&
+        !rights.is_premium &&
+        ((rights.rights.kahve?.remaining ?? 1) === 0 ||
+          (rights.rights.el?.remaining ?? 1) === 0) ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/paywall' as Href)}
+            style={({ pressed }) => [
+              styles.kindButton,
+              {
+                borderColor: colors.tint,
+                backgroundColor: colors.tint,
+                opacity: pressed ? 0.85 : 1,
+                alignItems: 'center',
+              },
+            ]}>
+            <ThemedText type="smallBold" style={{ color: colors.background }}>
+              {t.mystic.falProCta}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
         {!photoConsent ? (
           <MysticGrantButton
-            label={granting ? 'Kaydediliyor…' : 'Fotoğraf onayını ver ve çek'}
-            hint="Fal fotoğrafı yalnız bu çekim için işlenir; Ayarlar’dan kapatabilirsin."
+            label={t.mystic.photoGrant}
+            hint={t.mystic.photoGrantHint}
             granting={granting}
             onGrant={() => void grantPhotoConsent()}
           />
@@ -243,13 +276,13 @@ export default function FortuneScreen() {
               },
             ]}>
             <ThemedText type="smallBold" style={{ color: colors.tint }}>
-              Mistik rehberle yorumla
+              {t.mystic.interpretWithGuide}
             </ThemedText>
           </Pressable>
         ) : null}
 
         <ThemedText type="small" style={[styles.disclaimer, { color: colors.textSecondary }]}>
-          Bu içerik eğlence amaçlıdır; tıbbi, hukuki veya finansal tavsiye değildir.
+          {t.mystic.disclaimer}
         </ThemedText>
 
         <Pressable
@@ -257,7 +290,7 @@ export default function FortuneScreen() {
           onPress={() => router.replace(mysticHref.chat)}
           style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.6 : 1 }]}>
           <ThemedText type="smallBold" style={{ color: colors.tint }}>
-            Mistik sohbete dön
+            {t.mystic.backToChat}
           </ThemedText>
         </Pressable>
       </MysticScreenShell>
@@ -285,18 +318,18 @@ export default function FortuneScreen() {
             <View style={styles.cameraTop}>
               <Pressable onPress={() => setCameraOpen(false)} style={styles.cameraTextButton}>
                 <ThemedText type="smallBold" style={styles.cameraText}>
-                  Kapat
+                  {t.mystic.closeCamera}
                 </ThemedText>
               </Pressable>
               <ThemedText
                 type="smallBold"
                 numberOfLines={2}
                 style={[styles.cameraText, styles.cameraHint]}>
-                {cameraReady ? KIND_LABELS[kind].hint : 'Kamera hazırlanıyor…'}
+                {cameraReady ? kindLabels[kind].hint : t.common.loading}
               </ThemedText>
             </View>
             <Pressable
-              accessibilityLabel="Fal fotoğrafı çek"
+              accessibilityLabel={t.mystic.capture}
               disabled={!cameraReady || busy}
               onPress={() => void captureAndUpload()}
               style={({ pressed }) => [

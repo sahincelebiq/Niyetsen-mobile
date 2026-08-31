@@ -1,15 +1,18 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ProBadge } from '@/components/pro-badge';
 import { ThemedText } from '@/components/themed-text';
 import {
   CHAIN_ANIMALS,
+  companionLabelsFromMessages,
   companionVisual,
   SPROUT_ID,
   type CompanionId,
 } from '@/constants/chain-animals';
 import { Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type ChainAnimalPickerProps = {
   visible: boolean;
@@ -18,6 +21,8 @@ type ChainAnimalPickerProps = {
   investedFor: (id: CompanionId) => number;
   streakDays: number;
   onSelect: (id: CompanionId | null) => void;
+  hasPaidAccess?: boolean;
+  onPaywall?: () => void;
 };
 
 export function ChainAnimalPicker({
@@ -27,21 +32,29 @@ export function ChainAnimalPicker({
   investedFor,
   streakDays,
   onSelect,
+  hasPaidAccess = true,
+  onPaywall,
 }: ChainAnimalPickerProps) {
   const theme = useTheme();
+  const { t } = useLocale();
+  const labels = companionLabelsFromMessages(t.companion);
 
-  function pick(id: CompanionId | null) {
+  function pick(id: CompanionId | null, requiresPro: boolean) {
+    if (requiresPro && !hasPaidAccess) {
+      onPaywall?.();
+      return;
+    }
     onSelect(id);
     onClose();
   }
 
-  const sprout = companionVisual(SPROUT_ID, investedFor(SPROUT_ID), streakDays, 26);
+  const sprout = companionVisual(SPROUT_ID, investedFor(SPROUT_ID), streakDays, 26, labels);
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Yoldaş panelini kapat"
+        accessibilityLabel={t.companion.close}
         onPress={onClose}
         style={styles.backdrop}
       />
@@ -53,11 +66,10 @@ export function ChainAnimalPicker({
         ]}>
         <View style={[styles.grabber, { backgroundColor: theme.border }]} />
         <ThemedText type="screenTitle" style={styles.title}>
-          Yoldaşını seç
+          {t.companion.title}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-          Filiz veya 12 hayvandan biri. Bebek → olgun → erişkin, sonra Yaş 1, Yaş 2…
-          Seçtiğin yoldaşın yaşı kayıtlı kalır.
+          {t.companion.subtitle}
         </ThemedText>
 
         <ScrollView
@@ -67,7 +79,7 @@ export function ChainAnimalPicker({
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ selected: selectedId == null }}
-            onPress={() => pick(null)}
+            onPress={() => pick(null, true)}
             style={({ pressed }) => [
               styles.autoRow,
               {
@@ -78,18 +90,19 @@ export function ChainAnimalPicker({
               },
             ]}>
             <ThemedText type="smallBold" style={{ color: theme.tint }}>
-              Zincirle büyüsün
+              {t.companion.autoGrow}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Serçe’den Tek Boynuz’a otomatik evrim
+              {t.companion.autoGrowHint}
             </ThemedText>
+            {!hasPaidAccess ? <ProBadge /> : null}
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Filiz"
+            accessibilityLabel={t.companion.filiz}
             accessibilityState={{ selected: selectedId === SPROUT_ID }}
-            onPress={() => pick(SPROUT_ID)}
+            onPress={() => pick(SPROUT_ID, false)}
             style={({ pressed }) => [
               styles.sproutRow,
               {
@@ -108,10 +121,10 @@ export function ChainAnimalPicker({
               <ThemedText
                 type="smallBold"
                 style={{ color: selectedId === SPROUT_ID ? theme.tint : theme.text }}>
-                Filiz
+                {t.companion.filiz}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {sprout.stageLabel} · sonra {sprout.nextLabel}
+                {sprout.stageLabel} · {t.chain.then} {sprout.nextLabel}
               </ThemedText>
             </View>
           </Pressable>
@@ -124,6 +137,7 @@ export function ChainAnimalPicker({
                 investedFor(animal.index),
                 streakDays,
                 26,
+                labels,
               );
               return (
                 <Pressable
@@ -131,7 +145,7 @@ export function ChainAnimalPicker({
                   accessibilityRole="button"
                   accessibilityLabel={`${visual.name}, ${visual.stageLabel}`}
                   accessibilityState={{ selected }}
-                  onPress={() => pick(animal.index)}
+                  onPress={() => pick(animal.index, true)}
                   style={({ pressed }) => [
                     styles.cell,
                     {
@@ -155,6 +169,7 @@ export function ChainAnimalPicker({
                   <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                     {visual.stageLabel}
                   </ThemedText>
+                  {!hasPaidAccess ? <ProBadge /> : null}
                 </Pressable>
               );
             })}
