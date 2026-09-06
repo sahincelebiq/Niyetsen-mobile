@@ -110,12 +110,19 @@ export default function DailyTasksScreen() {
     setError(null);
     try {
       let daily = await getDailyTasks();
+      setNeedsExtension(!!daily.needs_extension);
+      setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+      // İlk cevap geldi — Gemini uzatması (90 sn) tam ekran spinner'da tutmasın.
+      setLoading(false);
+
       if (daily.needs_extension && !autoExtendRef.current) {
         autoExtendRef.current = true;
         setExtending(true);
         try {
           await ensureTodayPlan();
           daily = await getDailyTasks();
+          setNeedsExtension(!!daily.needs_extension);
+          setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
         } catch (value) {
           if (isPaywallError(value)) {
             router.push('/paywall' as Href);
@@ -130,8 +137,6 @@ export default function DailyTasksScreen() {
           setExtending(false);
         }
       }
-      setNeedsExtension(!!daily.needs_extension);
-      setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
       try {
         const state = await getState();
         setYesterdayMisses(state.yesterday_silent_misses ?? 0);
