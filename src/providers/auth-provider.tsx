@@ -124,6 +124,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [oauthHold, setOauthHold] = useState(false);
+  const [deepLinkHold, setDeepLinkHold] = useState(false);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
@@ -145,6 +146,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const initialUrl = await Linking.getInitialURL();
         const fromOAuth = Boolean(initialUrl && looksLikeAuthCallback(initialUrl));
         if (fromOAuth && initialUrl) {
+          if (mounted) setDeepLinkHold(true);
           await applyUrl(initialUrl);
         }
         const attempts = fromOAuth ? 10 : 1;
@@ -165,12 +167,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
           // OAuth deep link SIGNED_IN olmuşken geç gelen null boot sonucu
           // oturumu ezmesin — Google sonrası giriş ekranına düşüren yarış.
           setSession((current) => next ?? current);
+          setDeepLinkHold(false);
         }
       } catch (error) {
         console.warn('Oturum okunamadı', error);
         // Timeout'ta session'ı silme — OAuth/onAuthStateChange gelmiş olabilir.
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setDeepLinkHold(false);
+          setLoading(false);
+        }
       }
     })();
 
@@ -195,7 +201,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (mounted) void applyUrl(url);
     });
     const linking = Linking.addEventListener('url', ({ url }) => {
-      void applyUrl(url);
+      if (!looksLikeAuthCallback(url)) return;
+      setDeepLinkHold(true);
+      void (async () => {
+        try {
+          await applyUrl(url);
+          for (let i = 0; i < 10; i += 1) {
+            const { data } = await supabase.auth.getSession();
+            if (data.session || !mounted) break;
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          }
+        } finally {
+          if (mounted) setDeepLinkHold(false);
+        }
+      })();
     });
 
     return () => {
@@ -224,7 +243,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [loading, session]);
 
   useEffect(() => {
-    if (session) setOauthHold(false);
+    if (session) {
+      setOauthHold(false);
+      setDeepLinkHold(false);
+    }
   }, [session]);
 
   useEffect(() => {
@@ -393,7 +415,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       session,
       user: session?.user ?? null,
-      loading: loading || oauthHold,
+      loading: loading || oauthHold || deepLinkHold,
       recovery,
       signInWithEmail,
       signUpWithEmail,
@@ -408,6 +430,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [
       loading,
       oauthHold,
+      deepLinkHold,
       recovery,
       resetPassword,
       sendEmailOtp,

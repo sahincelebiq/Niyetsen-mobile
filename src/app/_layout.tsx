@@ -65,11 +65,6 @@ export default function TabLayout() {
 
   const fontsReady = fontsLoaded || !!fontError || fontWaitOver;
 
-  useEffect(() => {
-    if (!fontsReady) return;
-    void SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsReady]);
-
   if (!fontsReady) return null;
 
   return (
@@ -87,6 +82,13 @@ function RootNavigation({ pathname }: { pathname: string }) {
   const colorScheme = useColorScheme();
   const isLegal = pathname.startsWith('/legal/');
   const isAuthCallback = pathname.startsWith('/auth/');
+
+  useEffect(() => {
+    if (isLegal) {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [isLegal]);
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
@@ -111,6 +113,12 @@ function RootNavigation({ pathname }: { pathname: string }) {
 function AuthenticatedApp() {
   const { session, loading, recovery } = useAuth();
   const theme = useTheme();
+
+  useEffect(() => {
+    if (!loading) {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [loading]);
 
   if (loading) {
     return (

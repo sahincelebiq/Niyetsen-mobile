@@ -50,15 +50,16 @@ export default function AuthCallbackScreen() {
           if (url) await completeAuthFromUrl(url);
         }
         if (!cancelled) {
-          for (let i = 0; i < 10; i += 1) {
+          for (let i = 0; i < 20; i += 1) {
             const { data } = await supabase.auth.getSession();
             if (data.session) break;
-            await new Promise((resolve) => setTimeout(resolve, 150));
+            await new Promise((resolve) => setTimeout(resolve, 200));
           }
         }
       } catch {
         // Onay/sıfırlama linki bozuksa giriş ekranına düşer.
       } finally {
+        // Döngü oturumu bekledi; AuthProvider deepLinkHold kapanmadan reset yok.
         if (!cancelled) router.replace('/');
       }
     })();

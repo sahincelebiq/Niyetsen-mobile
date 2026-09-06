@@ -176,7 +176,7 @@ export const de: Messages = {
   daily: {
     title: 'Heute',
     subtitle: 'Kleine Schritte, ungebrochene Kette',
-    emptyTitle: 'Keine Aufgaben für heute',
+    emptyTitle: 'Heute ist keine Absicht geplant.',
     emptyBody:
       'Dein Plan kann hinterherhinken. Lade die Aufgaben dieser Woche — oder probiere einen Bonus.',
     emptyCta: 'Boni ansehen',
@@ -344,6 +344,8 @@ export const de: Messages = {
     benefitCompanion: 'Gefährtin Filiz ist frei; andere Avatare sind PRO (alle sichtbar).',
     catalogFreeTitle: 'Was frei bleibt',
     catalogProTitle: 'Unbegrenzt mit PRO',
+    benefitFalFree: 'Wahrsagen und Horoskop bleiben frei — der Chat bleibt offen.',
+    introFree: (days) => `${days} Tage kostenlos`,
     terms: 'Nutzungsbedingungen',
     privacy: 'Datenschutz',
   },
@@ -395,6 +397,7 @@ export const de: Messages = {
     notifPrefFailed: 'Benachrichtigung nicht geändert.',
     sectionOpen: 'Abschnitt öffnen',
     sectionClose: 'Abschnitt schließen',
+    pushOffHint: 'Erinnerungszeit ist gespeichert; Gerätebenachrichtigungen sind aus.',
   },
   legal: {
     back: 'Zurück',
@@ -662,6 +665,10 @@ export const de: Messages = {
     joinTitle: 'Der Liga beitreten',
     joinBody:
       'Die Teilnahme ist freiwillig. Dein echter Name bleibt UNSICHTBAR — nur Spitzname, Punkte und Kettenlänge erscheinen. Du kannst jederzeit gehen; der Eintrag wird gelöscht.',
+    joinHint: 'Spitzname, Punkte und Kette sind sichtbar. Dein echter Name bleibt verborgen.',
+    privacyLink: 'Datenschutz',
+    privacyTitle: 'Liga-Datenschutz',
+    scoreLabel: 'Punkte',
     aliasPlaceholder: 'Spitzname (z. B. Adler 34)',
     aliasA11y: 'Liga-Spitzname',
     joinCta: 'Mit Spitzname beitreten',

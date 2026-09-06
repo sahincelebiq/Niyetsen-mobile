@@ -176,7 +176,7 @@ export const tr: Messages = {
   daily: {
     title: 'Bugün',
     subtitle: 'Küçük adımlar, kırılmayan zincir',
-    emptyTitle: 'Bugün için görev yok',
+    emptyTitle: 'Bugün için planlanan niyet yok.',
     emptyBody:
       'Planın geride kalmış olabilir. Bu haftanın görevlerini yükle — veya bonus dene.',
     emptyCta: 'Bonusa bak',
@@ -344,6 +344,8 @@ export const tr: Messages = {
     benefitCompanion: 'Zincir yoldaşı Filiz ücretsiz; diğer avatarlar PRO (hepsi görünür).',
     catalogFreeTitle: 'Ücretsiz kalanlar',
     catalogProTitle: 'PRO ile sınırsız',
+    benefitFalFree: 'Fal ve burç ücretsiz kalır — sohbet de kilitlenmez.',
+    introFree: (days) => `${days} gün ücretsiz`,
     terms: 'Kullanım Koşulları',
     privacy: 'Gizlilik Politikası',
   },
@@ -395,6 +397,7 @@ export const tr: Messages = {
     notifPrefFailed: 'Bildirim tercihi değiştirilemedi.',
     sectionOpen: 'Bölümü aç',
     sectionClose: 'Bölümü kapat',
+    pushOffHint: 'Hatırlatma saatin kayıtlı; cihaz bildirimi kapalı.',
   },
   legal: {
     back: 'Geri',
@@ -663,6 +666,10 @@ export const tr: Messages = {
     joinTitle: 'Lige katıl',
     joinBody:
       'Katılım tamamen isteğe bağlı. Gerçek adın ve verilerin GÖRÜNMEZ — yalnız seçtiğin rumuz, toplam puanın ve zincir uzunluğun listelenir. İstediğin an ayrılabilirsin; kaydın tamamen silinir.',
+    joinHint: 'Rumuzun, puanın ve zincirin görünür. Gerçek adın gizli kalır.',
+    privacyLink: 'Gizlilik',
+    privacyTitle: 'Lig gizliliği',
+    scoreLabel: 'Puan',
     aliasPlaceholder: 'Rumuzun (ör. Kartal 34)',
     aliasA11y: 'Lig rumuzu',
     joinCta: 'Rumuzla katıl',

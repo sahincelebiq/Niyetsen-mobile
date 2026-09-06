@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import {
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { DailyTaskSkeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticPanel, useMysticPanel } from '@/components/mystic-panel';
@@ -59,6 +60,8 @@ import {
   type Task,
   uploadTaskProof,
 } from '@/lib/api';
+import { readCachedDaily, writeCachedDaily } from '@/lib/boot-cache';
+import { setPushHintVisible } from '@/lib/push-hint';
 import { getPushStatus } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -86,7 +89,7 @@ export default function DailyTasksScreen() {
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [needsExtension, setNeedsExtension] = useState(false);
   const [yesterdayMisses, setYesterdayMisses] = useState(0);
-  const [showPushHint, setShowPushHint] = useState(false);
+  const cachedPaintRef = useRef(false);
   const autoExtendRef = useRef(false);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -102,20 +105,44 @@ export default function DailyTasksScreen() {
   const mysticPanel = useMysticPanel();
   const screenInsets = useScreenInsets();
 
+  const applyDaily = useCallback((daily: Awaited<ReturnType<typeof getDailyTasks>>) => {
+    setNeedsExtension(!!daily.needs_extension);
+    setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+    void writeCachedDaily(daily);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readCachedDaily().then((cached) => {
+      if (cancelled || !cached) return;
+      cachedPaintRef.current = true;
+      applyDaily(cached);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyDaily]);
+
   const load = useCallback(async (refresh = false) => {
     if (refresh) {
       autoExtendRef.current = false;
       setRefreshing(true);
-    } else setLoading(true);
+    } else if (!cachedPaintRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       let daily = await getDailyTasks();
+      applyDaily(daily);
+      setLoading(false);
       if (daily.needs_extension && !autoExtendRef.current) {
         autoExtendRef.current = true;
         setExtending(true);
         try {
           await ensureTodayPlan();
           daily = await getDailyTasks();
+          applyDaily(daily);
         } catch (value) {
           if (isPaywallError(value)) {
             router.push('/paywall' as Href);
@@ -130,8 +157,6 @@ export default function DailyTasksScreen() {
           setExtending(false);
         }
       }
-      setNeedsExtension(!!daily.needs_extension);
-      setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
       try {
         const state = await getState();
         setYesterdayMisses(state.yesterday_silent_misses ?? 0);
@@ -142,9 +167,9 @@ export default function DailyTasksScreen() {
       if (user?.id) {
         try {
           const push = await getPushStatus(user.id);
-          setShowPushHint(push.supported && !push.enabled);
+          setPushHintVisible(push.supported && !push.enabled);
         } catch {
-          setShowPushHint(false);
+          setPushHintVisible(false);
         }
       }
     } catch (value) {
@@ -153,7 +178,7 @@ export default function DailyTasksScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router, syncStreak, user?.id, t]);
+  }, [applyDaily, router, syncStreak, user?.id, t]);
 
   async function handleExtendPlan() {
     if (extending) return;
@@ -428,22 +453,17 @@ export default function DailyTasksScreen() {
           <ThemedText type="small">{t.daily.missYesterday(yesterdayMisses)}</ThemedText>
         </SurfaceCard>
       ) : null}
-      {showPushHint ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/settings' as Href)}
-          style={{ marginBottom: Spacing.two }}>
-          <ThemedText type="small" themeColor="tint">
-            {t.daily.pushHint}
-          </ThemedText>
-        </Pressable>
-      ) : null}
       {extending ? (
         <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
           {t.daily.extending}
         </ThemedText>
       ) : null}
-      {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
+      {loading && tasks.length === 0 ? (
+        <View style={styles.skeletonStack}>
+          <DailyTaskSkeleton />
+          <DailyTaskSkeleton />
+        </View>
+      ) : null}
       {!loading && !error && tasks.length === 0 ? (
         <SurfaceCard elevated>
           <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
@@ -802,6 +822,9 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   headerBlock: {
+    gap: Spacing.three,
+  },
+  skeletonStack: {
     gap: Spacing.three,
   },
   progressBlock: {

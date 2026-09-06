@@ -176,7 +176,7 @@ export const enUS: Messages = {
   daily: {
     title: 'Today',
     subtitle: 'Small steps, unbroken streak',
-    emptyTitle: 'No tasks for today',
+    emptyTitle: 'No planned intention for today.',
     emptyBody:
       'Your plan may be behind. Load this week’s tasks — or try a bonus.',
     emptyCta: 'See bonuses',
@@ -344,6 +344,8 @@ export const enUS: Messages = {
     benefitCompanion: 'Filiz companion is free; other avatars are PRO (all stay visible).',
     catalogFreeTitle: 'What stays free',
     catalogProTitle: 'Unlimited with PRO',
+    benefitFalFree: 'Fortune and horoscope stay free — chat stays unlocked.',
+    introFree: (days) => `${days} days free`,
     terms: 'Terms of Use',
     privacy: 'Privacy Policy',
   },
@@ -395,6 +397,7 @@ export const enUS: Messages = {
     notifPrefFailed: 'Could not change notification preference.',
     sectionOpen: 'Open section',
     sectionClose: 'Close section',
+    pushOffHint: 'Reminder time is saved; device notifications are off.',
   },
   legal: {
     back: 'Back',
@@ -662,6 +665,10 @@ export const enUS: Messages = {
     joinTitle: 'Join the league',
     joinBody:
       'Joining is optional. Your real name and data stay HIDDEN — only your nickname, total points and streak appear. You can leave any time; your record is deleted.',
+    joinHint: 'Your nickname, points and streak are visible. Your real name stays hidden.',
+    privacyLink: 'Privacy',
+    privacyTitle: 'League privacy',
+    scoreLabel: 'Points',
     aliasPlaceholder: 'Nickname (e.g. Eagle 34)',
     aliasA11y: 'League nickname',
     joinCta: 'Join with nickname',

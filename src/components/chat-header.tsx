@@ -104,7 +104,7 @@ export function ChatHeader({
           accessibilityRole="header"
           delayLongPress={700}
           onLongPress={onSecretGesture}>
-          <ThemedText type="screenTitle" style={styles.titleText}>
+          <ThemedText type="screenTitle" style={styles.titleText} numberOfLines={1}>
             {t.chat.title}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.titleText}>
@@ -157,7 +157,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   leftCluster: {
-    minWidth: 88,
+    minWidth: 44,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -176,7 +177,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: Spacing.one,
-    minWidth: 88,
+    minWidth: 44,
+    maxWidth: 120,
+    flexShrink: 1,
     zIndex: 3,
   },
   mysticButton: {
@@ -199,11 +202,13 @@ const styles = StyleSheet.create({
   },
   titles: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.half,
     alignItems: 'center',
   },
   titleText: {
     textAlign: 'center',
+    width: '100%',
   },
   trialChip: {
     alignSelf: 'center',

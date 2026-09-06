@@ -99,7 +99,7 @@ export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const composerRef = useRef<View>(null);
-  const { lift: keyboardLift, open: keyboardOpen, overlaying } = useKeyboardDockLift(composerRef);
+  const { lift: keyboardLift, open: keyboardOpen } = useKeyboardDockLift(composerRef);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -270,10 +270,10 @@ export default function ChatScreen() {
   );
 
   useEffect(() => {
-    if (keyboardLift > 0) {
+    if (keyboardOpen || keyboardLift > 0) {
       scrollToEnd(true);
     }
-  }, [keyboardLift, scrollToEnd]);
+  }, [keyboardLift, keyboardOpen, scrollToEnd]);
 
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {
@@ -588,7 +588,7 @@ export default function ChatScreen() {
               onAttach={() => void handleAttach()}
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
-              keyboardOpen={keyboardOpen && overlaying}
+              keyboardOpen={keyboardOpen}
             />
           </View>
         </KeyboardAwareView>
