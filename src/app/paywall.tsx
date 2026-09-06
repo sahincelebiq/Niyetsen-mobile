@@ -6,9 +6,13 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeInDown,
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,8 +20,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset, MaxContentWidth, Motion, Radii, Shadows, Spacing, Texture,
+  BottomTabInset, MaxContentWidth, Motion, Radii, Shadows, Spacing, SurfaceEdge, Texture,
 } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
@@ -28,11 +33,39 @@ import {
 import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
+function useReduceMotion() {
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    return () => sub.remove();
+  }, []);
+  return reduceMotion;
+}
+
+function surfaceEdge(scheme: string | null | undefined) {
+  return scheme === 'dark' ? SurfaceEdge.dark : SurfaceEdge.light;
+}
+
+/** İlk mount: 8px kayma + fade, stagger 60ms. ReduceMotion açıksa yok. */
+function firstMountEnter(index: number, reduceMotion: boolean) {
+  if (reduceMotion) return undefined;
+  return FadeInDown.delay(index * Motion.stagger)
+    .duration(Motion.base)
+    .withInitialValues({
+      opacity: 0,
+      transform: [{ translateY: -8 }],
+    })
+    .reduceMotion(ReduceMotion.System);
+}
+
 export default function PaywallScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const { t } = useLocale();
   const router = useRouter();
   const { status, refresh } = useSubscription();
+  const reduceMotion = useReduceMotion();
   const [busy, setBusy] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   // Fiyat ASLA uydurulmaz — mağazadan gelene kadar yükleniyor gösterilir
@@ -140,6 +173,8 @@ export default function PaywallScreen() {
     t.paywall.benefitCompanion,
   ];
 
+  const edge = surfaceEdge(scheme);
+
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
@@ -158,7 +193,7 @@ export default function PaywallScreen() {
           </Pressable>
 
           <ThemedView style={styles.hero}>
-            <ThemedText type="title">{t.paywall.title}</ThemedText>
+            <ThemedText type="screenTitle">{t.paywall.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
               {t.paywall.body}
             </ThemedText>
@@ -181,7 +216,12 @@ export default function PaywallScreen() {
           <ThemedView
             style={[
               styles.benefitCard,
-              { borderColor: theme.border, backgroundColor: theme.backgroundElement },
+              Shadows.subtle ?? {},
+              {
+                borderColor: theme.border,
+                borderTopColor: edge,
+                backgroundColor: theme.backgroundElement,
+              },
             ]}>
             <ThemedText type="smallBold" themeColor="tint">
               {t.paywall.catalogFreeTitle}
@@ -189,18 +229,28 @@ export default function PaywallScreen() {
             <ThemedText type="smallBold" themeColor="accentWarm">
               {t.paywall.catalogProTitle}
             </ThemedText>
-            {catalog.map((line) => (
-              <View key={line} style={styles.benefitRow}>
+            {catalog.map((line, index) => (
+              <Animated.View
+                key={line}
+                entering={firstMountEnter(index, reduceMotion)}
+                style={styles.benefitRow}>
                 <View style={[styles.benefitDot, { backgroundColor: theme.tint }]} />
                 <ThemedText type="small" style={styles.benefitText}>
                   {line}
                 </ThemedText>
-              </View>
+              </Animated.View>
             ))}
           </ThemedView>
 
           {priceState === 'loading' ? (
-            <ActivityIndicator color={theme.tint} style={styles.priceSpinner} />
+            <View
+              style={styles.priceSkeletonBlock}
+              accessibilityRole="progressbar"
+              accessibilityState={{ busy: true }}
+              accessibilityLabel={t.paywall.priceLoading}>
+              <PlanCardSkeleton recommended reduceMotion={reduceMotion} />
+              <PlanCardSkeleton reduceMotion={reduceMotion} />
+            </View>
           ) : null}
 
           {priceState === 'unavailable' ? (
@@ -219,28 +269,46 @@ export default function PaywallScreen() {
             </ThemedView>
           ) : priceState === 'ready' ? (
             <>
-              <PlanCard
-                recommended
-                title={t.paywall.yearlyRecommended}
-                price={yearlyPrice ?? t.paywall.priceLoading}
-                hint={t.paywall.yearlyHint}
-                cta={t.paywall.yearlyCta}
-                busy={busy === 'yearly'}
-                disabled={busy !== null || !yearlyPrice}
-                fill
-                onPress={() => void handlePurchase('yearly')}
-              />
+              <Animated.View
+                entering={
+                  reduceMotion
+                    ? undefined
+                    : FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)
+                }>
+                <PlanCard
+                  recommended
+                  title={t.paywall.yearlyRecommended}
+                  price={yearlyPrice ?? t.paywall.priceLoading}
+                  hint={t.paywall.yearlyHint}
+                  cta={t.paywall.yearlyCta}
+                  busy={busy === 'yearly'}
+                  disabled={busy !== null || !yearlyPrice}
+                  fill
+                  reduceMotion={reduceMotion}
+                  onPress={() => void handlePurchase('yearly')}
+                />
+              </Animated.View>
 
-              <PlanCard
-                title={t.paywall.monthlyLabel}
-                price={monthlyPrice ?? t.paywall.priceLoading}
-                hint={t.paywall.monthlyHint}
-                cta={t.paywall.monthlyCta}
-                busy={busy === 'monthly'}
-                disabled={busy !== null || !monthlyPrice}
-                fill={false}
-                onPress={() => void handlePurchase('monthly')}
-              />
+              <Animated.View
+                entering={
+                  reduceMotion
+                    ? undefined
+                    : FadeIn.duration(Motion.fast)
+                      .delay(Motion.stagger)
+                      .reduceMotion(ReduceMotion.System)
+                }>
+                <PlanCard
+                  title={t.paywall.monthlyLabel}
+                  price={monthlyPrice ?? t.paywall.priceLoading}
+                  hint={t.paywall.monthlyHint}
+                  cta={t.paywall.monthlyCta}
+                  busy={busy === 'monthly'}
+                  disabled={busy !== null || !monthlyPrice}
+                  fill={false}
+                  reduceMotion={reduceMotion}
+                  onPress={() => void handlePurchase('monthly')}
+                />
+              </Animated.View>
             </>
           ) : null}
 
@@ -279,6 +347,73 @@ export default function PaywallScreen() {
   );
 }
 
+function PlanCardSkeleton({
+  recommended,
+  reduceMotion,
+}: {
+  recommended?: boolean;
+  reduceMotion: boolean;
+}) {
+  const theme = useTheme();
+  const scheme = useColorScheme();
+  const pulse = useSharedValue(0.62);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      pulse.value = 0.72;
+      return;
+    }
+    pulse.value = withRepeat(
+      withTiming(1, {
+        duration: Motion.slow,
+        easing: Easing.inOut(Easing.quad),
+        reduceMotion: ReduceMotion.System,
+      }),
+      -1,
+      true,
+    );
+  }, [pulse, reduceMotion]);
+
+  const animated = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.card,
+        recommended ? Shadows.lifted ?? {} : Shadows.subtle ?? {},
+        {
+          borderColor: recommended ? theme.tint : theme.border,
+          borderWidth: recommended ? 2 : Texture.cardBorderWidth,
+          borderTopColor: recommended ? theme.tint : surfaceEdge(scheme),
+          backgroundColor: theme.backgroundElement,
+        },
+        animated,
+      ]}>
+      {recommended ? (
+        <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]} />
+      ) : null}
+      <View style={[styles.skeletonLine, { width: '34%', backgroundColor: theme.surfaceMuted }]} />
+      <View
+        style={[
+          styles.skeletonLine,
+          styles.skeletonPrice,
+          { backgroundColor: theme.surfaceMuted },
+        ]}
+      />
+      <View style={[styles.skeletonLine, { width: '70%', backgroundColor: theme.surfaceMuted }]} />
+      <View
+        style={[
+          styles.button,
+          {
+            backgroundColor: recommended ? theme.tint : theme.surfaceMuted,
+            opacity: recommended ? 0.28 : 1,
+          },
+        ]}
+      />
+    </Animated.View>
+  );
+}
+
 function PlanCard({
   title,
   price,
@@ -288,6 +423,7 @@ function PlanCard({
   disabled,
   fill,
   recommended,
+  reduceMotion,
   onPress,
 }: {
   title: string;
@@ -298,18 +434,13 @@ function PlanCard({
   disabled: boolean;
   fill: boolean;
   recommended?: boolean;
+  reduceMotion: boolean;
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const { t } = useLocale();
   const scale = useSharedValue(1);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    return () => sub.remove();
-  }, []);
 
   const animated = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -319,10 +450,11 @@ function PlanCard({
     <Animated.View
       style={[
         styles.card,
-        Shadows.soft ?? {},
+        recommended ? Shadows.lifted ?? {} : Shadows.subtle ?? {},
         {
           borderColor: recommended ? theme.tint : theme.border,
           borderWidth: recommended ? 2 : Texture.cardBorderWidth,
+          borderTopColor: recommended ? theme.tint : surfaceEdge(scheme),
           backgroundColor: theme.backgroundElement,
         },
         animated,
@@ -344,16 +476,16 @@ function PlanCard({
         onPress={onPress}
         onPressIn={() => {
           if (reduceMotion) return;
-          scale.value = withTiming(0.97, {
-            duration: Motion.fast,
-            easing: Easing.out(Easing.quad),
+          scale.value = withSpring(0.97, {
+            damping: 18,
+            stiffness: 320,
             reduceMotion: ReduceMotion.System,
           });
         }}
         onPressOut={() => {
-          scale.value = withTiming(1, {
-            duration: Motion.fast,
-            easing: Easing.out(Easing.quad),
+          scale.value = withSpring(1, {
+            damping: 16,
+            stiffness: 280,
             reduceMotion: ReduceMotion.System,
           });
         }}
@@ -365,7 +497,7 @@ function PlanCard({
             ? { backgroundColor: theme.tint }
             : { backgroundColor: theme.surfaceMuted, borderWidth: 1, borderColor: theme.tint },
           disabled ? { opacity: 0.5 } : null,
-          pressed && reduceMotion ? { opacity: 0.85 } : null,
+          pressed && !disabled ? { opacity: 0.9 } : null,
         ]}>
         {busy ? (
           <ActivityIndicator color={fill ? theme.onAccent : theme.tint} />
@@ -428,7 +560,15 @@ const styles = StyleSheet.create({
     minHeight: 28,
     justifyContent: 'center',
   },
-  priceSpinner: { marginVertical: Spacing.three },
+  priceSkeletonBlock: { gap: Spacing.four },
+  skeletonLine: {
+    height: 14,
+    borderRadius: Radii.small,
+  },
+  skeletonPrice: {
+    width: '46%',
+    height: 22,
+  },
   retryBlock: { gap: Spacing.three, alignItems: 'center' },
   retryHit: {
     minHeight: 44,
