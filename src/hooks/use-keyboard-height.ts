@@ -6,6 +6,8 @@ import {
   type View,
 } from 'react-native';
 
+import { BottomTabInset } from '@/constants/theme';
+
 const OPEN_PX = 40;
 
 function subscribeKeyboard(handler: (event: KeyboardEvent) => void) {
@@ -36,16 +38,13 @@ export function useKeyboardHeight(): number {
 }
 
 /**
- * NativeTabs + edge-to-edge'de KeyboardAvoidingView kutuyu klavyenin altında
- * bırakıyordu. Yazı kutusunu ekranda ölç, klavye üstüyle çakışan pikseli lift et.
+ * NativeTabs + edge-to-edge: KeyboardAvoidingView kutuyu klavyenin altında
+ * bırakıyordu (602fb22). c3e8624 yazı kutusunu ölçüp lift etti ve tab payını
+ * SABİT tuttu — açıkken inset düşürmek + lift 0 = kutu klavyenin altında.
+ * a61e346 inset'i tekrar düşürdü (yarış); bu hook o regresyonu geri alır.
  *
- * Composer tab payı klavye açıkken DEĞİŞMEZ — padding yarışı lift'i yanlış
- * hesaplıyordu (önce büyük pad ile ölç, sonra inset düşünce kutu klavyenin
- * altına düşüyordu). Android `resize` pencereyi zaten küçültürse çakışma ~0
- * → lift 0 (çift kaydırma yok).
- *
- * Lift uygulandıktan sonra tekrar ölçülürse `measured + currentLift` ile gerçek
- * dinlenme konumu geri hesaplanır — çift lift olmaz.
+ * Android `resize` pencereyi küçültürse çakışma ~0 → lift 0 (çift kaydırma yok).
+ * Ölçü başarısızsa iOS'ta klavye yüksekliği yedek lift olur.
  */
 export function useKeyboardDockLift(
   dockRef: RefObject<View | null>,
@@ -56,10 +55,13 @@ export function useKeyboardDockLift(
   const liftRef = useRef(0);
   liftRef.current = lift;
   const keyboardTopRef = useRef(0);
+  const keyboardHeightRef = useRef(0);
+  const didMeasureRef = useRef(false);
 
   const applyFromMeasure = useCallback(
     (keyboardTop: number, open: boolean) => {
       if (!open) {
+        didMeasureRef.current = false;
         setLift(0);
         return;
       }
@@ -70,6 +72,7 @@ export function useKeyboardDockLift(
       node.measureInWindow((_x, y, _w, h) => {
         const measuredBottom = y + h;
         if (measuredBottom <= 1) return;
+        didMeasureRef.current = true;
         const restBottom = measuredBottom + liftRef.current;
         const next = Math.max(0, Math.round(restBottom + gap - keyboardTop));
         if (next !== liftRef.current) {
@@ -92,7 +95,9 @@ export function useKeyboardDockLift(
       const open = nextHeight > OPEN_PX;
       setHeight(open ? nextHeight : 0);
       keyboardTopRef.current = keyboardTop;
+      keyboardHeightRef.current = open ? nextHeight : 0;
       if (!open) {
+        didMeasureRef.current = false;
         setLift(0);
         return;
       }
@@ -121,12 +126,22 @@ export function useKeyboardDockLift(
     frameId = requestAnimationFrame(tick);
     const timer = setTimeout(() => {
       applyFromMeasure(keyboardTopRef.current, true);
+      // Ölçü hiç gelmezse (ilk karede 0) iOS overlay kutuyu yine yutar.
+      if (
+        Platform.OS === 'ios' &&
+        !didMeasureRef.current &&
+        keyboardHeightRef.current > OPEN_PX
+      ) {
+        setLift(
+          Math.max(0, Math.round(keyboardHeightRef.current - BottomTabInset + gap)),
+        );
+      }
     }, 180);
     return () => {
       cancelAnimationFrame(frameId);
       clearTimeout(timer);
     };
-  }, [applyFromMeasure, height]);
+  }, [applyFromMeasure, gap, height]);
 
   return { lift, height, open: height > 0, remasure };
 }

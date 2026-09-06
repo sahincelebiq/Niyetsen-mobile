@@ -49,8 +49,8 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Tab payı sabit kalır. Lift, ölçüye göre kolonu kaldırır; pad değişince
-  // Android resize + iOS overlay yarışıp kutuyu klavyenin altına itiyordu.
+  // c3e8624: tab payı her zaman durur. a61e346 açıkken inset düşünce lift 0
+  // kaldığında kutu NativeTabs klavyesinin altında kaldı — tekrar düşürme.
   const bottomPadding = Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
