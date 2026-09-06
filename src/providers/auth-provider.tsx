@@ -14,6 +14,12 @@ import {
 import { InteractionManager, Platform } from 'react-native';
 
 import {
+  AuthFlowError,
+  logAuthEvent,
+  toAuthFlowError,
+  type AuthFlowKod,
+} from '@/features/auth/auth-errors';
+import {
   completeAuthFromUrl,
   getAuthRedirectUri,
   looksLikeAuthCallback,
@@ -24,59 +30,13 @@ import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type AuthFlowCode =
-  | 'email_not_confirmed'
-  | 'wrong_password'
-  | 'already_registered'
-  | 'google_incomplete'
-  | 'provider_not_enabled'
-  | 'session_failed'
-  | 'recovery_expired'
-  | 'invalid_otp'
-  | 'generic';
+export { AuthFlowError };
+export type AuthFlowCode = AuthFlowKod;
 
-export class AuthFlowError extends Error {
-  code: AuthFlowCode;
-  constructor(code: AuthFlowCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
-function toAuthFlowError(error: unknown): AuthFlowError {
-  const raw = error instanceof Error ? error.message : String(error);
-  const text = raw.toLowerCase();
-  if (text.includes('email not confirmed')) {
-    return new AuthFlowError('email_not_confirmed', raw);
-  }
-  if (text.includes('invalid login credentials')) {
-    return new AuthFlowError('wrong_password', raw);
-  }
-  if (text.includes('already registered') || text.includes('already been registered')) {
-    return new AuthFlowError('already_registered', raw);
-  }
-  if (text.includes('provider is not enabled')) {
-    return new AuthFlowError('provider_not_enabled', raw);
-  }
-  if (
-    text.includes('otp_expired') ||
-    text.includes('token has expired') ||
-    (text.includes('expired') && text.includes('token'))
-  ) {
-    return new AuthFlowError('recovery_expired', raw);
-  }
-  if (
-    text.includes('invalid otp') ||
-    text.includes('token not found') ||
-    text.includes('otp_disabled') ||
-    (text.includes('invalid') && (text.includes('otp') || text.includes('token')))
-  ) {
-    return new AuthFlowError('invalid_otp', raw);
-  }
-  if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
-    return new AuthFlowError('google_incomplete', raw);
-  }
-  return new AuthFlowError('generic', raw);
+function throwAuth(error: unknown, akis: string): never {
+  const flow = toAuthFlowError(error);
+  logAuthEvent(flow.kod, akis, flow.teknikDetay);
+  throw flow;
 }
 
 function normalizeEmail(email: string): string {
@@ -132,16 +92,28 @@ async function openOAuth(provider: 'google' | 'apple') {
           : undefined,
     },
   });
-  if (error) throw toAuthFlowError(error);
+  if (error) throwAuth(error, 'oauth');
   if (Platform.OS === 'web' || !data.url) return;
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== 'success') {
-    throw new AuthFlowError('google_incomplete', 'Giriş işlemi tamamlanmadı.');
+    const flow = new AuthFlowError({ kod: 'iptal' });
+    logAuthEvent(flow.kod, 'oauth', result.type);
+    throw flow;
   }
-  const exchanged = await completeAuthFromUrl(result.url);
-  if (!exchanged.handled) {
-    throw new AuthFlowError('session_failed', 'Supabase oturumu alınamadı.');
+  try {
+    const exchanged = await completeAuthFromUrl(result.url);
+    if (!exchanged.handled) {
+      const flow = new AuthFlowError({
+        kod: 'bilinmeyen',
+        teknikDetay: 'oauth_session_unhandled',
+      });
+      logAuthEvent(flow.kod, 'oauth', flow.teknikDetay);
+      throw flow;
+    }
+  } catch (sessionError) {
+    if (sessionError instanceof AuthFlowError) throw sessionError;
+    throwAuth(sessionError, 'oauth');
   }
 }
 
@@ -159,7 +131,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const result = await completeAuthFromUrl(url);
         if (mounted && result.recovery) setRecovery(true);
       } catch (error) {
-        console.warn('OAuth geri dönüşü tamamlanamadı', error);
+        throwAuth(error, 'callback');
       }
     };
 
@@ -190,10 +162,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
 
     void Linking.getInitialURL().then((url) => {
-      if (mounted) void applyUrl(url);
+      if (mounted) void applyUrl(url).catch(() => undefined);
     });
     const linking = Linking.addEventListener('url', ({ url }) => {
-      void applyUrl(url);
+      void applyUrl(url).catch(() => undefined);
     });
 
     return () => {
@@ -220,7 +192,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       email: normalizeEmail(email),
       password,
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) throwAuth(error, 'signIn');
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
@@ -230,7 +202,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       password,
       options: { emailRedirectTo: redirectTo },
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) throwAuth(error, 'signUp');
     return !data.session;
   }, []);
 
@@ -243,7 +215,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: normalized,
         options: { emailRedirectTo: redirectTo },
       });
-      if (error) throw toAuthFlowError(error);
+      if (error) throwAuth(error, 'resend');
       return;
     }
     // Şifre unuttum: 6 haneli OTP (şablon {{ .Token }}). Magic-link yedek değil —
@@ -255,7 +227,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         emailRedirectTo: redirectTo,
       },
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) throwAuth(error, 'otp');
   }, []);
 
   const resetPassword = useCallback(
@@ -284,38 +256,46 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         lastError = error;
       }
-      throw toAuthFlowError(lastError);
+      throwAuth(lastError, 'otp');
     },
     [],
   );
 
   const updatePassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw toAuthFlowError(error);
+    if (error) throwAuth(error, 'updatePassword');
     setRecovery(false);
   }, []);
 
   const signInWithGoogle = useCallback(() => openOAuth('google'), []);
 
   const signInWithApple = useCallback(async () => {
-    if (Platform.OS !== 'ios') {
-      await openOAuth('apple');
-      return;
+    try {
+      if (Platform.OS !== 'ios') {
+        await openOAuth('apple');
+        return;
+      }
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        throw new AuthFlowError({
+          kod: 'bilinmeyen',
+          teknikDetay: 'apple_identity_token_missing',
+        });
+      }
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) throw error;
+    } catch (error) {
+      if (error instanceof AuthFlowError) throw error;
+      throwAuth(error, 'oauth');
     }
-    const credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-    });
-    if (!credential.identityToken) {
-      throw new Error('Apple kimlik belirteci alınamadı.');
-    }
-    const { error } = await supabase.auth.signInWithIdToken({
-      provider: 'apple',
-      token: credential.identityToken,
-    });
-    if (error) throw toAuthFlowError(error);
   }, []);
 
   const signOut = useCallback(async () => {

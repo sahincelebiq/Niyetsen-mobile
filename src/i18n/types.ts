@@ -91,6 +91,11 @@ export type Messages = {
     continueWithApple: string;
     providerNotEnabled: string;
     sessionFailed: string;
+    serverError: string;
+    networkError: string;
+    weakPassword: string;
+    tooManyAttempts: string;
+    cooldownWait: (seconds: number) => string;
     legalPrivacy: string;
     legalKvkk: string;
     legalConsent: string;

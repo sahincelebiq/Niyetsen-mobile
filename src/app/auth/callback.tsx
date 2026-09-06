@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { logAuthEvent, toAuthFlowError } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { completeAuthFromUrl } from '@/lib/auth-redirect';
 
@@ -23,8 +24,9 @@ export default function AuthCallbackScreen() {
         if (url) {
           await completeAuthFromUrl(url);
         }
-      } catch {
-        // Onay/sıfırlama linki bozuksa giriş ekranına düşer.
+      } catch (error) {
+        const flow = toAuthFlowError(error);
+        logAuthEvent(flow.kod, 'callback', flow.teknikDetay);
       } finally {
         if (!cancelled) router.replace('/');
       }

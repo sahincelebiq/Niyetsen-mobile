@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 
 import {
@@ -13,15 +13,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { AuthFlowError, authMesaji, toAuthFlowError } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
-import { AuthFlowError, useAuth } from '@/providers/auth-provider';
+import { useAuth } from '@/providers/auth-provider';
 import { useLocale } from '@/providers/locale-provider';
 import { supabaseConfigured } from '@/lib/supabase';
+
+const MAIL_COOLDOWN_MS = 60_000;
 
 type Mode = 'sign-in' | 'sign-up';
 type Step = 'form' | 'otp';
@@ -39,45 +43,75 @@ export function AuthScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryable, setRetryable] = useState(false);
   const [preferGoogle, setPreferGoogle] = useState(false);
+  const [mailLockedUntil, setMailLockedUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const lastActionRef = useRef<(() => Promise<void>) | null>(null);
+  const lastLabelRef = useRef('email');
+
+  useEffect(() => {
+    if (mailLockedUntil <= Date.now()) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [mailLockedUntil]);
+
+  const cooldownSeconds = Math.max(0, Math.ceil((mailLockedUntil - now) / 1000));
+  const mailLocked = cooldownSeconds > 0;
+
+  function startMailCooldown() {
+    setMailLockedUntil(Date.now() + MAIL_COOLDOWN_MS);
+  }
 
   function normalizedEmail() {
     return email.trim().toLowerCase();
   }
 
   async function run(label: string, action: () => Promise<void>) {
+    lastActionRef.current = action;
+    lastLabelRef.current = label;
     setBusy(label);
     setError(null);
+    setRetryable(false);
     setMessage(null);
     try {
       await action();
     } catch (value) {
-      if (value instanceof AuthFlowError) {
-        const mapped = {
-          email_not_confirmed: t.auth.emailNotConfirmed,
-          wrong_password: t.auth.wrongPassword,
-          already_registered: t.auth.alreadyRegistered,
-          google_incomplete: t.auth.googleIncomplete,
-          provider_not_enabled: t.auth.providerNotEnabled,
-          session_failed: t.auth.sessionFailed,
-          recovery_expired: t.auth.recoveryExpired,
-          invalid_otp: t.auth.invalidOtp,
-          generic: value.message || t.common.errorGeneric,
-        }[value.code];
-        setError(mapped);
-        if (value.code === 'wrong_password') setPreferGoogle(true);
-      } else {
-        setError(value instanceof Error ? value.message : t.common.errorGeneric);
-      }
+      const flow = value instanceof AuthFlowError ? value : toAuthFlowError(value);
+      const mapped = authMesaji(flow.kod, t);
+      if (!mapped) return;
+      setError(mapped);
+      setRetryable(flow.tekrarDenenebilir);
+      if (flow.kod === 'gecersiz_kimlik') setPreferGoogle(true);
     } finally {
       setBusy(null);
     }
+  }
+
+  function retryLast() {
+    const action = lastActionRef.current;
+    if (!action) return;
+    void run(lastLabelRef.current, action);
+  }
+
+  function renderAuthError() {
+    if (!error) return null;
+    return (
+      <ErrorBanner
+        message={error}
+        onRetry={retryable ? retryLast : undefined}
+        retrying={!!busy}
+        retryLabel={t.common.retry}
+        retryingLabel={t.common.loading}
+      />
+    );
   }
 
   function submitEmail() {
     if (auth.recovery) {
       if (password.length < 6) {
         setError(t.auth.invalidCredentials);
+        setRetryable(false);
         return;
       }
       void run('email', async () => {
@@ -90,6 +124,7 @@ export function AuthScreen() {
     }
     if (!email.trim() || password.length < 6) {
       setError(t.auth.invalidCredentials);
+      setRetryable(false);
       return;
     }
     void run('email', async () => {
@@ -98,6 +133,7 @@ export function AuthScreen() {
       } else {
         const needsVerification = await auth.signUpWithEmail(normalizedEmail(), password);
         if (needsVerification) {
+          startMailCooldown();
           setOtpPurpose('signup');
           setStep('otp');
           setOtp('');
@@ -110,6 +146,7 @@ export function AuthScreen() {
   function submitOtp() {
     if (!normalizedEmail() || otp.replace(/\s/g, '').length < 6) {
       setError(t.auth.invalidOtp);
+      setRetryable(false);
       return;
     }
     void run('otp', async () => {
@@ -211,7 +248,7 @@ export function AuthScreen() {
                       },
                     ]}
                   />
-                  {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+                  {renderAuthError()}
                   {message && <ThemedText themeColor="success">{message}</ThemedText>}
                   <AuthButton
                     label={t.auth.otpVerify}
@@ -220,15 +257,19 @@ export function AuthScreen() {
                     primary
                   />
                   <Pressable
-                    disabled={!!busy}
+                    disabled={!!busy || mailLocked}
                     onPress={() => {
+                      if (mailLocked) return;
                       void run('reset', async () => {
                         await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
+                        startMailCooldown();
                         setMessage(t.auth.otpSent);
                       });
                     }}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {t.auth.otpResend}
+                      {mailLocked
+                        ? t.auth.cooldownWait(cooldownSeconds)
+                        : t.auth.otpResend}
                     </ThemedText>
                   </Pressable>
                   <Pressable
@@ -292,7 +333,7 @@ export function AuthScreen() {
                 ]}
               />
 
-              {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+              {renderAuthError()}
               {message && <ThemedText themeColor="success">{message}</ThemedText>}
 
               <AuthButton
@@ -311,14 +352,21 @@ export function AuthScreen() {
 
               {mode === 'sign-in' && !auth.recovery && (
                 <Pressable
-                  disabled={!!busy}
+                  disabled={!!busy || mailLocked}
                   onPress={() => {
+                    if (mailLocked) {
+                      setError(t.auth.cooldownWait(cooldownSeconds));
+                      setRetryable(false);
+                      return;
+                    }
                     if (!normalizedEmail()) {
                       setError(t.auth.resetEmailRequired);
+                      setRetryable(false);
                       return;
                     }
                     void run('reset', async () => {
                       await auth.sendEmailOtp(normalizedEmail(), 'recovery');
+                      startMailCooldown();
                       setOtpPurpose('recovery');
                       setStep('otp');
                       setOtp('');
@@ -326,7 +374,9 @@ export function AuthScreen() {
                     });
                   }}>
                   <ThemedText type="small" themeColor="tint" style={styles.center}>
-                    {t.auth.forgotPassword}
+                    {mailLocked
+                      ? t.auth.cooldownWait(cooldownSeconds)
+                      : t.auth.forgotPassword}
                   </ThemedText>
                 </Pressable>
               )}
