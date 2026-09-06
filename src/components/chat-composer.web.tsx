@@ -7,6 +7,7 @@ import {
   Fonts, MaxContentWidth, Radii, Shadows, Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type WebKeyboardEvent = TextInputKeyPressEventData & {
   shiftKey?: boolean;
@@ -34,6 +35,7 @@ export function ChatComposer({
   sending = false,
 }: ChatComposerProps) {
   const theme = useTheme();
+  const { t } = useLocale();
   const canSend = !disabled && !sending && !!value.trim();
 
   function handleKeyPress(
@@ -57,15 +59,16 @@ export function ChatComposer({
         value={value}
         onChangeText={onChangeText}
         onKeyPress={handleKeyPress}
-        placeholder="Niyetini yaz…"
+        placeholder={t.chat.inputPlaceholder}
         placeholderTextColor={theme.textSecondary}
+        accessibilityLabel={t.chat.inputPlaceholder}
         style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
         multiline
         editable={!disabled}
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Mesajı gönder"
+        accessibilityLabel={t.chat.sendMessage}
         onPress={onSubmit}
         disabled={!canSend}
         style={({ pressed }) => [

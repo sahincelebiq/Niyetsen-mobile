@@ -27,8 +27,7 @@ export type ChatComposerProps = {
   onAttach?: () => void;
   onClearAttachment?: () => void;
   attaching?: boolean;
-  /** Klavye açıkken tab payı düşer — aksi halde kutu klavyenin altında / üstünde çift boşluk. */
-  keyboardOpen?: boolean;
+  onDockLayout?: () => void;
 };
 
 export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatComposer(
@@ -42,7 +41,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
     onAttach,
     onClearAttachment,
     attaching = false,
-    keyboardOpen = false,
+    onDockLayout,
   },
   ref,
 ) {
@@ -50,9 +49,9 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  const bottomPadding = keyboardOpen
-    ? Spacing.one
-    : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
+  // Tab payı sabit kalır. Lift, ölçüye göre kolonu kaldırır; pad değişince
+  // Android resize + iOS overlay yarışıp kutuyu klavyenin altına itiyordu.
+  const bottomPadding = Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
     <ThemedView
@@ -64,7 +63,11 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
           backgroundColor: theme.background,
         },
       ]}>
-      <View ref={ref} collapsable={false} style={styles.inputRow}>
+      <View
+        ref={ref}
+        collapsable={false}
+        onLayout={onDockLayout}
+        style={styles.inputRow}>
         {pendingAttachment ? (
           <View
             style={[
@@ -74,7 +77,12 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             <ThemedText type="small" numberOfLines={1} style={styles.attachmentName}>
               📎 {pendingAttachment.filename}
             </ThemedText>
-            <Pressable onPress={onClearAttachment} hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.chat.clearAttachment}
+              onPress={onClearAttachment}
+              hitSlop={12}
+              style={styles.clearAttachment}>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 ✕
               </ThemedText>
@@ -101,6 +109,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             onChangeText={onChangeText}
             placeholder={t.chat.inputPlaceholder}
             placeholderTextColor={theme.textSecondary}
+            accessibilityLabel={t.chat.inputPlaceholder}
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
             editable={!disabled}
@@ -113,6 +122,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t.chat.sendMessage}
+            accessibilityState={{ disabled: !canSend, busy: sending }}
             onPress={onSubmit}
             disabled={!canSend}
             style={({ pressed }) => [
@@ -156,12 +166,11 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
   attachGlyph: {
     fontSize: 22,
@@ -190,12 +199,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   sendCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+  },
+  clearAttachment: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendGlyph: {
     fontSize: 20,

@@ -39,14 +39,18 @@ export function useKeyboardHeight(): number {
  * NativeTabs + edge-to-edge'de KeyboardAvoidingView kutuyu klavyenin altında
  * bırakıyordu. Yazı kutusunu ekranda ölç, klavye üstüyle çakışan pikseli lift et.
  *
- * Pencere Android'de zaten küçüldüyse çakışma ~0 → lift 0 (çift kaydırma yok).
+ * Composer tab payı klavye açıkken DEĞİŞMEZ — padding yarışı lift'i yanlış
+ * hesaplıyordu (önce büyük pad ile ölç, sonra inset düşünce kutu klavyenin
+ * altına düşüyordu). Android `resize` pencereyi zaten küçültürse çakışma ~0
+ * → lift 0 (çift kaydırma yok).
+ *
  * Lift uygulandıktan sonra tekrar ölçülürse `measured + currentLift` ile gerçek
  * dinlenme konumu geri hesaplanır — çift lift olmaz.
  */
 export function useKeyboardDockLift(
   dockRef: RefObject<View | null>,
   gap = 8,
-): { lift: number; height: number; open: boolean } {
+): { lift: number; height: number; open: boolean; remasure: () => void } {
   const [height, setHeight] = useState(0);
   const [lift, setLift] = useState(0);
   const liftRef = useRef(0);
@@ -67,11 +71,19 @@ export function useKeyboardDockLift(
         const measuredBottom = y + h;
         if (measuredBottom <= 1) return;
         const restBottom = measuredBottom + liftRef.current;
-        setLift(Math.max(0, Math.round(restBottom + gap - keyboardTop)));
+        const next = Math.max(0, Math.round(restBottom + gap - keyboardTop));
+        if (next !== liftRef.current) {
+          setLift(next);
+        }
       });
     },
     [dockRef, gap],
   );
+
+  const remasure = useCallback(() => {
+    if (keyboardTopRef.current <= 0) return;
+    applyFromMeasure(keyboardTopRef.current, true);
+  }, [applyFromMeasure]);
 
   const applyEvent = useCallback(
     (event: KeyboardEvent) => {
@@ -94,16 +106,29 @@ export function useKeyboardDockLift(
     return () => subs.forEach((sub) => sub.remove());
   }, [applyEvent]);
 
-  // Composer padding klavye ile değişince bir kare sonra yeniden ölç.
+  // İlk karede ölçü 0 dönebilir; klavye animasyonu bitene kadar birkaç kez dene.
   useEffect(() => {
     if (height <= OPEN_PX) return;
+    let frames = 0;
+    let frameId = 0;
+    const tick = () => {
+      applyFromMeasure(keyboardTopRef.current, true);
+      frames += 1;
+      if (frames < 5) {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+    frameId = requestAnimationFrame(tick);
     const timer = setTimeout(() => {
       applyFromMeasure(keyboardTopRef.current, true);
-    }, 48);
-    return () => clearTimeout(timer);
+    }, 180);
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timer);
+    };
   }, [applyFromMeasure, height]);
 
-  return { lift, height, open: height > 0 };
+  return { lift, height, open: height > 0, remasure };
 }
 
 /** @deprecated useKeyboardDockLift — eski pencere-küçülme tahmini. */

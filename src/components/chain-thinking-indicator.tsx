@@ -15,6 +15,7 @@ import Animated, {
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 /**
  * "Düşünüyor…" göstergesi (cilalı sürüm).
@@ -28,6 +29,7 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function ChainThinkingIndicator() {
   const theme = useTheme();
+  const { t } = useLocale();
   const progress = useSharedValue(0);
   const dot1 = useSharedValue(0);
   const dot2 = useSharedValue(0);
@@ -85,7 +87,7 @@ export function ChainThinkingIndicator() {
   return (
     <View
       accessibilityRole="progressbar"
-      accessibilityLabel="Rehber düşünüyor"
+      accessibilityLabel={t.chat.thinking}
       accessibilityLiveRegion="polite"
       style={[
         styles.bubble,
@@ -99,7 +101,7 @@ export function ChainThinkingIndicator() {
         />
       </Animated.View>
       <ThemedText type="small" themeColor="textSecondary">
-        düşünüyor
+        {t.chat.thinking}
       </ThemedText>
       <View style={styles.dots}>
         <Animated.View style={[styles.dot, { backgroundColor: theme.tint }, dot1Style]} />

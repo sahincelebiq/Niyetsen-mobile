@@ -148,6 +148,8 @@ export const ar: Messages = {
     trialDaysLeft: (days) => `تجربة: متبقي ${days} يوماً`,
     sendMessage: 'إرسال الرسالة',
     attachFile: 'إرفاق ملف',
+    clearAttachment: 'إزالة المرفق',
+    historyLoading: 'جارٍ تحميل محادثتك…',
     welcomeFallback:
       'مرحبًا 🌙 أنا نيّة سن. لنتحدث كيف تريد أن تعيش هذه السنة — في أي مدينة أنت، ماذا تحب، وكم من الوقت لديك كل أسبوع.',
     defaultPlanName: 'خطتي',
