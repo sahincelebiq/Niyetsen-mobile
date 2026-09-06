@@ -12,13 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
-  SlideInLeft,
-  SlideOutLeft,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Href, useRouter } from 'expo-router';
 
@@ -230,8 +224,8 @@ export function ChatHistorySheet({
     <Modal visible={visible} animationType="none" transparent onRequestClose={onClose}>
       <View style={styles.overlayRoot}>
         <Animated.View
-          entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)}
-          exiting={FadeOut.duration(160).reduceMotion(ReduceMotion.System)}
+          entering={FadeIn.duration(180)}
+          exiting={FadeOut.duration(160)}
           style={styles.backdrop}>
           <View
             pointerEvents="none"
@@ -249,8 +243,8 @@ export function ChatHistorySheet({
         </Animated.View>
 
         <Animated.View
-          entering={SlideInLeft.duration(260).reduceMotion(ReduceMotion.System)}
-          exiting={SlideOutLeft.duration(220).reduceMotion(ReduceMotion.System)}
+          entering={SlideInLeft.duration(260)}
+          exiting={SlideOutLeft.duration(220)}
           style={[
             styles.drawer,
             Shadows.lifted,
