@@ -185,6 +185,8 @@ export default function RecapScreen() {
   };
 
   const openStory = () => {
+    const locked = period === '30d' && !hasPaidAccess;
+    if (!locked && !(recap?.cards?.length)) return;
     setIndex(0);
     setMode('story');
   };
@@ -210,7 +212,9 @@ export default function RecapScreen() {
   const dashboard = dashboardFromSources(recap, state)
     ?? (stateReady ? emptyDashboard() : null);
   const detailedLocked = period === '30d' && !hasPaidAccess;
-  const storyLocked = detailedLocked || cards.length === 0;
+  // Boş 7g iz ≠ PRO kilidi — hikâye CTA gizlenir; paywall kartı açılmaz.
+  const storyLocked = detailedLocked;
+  const showStoryCta = detailedLocked || cards.length > 0;
 
   const advance = useCallback(
     (dir: 1 | -1) => {
@@ -442,7 +446,7 @@ export default function RecapScreen() {
         </View>
       ) : null}
 
-      {error ? (
+      {error && !dashboard ? (
         <View style={styles.center}>
           <ThemedText themeColor="danger">{error}</ThemedText>
           <Pressable onPress={() => void load(period)} style={styles.retry}>
@@ -452,12 +456,29 @@ export default function RecapScreen() {
       ) : null}
 
       {mode === 'panel' && dashboard ? (
-        <DashboardPanel
-          dashboard={dashboard}
-          locked={storyLocked}
-          reduceMotion={reduceMotion}
-          onOpenStory={openStory}
-        />
+        <>
+          {error ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.common.retry}
+              onPress={() => void load(period)}
+              style={styles.inlineError}>
+              <ThemedText type="small" themeColor="danger" style={{ textAlign: 'center' }}>
+                {error}
+              </ThemedText>
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.common.retry}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+          <DashboardPanel
+            dashboard={dashboard}
+            locked={storyLocked}
+            showStoryCta={showStoryCta}
+            reduceMotion={reduceMotion}
+            onOpenStory={openStory}
+          />
+        </>
       ) : null}
 
       {mode === 'story' && !storyLocked && card ? (
@@ -526,11 +547,13 @@ export default function RecapScreen() {
 function DashboardPanel({
   dashboard,
   locked = false,
+  showStoryCta = true,
   reduceMotion = false,
   onOpenStory,
 }: {
   dashboard: RecapDashboard;
   locked?: boolean;
+  showStoryCta?: boolean;
   reduceMotion?: boolean;
   onOpenStory: () => void;
 }) {
@@ -689,34 +712,36 @@ function DashboardPanel({
         </SurfaceCard>
       </Animated.View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={locked ? t.recap.openStoryLocked : t.recap.openStory}
-        onPress={onOpenStory}
-        style={({ pressed }) => [
-          styles.storyCta,
-          {
-            backgroundColor: locked ? theme.backgroundSelected : theme.tint,
-            borderColor: theme.tint,
-            opacity: pressed ? 0.88 : 1,
-          },
-        ]}>
-        <View style={styles.storyCtaCopy}>
-          <View style={styles.storyCtaTitle}>
+      {showStoryCta ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={locked ? t.recap.openStoryLocked : t.recap.openStory}
+          onPress={onOpenStory}
+          style={({ pressed }) => [
+            styles.storyCta,
+            {
+              backgroundColor: locked ? theme.backgroundSelected : theme.tint,
+              borderColor: theme.tint,
+              opacity: pressed ? 0.88 : 1,
+            },
+          ]}>
+          <View style={styles.storyCtaCopy}>
+            <View style={styles.storyCtaTitle}>
+              <ThemedText
+                type="smallBold"
+                style={{ color: locked ? theme.tint : theme.onAccent }}>
+                {t.recap.openStory}
+              </ThemedText>
+              {locked ? <ProBadge /> : null}
+            </View>
             <ThemedText
-              type="smallBold"
-              style={{ color: locked ? theme.tint : theme.onAccent }}>
-              {t.recap.openStory}
+              type="small"
+              style={{ color: locked ? theme.textSecondary : theme.onAccent }}>
+              {locked ? t.recap.openStoryLocked : t.recap.openStoryHint}
             </ThemedText>
-            {locked ? <ProBadge /> : null}
           </View>
-          <ThemedText
-            type="small"
-            style={{ color: locked ? theme.textSecondary : theme.onAccent }}>
-            {locked ? t.recap.openStoryLocked : t.recap.openStoryHint}
-          </ThemedText>
-        </View>
-      </Pressable>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -1058,6 +1083,14 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
   retry: { padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
+  inlineError: {
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.two,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+  },
   lockCard: {
     marginHorizontal: Spacing.four,
     padding: Spacing.four,
