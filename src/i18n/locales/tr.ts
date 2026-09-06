@@ -148,6 +148,8 @@ export const tr: Messages = {
     trialDaysLeft: (days) => `Deneme: ${days} gün kaldı`,
     sendMessage: 'Mesajı gönder',
     attachFile: 'Dosya ekle',
+    clearAttachment: 'Eki kaldır',
+    historyLoading: 'Sohbetin yükleniyor…',
     welcomeFallback:
       'Merhaba 🌙 Ben Niyetsen. Bu yılı nasıl geçirmek istediğini birlikte konuşalım — hangi şehirdesin, neyle vakit geçirmeyi seviyorsun, haftada ne kadar zamanın var?',
     defaultPlanName: 'Planım',

@@ -148,6 +148,8 @@ export const enUS: Messages = {
     trialDaysLeft: (days) => `Trial: ${days} days left`,
     sendMessage: 'Send message',
     attachFile: 'Attach file',
+    clearAttachment: 'Remove attachment',
+    historyLoading: 'Loading your chat…',
     welcomeFallback:
       'Hello 🌙 I’m Niyetsen. Let’s talk about how you want to spend this year — which city you’re in, what you enjoy, and how much time you have each week.',
     defaultPlanName: 'My Plan',

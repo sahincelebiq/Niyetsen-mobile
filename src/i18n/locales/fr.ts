@@ -148,6 +148,8 @@ export const fr: Messages = {
     trialDaysLeft: (days) => `Essai : ${days} jours restants`,
     sendMessage: 'Envoyer le message',
     attachFile: 'Joindre un fichier',
+    clearAttachment: 'Retirer la pièce jointe',
+    historyLoading: 'Chargement de ta conversation…',
     welcomeFallback:
       'Bonjour 🌙 Je suis Niyetsen. Parlons de l’année que tu veux vivre — dans quelle ville tu es, ce que tu aimes, et combien de temps tu as chaque semaine.',
     defaultPlanName: 'Mon plan',

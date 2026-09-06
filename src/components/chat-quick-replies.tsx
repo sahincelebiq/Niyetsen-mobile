@@ -37,6 +37,8 @@ function QuickReplyChip({
 
   return (
     <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={() => onSelect(label)}
       onPressIn={() => {
         setPressed(true);
@@ -110,9 +112,11 @@ const styles = StyleSheet.create({
   },
   chip: {
     flexShrink: 0,
+    minHeight: 44,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    justifyContent: 'center',
   },
 });
