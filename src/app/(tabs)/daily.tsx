@@ -448,9 +448,17 @@ export default function DailyTasksScreen() {
           {t.daily.extending}
         </ThemedText>
       ) : null}
-      {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
-      {!loading && !error && tasks.length === 0 ? (
+      {!error && tasks.length === 0 ? (
         <SurfaceCard elevated>
+          {loading ? (
+            <View style={styles.emptyLoading}>
+              <ActivityIndicator color={theme.tint} />
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.common.loading}
+              </ThemedText>
+            </View>
+          ) : (
+            <>
           <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
           <ThemedText themeColor="textSecondary">{t.daily.emptyBody}</ThemedText>
           {needsExtension ? (
@@ -488,6 +496,8 @@ export default function DailyTasksScreen() {
               {t.daily.emptyCta}
             </ThemedText>
           </Pressable>
+            </>
+          )}
         </SurfaceCard>
       ) : null}
     </View>
@@ -816,6 +826,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  emptyLoading: {
+    minHeight: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
   },
   emptyCta: {
     alignSelf: 'flex-start',

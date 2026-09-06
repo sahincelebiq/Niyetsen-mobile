@@ -49,6 +49,8 @@ export const fr: Messages = {
     newPassword: 'Définis un nouveau mot de passe',
     email: 'E-mail',
     password: 'Mot de passe',
+    showPassword: 'Afficher le mot de passe',
+    hidePassword: 'Masquer le mot de passe',
     signIn: 'Se connecter',
     signUp: "S'inscrire",
     switchToSignUp: 'Pas de compte ? Inscris-toi',

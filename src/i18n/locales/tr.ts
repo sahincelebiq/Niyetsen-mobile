@@ -49,6 +49,8 @@ export const tr: Messages = {
     newPassword: 'Yeni şifreni belirle',
     email: 'E-posta',
     password: 'Şifre',
+    showPassword: 'Şifreyi göster',
+    hidePassword: 'Şifreyi gizle',
     signIn: 'Giriş yap',
     signUp: 'Kayıt ol',
     switchToSignUp: 'Hesabın yok mu? Kayıt ol',

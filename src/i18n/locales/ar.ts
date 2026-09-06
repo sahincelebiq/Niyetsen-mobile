@@ -49,6 +49,8 @@ export const ar: Messages = {
     newPassword: 'عيّن كلمة مرور جديدة',
     email: 'البريد الإلكتروني',
     password: 'كلمة المرور',
+    showPassword: 'إظهار كلمة المرور',
+    hidePassword: 'إخفاء كلمة المرور',
     signIn: 'تسجيل الدخول',
     signUp: 'إنشاء حساب',
     switchToSignUp: 'ليس لديك حساب؟ سجّل',

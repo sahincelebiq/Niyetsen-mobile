@@ -60,6 +60,8 @@ export type Messages = {
     newPassword: string;
     email: string;
     password: string;
+    showPassword: string;
+    hidePassword: string;
     signIn: string;
     signUp: string;
     switchToSignUp: string;

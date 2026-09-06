@@ -46,7 +46,7 @@ import {
   getPushStatus,
   type PushStatus,
 } from '@/lib/push-notifications';
-import { restorePurchases } from '@/lib/purchases';
+import { hasStoreEntitlement, restorePurchases } from '@/lib/purchases';
 import { useAuth } from '@/providers/auth-provider';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useI18n } from '@/providers/locale-provider';
@@ -498,6 +498,14 @@ export default function SettingsScreen() {
                 setBusy('customer-center');
                 setError(null);
                 setMessage(null);
+                // Mağaza entitlement yoksa RC Customer Center "Abonelik bulunamadı"
+                // gösterir — İlkbahar paywall (fiyat + geri yükle) doğru kapı.
+                const storeEntitled = await hasStoreEntitlement();
+                if (!storeEntitled) {
+                  setBusy(null);
+                  router.push('/paywall' as Href);
+                  return;
+                }
                 const result = await presentCustomerCenter({
                   onRestoreCompleted: () => {
                     void refreshSubscription();

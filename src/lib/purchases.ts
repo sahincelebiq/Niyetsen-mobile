@@ -283,3 +283,16 @@ export async function restorePurchases(): Promise<PurchaseResult> {
     return { ok: false, message };
   }
 }
+
+/** Mağazada gerçek entitlement var mı? Dev/tester kısa devresi Customer Center açmaz. */
+export async function hasStoreEntitlement(): Promise<boolean> {
+  if (!purchasesAvailable()) return false;
+  await configurePurchases();
+  if (!configured) return false;
+  try {
+    const info = await Purchases.getCustomerInfo();
+    return Boolean(info.entitlements.active[ENTITLEMENT_ID]);
+  } catch {
+    return false;
+  }
+}

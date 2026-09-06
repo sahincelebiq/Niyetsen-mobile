@@ -49,6 +49,8 @@ export const enUS: Messages = {
     newPassword: 'Set a new password',
     email: 'Email',
     password: 'Password',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
     signIn: 'Sign in',
     signUp: 'Sign up',
     switchToSignUp: 'No account? Sign up',
