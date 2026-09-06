@@ -5,14 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  LEGAL_DOCUMENTS,
-  LEGAL_EFFECTIVE_DATE,
   LEGAL_IDENTITY,
-  LegalDocumentId,
+  getLegalDocuments,
+  getLegalEffectiveDate,
+  type LegalDocumentId,
 } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
+import { useI18n } from '@/providers/locale-provider';
 
 const LEGAL_LINKS = [
   { id: 'privacy', href: '/legal/privacy' as const },
@@ -22,7 +23,9 @@ const LEGAL_LINKS = [
 ] satisfies { id: LegalDocumentId; href: string }[];
 
 export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentId }) {
-  const document = LEGAL_DOCUMENTS[documentId];
+  const { t, locale } = useI18n();
+  const documents = getLegalDocuments(locale);
+  const document = documents[documentId];
   const router = useRouter();
   const theme = useTheme();
 
@@ -33,7 +36,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
           <View style={styles.topRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Geri dön"
+              accessibilityLabel={t.legal.back}
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
               style={({ pressed }) => [
                 styles.backButton,
@@ -41,22 +44,22 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" themeColor="tint">
-                ← Geri
+                ← {t.legal.back}
               </ThemedText>
             </Pressable>
             <View style={styles.topActions}>
               <Pressable
                 accessibilityRole="link"
-                accessibilityLabel="Bu dokümanı web'de aç"
+                accessibilityLabel={t.legal.openWeb}
                 hitSlop={8}
-                onPress={() => void openLegalDocument(documentId)}
+                onPress={() => void openLegalDocument(documentId, locale)}
                 style={({ pressed }) => pressed && styles.pressed}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  {'Web’de aç ↗'}
+                  {t.legal.openWeb}
                 </ThemedText>
               </Pressable>
               <ThemedText type="small" themeColor="textSecondary">
-                Sürüm {document.version}
+                {t.legal.version(document.version)}
               </ThemedText>
             </View>
           </View>
@@ -67,15 +70,17 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
             </ThemedText>
             <ThemedText themeColor="textSecondary">{document.summary}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Yürürlük: {LEGAL_EFFECTIVE_DATE}
+              {t.legal.effective}: {getLegalEffectiveDate(locale)}
             </ThemedText>
           </View>
 
           <ThemedView
             type="backgroundElement"
             style={[styles.identityCard, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold">Veri sorumlusu / hizmeti sunan</ThemedText>
-            <ThemedText>{LEGAL_IDENTITY.dataController} · {LEGAL_IDENTITY.service}</ThemedText>
+            <ThemedText type="smallBold">{t.legal.controller}</ThemedText>
+            <ThemedText>
+              {LEGAL_IDENTITY.dataController} · {LEGAL_IDENTITY.service}
+            </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {LEGAL_IDENTITY.email}
             </ThemedText>
@@ -105,7 +110,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
                   <ThemedText
                     type="smallBold"
                     themeColor={item.id === documentId ? 'textSecondary' : 'tint'}>
-                    {LEGAL_DOCUMENTS[item.id].shortTitle}
+                    {documents[item.id].shortTitle}
                   </ThemedText>
                 </Pressable>
               </Link>
@@ -166,4 +171,3 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.65 },
 });
-

@@ -85,13 +85,24 @@ export default function TabLayout() {
 
 function RootNavigation({ pathname }: { pathname: string }) {
   const colorScheme = useColorScheme();
-  const publicRoute =
-    pathname.startsWith('/legal/') || pathname.startsWith('/auth/');
+  const isLegal = pathname.startsWith('/legal/');
+  const isAuthCallback = pathname.startsWith('/auth/');
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
-        {publicRoute ? <Slot /> : <AuthenticatedApp />}
+        {isLegal ? (
+          <Slot />
+        ) : (
+          <View style={styles.root}>
+            <AuthenticatedApp />
+            {isAuthCallback ? (
+              <View style={styles.callbackOverlay}>
+                <Slot />
+              </View>
+            ) : null}
+          </View>
+        )}
       </AuthProvider>
     </ThemeProvider>
   );
@@ -299,5 +310,9 @@ const styles = StyleSheet.create({
   retryHit: {
     minHeight: 44,
     justifyContent: 'center',
+  },
+  callbackOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
   },
 });

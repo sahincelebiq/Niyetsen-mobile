@@ -84,26 +84,30 @@ export function ChatHeader({
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        {onOpenHistory ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t.chat.openHistory}
-            accessibilityHint={t.chat.openHistoryHint}
-            onPress={onOpenHistory}
-            hitSlop={HIT_SLOP_44}
-            style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}>
-            <MaterialCommunityIcons name="menu" size={24} color={theme.text} />
-          </Pressable>
-        ) : (
-          <View style={styles.historySpacer} />
-        )}
+        <View style={styles.leftCluster}>
+          {onOpenHistory ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.chat.openHistory}
+              accessibilityHint={t.chat.openHistoryHint}
+              onPress={onOpenHistory}
+              hitSlop={HIT_SLOP_44}
+              style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}>
+              <MaterialCommunityIcons name="menu" size={24} color={theme.text} />
+            </Pressable>
+          ) : (
+            <View style={styles.historySpacer} />
+          )}
+        </View>
         <Pressable
           style={styles.titles}
           accessibilityRole="header"
           delayLongPress={700}
           onLongPress={onSecretGesture}>
-          <ThemedText type="screenTitle">{t.chat.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="screenTitle" style={styles.titleText}>
+            {t.chat.title}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.titleText}>
             {t.chat.subtitle}
           </ThemedText>
         </Pressable>
@@ -147,9 +151,15 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.two,
+    minHeight: 44,
+  },
+  leftCluster: {
+    minWidth: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   historyButton: {
     width: 44,
@@ -157,7 +167,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 0,
   },
   historySpacer: {
     width: 44,
@@ -165,8 +174,9 @@ const styles = StyleSheet.create({
   rightCluster: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: Spacing.one,
-    marginTop: 2,
+    minWidth: 88,
     zIndex: 3,
   },
   mysticButton: {
@@ -190,9 +200,13 @@ const styles = StyleSheet.create({
   titles: {
     flex: 1,
     gap: Spacing.half,
+    alignItems: 'center',
+  },
+  titleText: {
+    textAlign: 'center',
   },
   trialChip: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: 999,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,

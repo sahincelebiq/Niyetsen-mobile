@@ -27,7 +27,10 @@ export type ChatComposerProps = {
   onAttach?: () => void;
   onClearAttachment?: () => void;
   attaching?: boolean;
-  /** Klavye açıkken tab payı düşer — aksi halde kutu klavyenin altında / üstünde çift boşluk. */
+  /**
+   * Overlay klavye açıkken tab payı düşer (kutu klavyenin üstüne oturur).
+   * adjustResize'da false kalmalı — tab bar hâlâ görünür, pay silinirse yazı gizlenir.
+   */
   keyboardOpen?: boolean;
 };
 
@@ -50,8 +53,10 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
+  // Overlay + lift varken tab bar klavyenin arkasındadır → küçük nefes yeter.
+  // Resize / kapalı: tab bar görünür, BottomTabInset kalmazsa yazı kutusu sekmelerin altında kaybolur.
   const bottomPadding = keyboardOpen
-    ? Spacing.one
+    ? Spacing.two
     : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
@@ -103,6 +108,9 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             placeholderTextColor={theme.textSecondary}
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
+            textAlignVertical="center"
+            underlineColorAndroid="transparent"
+            selectionColor={theme.tint}
             editable={!disabled}
             // Yanıt beklenirken (sending) kullanıcı bir sonraki mesajını yazmayı
             // sürdürebilir; yalnız gönderme butonu kilitlenir.
@@ -146,22 +154,21 @@ const styles = StyleSheet.create({
   },
   inputShell: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: Spacing.two,
     borderRadius: Radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     paddingLeft: Spacing.one,
     paddingRight: Spacing.one,
     paddingVertical: Spacing.one,
-    minHeight: 52,
+    minHeight: 56,
   },
   attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
   attachGlyph: {
     fontSize: 22,
@@ -184,18 +191,20 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minHeight: 44,
     fontSize: 16,
     lineHeight: 22,
     maxHeight: 120,
-    paddingVertical: Spacing.two,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
+    includeFontPadding: false,
   },
   sendCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
   sendGlyph: {
     fontSize: 20,

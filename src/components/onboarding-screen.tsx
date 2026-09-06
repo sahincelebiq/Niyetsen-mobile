@@ -28,8 +28,10 @@ import { enablePushNotifications } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import {
   birthDateIsoFromDisplay,
+  isAtLeastYearsOld,
   isValidBirthDateDisplay,
 } from '@/lib/birth-date';
+import { LEGAL_MIN_AGE } from '@/constants/legal';
 import { trackEvent } from '@/lib/analytics';
 import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
@@ -76,13 +78,15 @@ export function OnboardingScreen() {
   function validateCurrent() {
     if (current.id === 'name' && !name.trim()) return t.onboarding.nameRequired;
     // cinsiyet atlanabilir — zorunlu değil.
-    if (current.id === 'birth' && !isValidBirthDateDisplay(birthDate)) {
-      return t.onboarding.birthInvalid;
+    if (current.id === 'birth') {
+      if (!isValidBirthDateDisplay(birthDate)) return t.onboarding.birthInvalid;
+      const iso = birthDateIsoFromDisplay(birthDate);
+      if (!iso || !isAtLeastYearsOld(iso, LEGAL_MIN_AGE)) return t.onboarding.under18;
     }
     if (current.id === 'notif' && notifTime.hour === undefined) {
       return t.onboarding.notifRequired;
     }
-    if (current.id === 'consent' && !consents.privacy) {
+    if (current.id === 'consent' && (!consents.privacy || !consents.age18)) {
       return t.onboarding.consentRequired;
     }
     return null;
@@ -111,6 +115,11 @@ export function OnboardingScreen() {
       const isoBirthDate = birthDateIsoFromDisplay(birthDate);
       if (!isoBirthDate) {
         setError(t.onboarding.birthSaveInvalid);
+        setBusy(false);
+        return;
+      }
+      if (!isAtLeastYearsOld(isoBirthDate, LEGAL_MIN_AGE)) {
+        setError(t.onboarding.under18);
         setBusy(false);
         return;
       }

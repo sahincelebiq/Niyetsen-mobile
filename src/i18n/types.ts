@@ -91,6 +91,11 @@ export type Messages = {
     continueWithApple: string;
     providerNotEnabled: string;
     sessionFailed: string;
+    serverError: string;
+    networkError: string;
+    weakPassword: string;
+    tooManyAttempts: string;
+    cooldownWait: (seconds: number) => string;
     legalPrivacy: string;
     legalKvkk: string;
     legalConsent: string;
@@ -108,6 +113,7 @@ export type Messages = {
     birthInvalid: string;
     notifRequired: string;
     consentRequired: string;
+    under18: string;
     birthSaveInvalid: string;
     profileSaveFailed: string;
     notifEnable: string;
@@ -323,6 +329,38 @@ export type Messages = {
     catalogProTitle: string;
     terms: string;
     privacy: string;
+    perMonth: string;
+    perYear: string;
+  };
+  legal: {
+    back: string;
+    openWeb: string;
+    version: (v: string) => string;
+    effective: string;
+    controller: string;
+    openDocument: (name: string) => string;
+    privacyReadLabel: string;
+    privacyReadDetail: string;
+    privacyLink: string;
+    noticeLink: string;
+    aiLabel: string;
+    aiDetail: string;
+    photoLabel: string;
+    photoDetail: string;
+    marketingLabel: string;
+    marketingDetail: string;
+    consentLink: string;
+    termsLink: string;
+    versionLine: (v: string) => string;
+    ageLabel: string;
+    ageDetail: string;
+    gateTitle: string;
+    gateBody: string;
+    gateSave: string;
+    gateRetry: string;
+    gateLoadFailed: string;
+    gatePrivacyRequired: string;
+    gateAgeRequired: string;
   };
   settings: {
     friends: string;

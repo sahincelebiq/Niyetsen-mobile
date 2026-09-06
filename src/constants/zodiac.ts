@@ -41,7 +41,41 @@ export function getZodiacGlyph(sign: string | null | undefined): string {
   return ZODIAC_GLYPHS[sign] ?? '';
 }
 
-/** "Yengeç ♋" — etiket dile göre; backend burç adı Türkçe kalır. */
+/** Profil / ayarlar — burç adı, emoji yok. Backend burç adı Türkçe kalır. */
+export function zodiacDisplayName(
+  sign: string | null | undefined,
+  names?: Record<string, string>,
+): string {
+  if (!sign) return '';
+  return names?.[sign] ?? sign;
+}
+
+/** MaterialCommunityIcons burç seti — profil başlığı için. */
+export const ZODIAC_ICON_NAMES = {
+  Koç: 'zodiac-aries',
+  Boğa: 'zodiac-taurus',
+  İkizler: 'zodiac-gemini',
+  Yengeç: 'zodiac-cancer',
+  Aslan: 'zodiac-leo',
+  Başak: 'zodiac-virgo',
+  Terazi: 'zodiac-libra',
+  Akrep: 'zodiac-scorpio',
+  Yay: 'zodiac-sagittarius',
+  Oğlak: 'zodiac-capricorn',
+  Kova: 'zodiac-aquarius',
+  Balık: 'zodiac-pisces',
+} as const;
+
+export type ZodiacIconName = (typeof ZODIAC_ICON_NAMES)[keyof typeof ZODIAC_ICON_NAMES];
+
+export function getZodiacIconName(
+  sign: string | null | undefined,
+): ZodiacIconName | null {
+  if (!sign) return null;
+  return (ZODIAC_ICON_NAMES as Record<string, ZodiacIconName>)[sign] ?? null;
+}
+
+/** "Yengeç ♋" — mistik ekranlar; profil burç satırında `zodiacDisplayName` kullan. */
 export function zodiacLabel(
   sign: string | null | undefined,
   names?: Record<string, string>,

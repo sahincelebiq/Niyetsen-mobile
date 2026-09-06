@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   text: {
-    lineHeight: 22,
-    fontSize: 15,
+    lineHeight: 25,
+    fontSize: 16,
   },
 });

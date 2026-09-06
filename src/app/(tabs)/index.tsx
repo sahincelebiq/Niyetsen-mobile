@@ -99,7 +99,7 @@ export default function ChatScreen() {
   const theme = useTheme();
   const router = useRouter();
   const composerRef = useRef<View>(null);
-  const { lift: keyboardLift, open: keyboardOpen } = useKeyboardDockLift(composerRef);
+  const { lift: keyboardLift, open: keyboardOpen, overlaying } = useKeyboardDockLift(composerRef);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -521,12 +521,8 @@ export default function ChatScreen() {
             {t.chat.activeIntent(activePlanName)}
           </ThemedText>
         ) : null}
-        <KeyboardAwareView>
-          <View
-            style={[
-              styles.chatColumn,
-              keyboardLift > 0 ? { paddingBottom: keyboardLift } : null,
-            ]}>
+        <KeyboardAwareView lift={keyboardLift}>
+          <View style={styles.chatColumn}>
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
               {loadingHistory ? (
@@ -592,7 +588,7 @@ export default function ChatScreen() {
               onAttach={() => void handleAttach()}
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
-              keyboardOpen={keyboardOpen}
+              keyboardOpen={keyboardOpen && overlaying}
             />
           </View>
         </KeyboardAwareView>
@@ -641,8 +637,8 @@ const styles = StyleSheet.create({
     borderRadius: Radii.bubble,
     borderBottomRightRadius: 6,
     borderWidth: 0,
-    paddingVertical: 11,
-    paddingHorizontal: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     maxWidth: '80%',
     ...(Shadows.subtle ?? {}),
   },

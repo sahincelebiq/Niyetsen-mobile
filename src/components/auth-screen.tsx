@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { type Href, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -13,15 +13,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@/components/error-banner';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { authMesaji } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
-import { openLegalDocument } from '@/lib/legal-links';
+import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
 import { AuthFlowError, useAuth } from '@/providers/auth-provider';
 import { useLocale } from '@/providers/locale-provider';
 import { supabaseConfigured } from '@/lib/supabase';
+
+const MAIL_COOLDOWN_MS = 60_000;
+/** GoTrue OTP 6 veya 8 hane olabilir; kutuyu 6'da kesmek kodu kırar. */
+const OTP_MAX_LEN = 8;
 
 type Mode = 'sign-in' | 'sign-up';
 type Step = 'form' | 'otp';
@@ -30,6 +37,7 @@ export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
   const { t, regionId, setRegion } = useLocale();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [step, setStep] = useState<Step>('form');
   const [otpPurpose, setOtpPurpose] = useState<'recovery' | 'signup'>('recovery');
@@ -37,9 +45,27 @@ export function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preferGoogle, setPreferGoogle] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (cooldownUntil <= now) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil, now]);
+
+  const cooldownSec = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const mailLocked = cooldownSec > 0;
+
+  function startMailCooldown() {
+    const until = Date.now() + MAIL_COOLDOWN_MS;
+    setCooldownUntil(until);
+    setNow(Date.now());
+  }
 
   function normalizedEmail() {
     return email.trim().toLowerCase();
@@ -47,31 +73,55 @@ export function AuthScreen() {
 
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
+    setLastIntent(label);
     setError(null);
     setMessage(null);
     try {
       await action();
+      if (label === 'reset' || (label === 'email' && mode === 'sign-up')) {
+        startMailCooldown();
+      }
     } catch (value) {
       if (value instanceof AuthFlowError) {
-        const mapped = {
-          email_not_confirmed: t.auth.emailNotConfirmed,
-          wrong_password: t.auth.wrongPassword,
-          already_registered: t.auth.alreadyRegistered,
-          google_incomplete: t.auth.googleIncomplete,
-          provider_not_enabled: t.auth.providerNotEnabled,
-          session_failed: t.auth.sessionFailed,
-          recovery_expired: t.auth.recoveryExpired,
-          invalid_otp: t.auth.invalidOtp,
-          generic: value.message || t.common.errorGeneric,
-        }[value.code];
-        setError(mapped);
-        if (value.code === 'wrong_password') setPreferGoogle(true);
+        if (value.kod === 'iptal') return;
+        setError(authMesaji(value.kod, t));
+        if (value.kod === 'gecersiz_kimlik') setPreferGoogle(true);
+        if (
+          value.kod === 'cok_fazla_deneme' ||
+          (value.kod === 'sunucu_hatasi' && (label === 'reset' || label === 'email'))
+        ) {
+          startMailCooldown();
+        }
       } else {
-        setError(value instanceof Error ? value.message : t.common.errorGeneric);
+        setError(t.common.errorGeneric);
       }
     } finally {
       setBusy(null);
     }
+  }
+
+  function retryLast() {
+    if (lastIntent === 'otp') {
+      submitOtp();
+      return;
+    }
+    if (lastIntent === 'reset') {
+      if (mailLocked || !normalizedEmail()) return;
+      void run('reset', async () => {
+        await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
+        setMessage(t.auth.otpSent);
+      });
+      return;
+    }
+    if (lastIntent === 'google') {
+      void run('google', auth.signInWithGoogle);
+      return;
+    }
+    if (lastIntent === 'apple') {
+      void run('apple', auth.signInWithApple);
+      return;
+    }
+    submitEmail();
   }
 
   function submitEmail() {
@@ -124,9 +174,7 @@ export function AuthScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAwareView>
       <ThemedView style={styles.flex}>
         <SafeAreaView style={styles.flex}>
           <ScrollView
@@ -194,11 +242,13 @@ export function AuthScreen() {
                     autoComplete="one-time-code"
                     inputMode="numeric"
                     keyboardType="number-pad"
-                    maxLength={6}
+                    maxLength={OTP_MAX_LEN}
                     placeholder={t.auth.otpPlaceholder}
                     placeholderTextColor={theme.textSecondary}
                     value={otp}
-                    onChangeText={(value) => setOtp(value.replace(/[^\d]/g, '').slice(0, 6))}
+                    onChangeText={(value) =>
+                      setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
+                    }
                     onSubmitEditing={submitOtp}
                     style={[
                       styles.input,
@@ -211,7 +261,15 @@ export function AuthScreen() {
                       },
                     ]}
                   />
-                  {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+                  {error ? (
+                    <ErrorBanner
+                      message={error}
+                      onRetry={retryLast}
+                      retrying={!!busy}
+                      retryLabel={t.common.retry}
+                      retryingLabel={t.common.loading}
+                    />
+                  ) : null}
                   {message && <ThemedText themeColor="success">{message}</ThemedText>}
                   <AuthButton
                     label={t.auth.otpVerify}
@@ -220,15 +278,18 @@ export function AuthScreen() {
                     primary
                   />
                   <Pressable
-                    disabled={!!busy}
+                    disabled={!!busy || mailLocked}
                     onPress={() => {
+                      if (mailLocked) return;
                       void run('reset', async () => {
                         await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
                         setMessage(t.auth.otpSent);
                       });
                     }}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {t.auth.otpResend}
+                      {mailLocked
+                        ? t.auth.cooldownWait(cooldownSec)
+                        : t.auth.otpResend}
                     </ThemedText>
                   </Pressable>
                   <Pressable
@@ -292,7 +353,15 @@ export function AuthScreen() {
                 ]}
               />
 
-              {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+              {error ? (
+                <ErrorBanner
+                  message={error}
+                  onRetry={retryLast}
+                  retrying={!!busy}
+                  retryLabel={t.common.retry}
+                  retryingLabel={t.common.loading}
+                />
+              ) : null}
               {message && <ThemedText themeColor="success">{message}</ThemedText>}
 
               <AuthButton
@@ -311,8 +380,9 @@ export function AuthScreen() {
 
               {mode === 'sign-in' && !auth.recovery && (
                 <Pressable
-                  disabled={!!busy}
+                  disabled={!!busy || mailLocked}
                   onPress={() => {
+                    if (mailLocked) return;
                     if (!normalizedEmail()) {
                       setError(t.auth.resetEmailRequired);
                       return;
@@ -326,7 +396,9 @@ export function AuthScreen() {
                     });
                   }}>
                   <ThemedText type="small" themeColor="tint" style={styles.center}>
-                    {t.auth.forgotPassword}
+                    {mailLocked
+                      ? t.auth.cooldownWait(cooldownSec)
+                      : t.auth.forgotPassword}
                   </ThemedText>
                 </Pressable>
               )}
@@ -377,7 +449,7 @@ export function AuthScreen() {
               <Pressable
                 accessibilityRole="link"
                 hitSlop={8}
-                onPress={() => void openLegalDocument('privacy')}>
+                onPress={() => router.push(LEGAL_APP_ROUTES.privacy as Href)}>
                 <ThemedText type="smallBold" themeColor="tint">
                   {t.auth.legalPrivacy}
                 </ThemedText>
@@ -385,7 +457,7 @@ export function AuthScreen() {
               <Pressable
                 accessibilityRole="link"
                 hitSlop={8}
-                onPress={() => void openLegalDocument('kvkk')}>
+                onPress={() => router.push(LEGAL_APP_ROUTES.kvkk as Href)}>
                 <ThemedText type="smallBold" themeColor="tint">
                   {t.auth.legalKvkk}
                 </ThemedText>
@@ -393,7 +465,7 @@ export function AuthScreen() {
               <Pressable
                 accessibilityRole="link"
                 hitSlop={8}
-                onPress={() => void openLegalDocument('consent')}>
+                onPress={() => router.push(LEGAL_APP_ROUTES.consent as Href)}>
                 <ThemedText type="smallBold" themeColor="tint">
                   {t.auth.legalConsent}
                 </ThemedText>
@@ -401,7 +473,7 @@ export function AuthScreen() {
               <Pressable
                 accessibilityRole="link"
                 hitSlop={8}
-                onPress={() => void openLegalDocument('terms')}>
+                onPress={() => router.push(LEGAL_APP_ROUTES.terms as Href)}>
                 <ThemedText type="smallBold" themeColor="tint">
                   {t.auth.legalTerms}
                 </ThemedText>
@@ -410,7 +482,7 @@ export function AuthScreen() {
           </ScrollView>
         </SafeAreaView>
       </ThemedView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareView>
   );
 }
 

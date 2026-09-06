@@ -21,7 +21,7 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
-import { openLegalDocument } from '@/lib/legal-links';
+import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
 import {
   getStorePrices, purchasePlan, restorePurchases, storeUnavailableReason,
 } from '@/lib/purchases';
@@ -44,8 +44,8 @@ export default function PaywallScreen() {
   );
 
   function applyPrices(prices: Awaited<ReturnType<typeof getStorePrices>>) {
-    if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
-    if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
+    if (prices.monthly) setMonthlyPrice(`${prices.monthly} ${t.paywall.perMonth}`);
+    if (prices.yearly) setYearlyPrice(`${prices.yearly} ${t.paywall.perYear}`);
     setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
   }
 
@@ -59,7 +59,7 @@ export default function PaywallScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [t.paywall.perMonth, t.paywall.perYear]);
 
   async function refreshPrices() {
     setPriceState('loading');
@@ -261,11 +261,11 @@ export default function PaywallScreen() {
           </Pressable>
 
           <ThemedView style={styles.legalRow}>
-            <Pressable hitSlop={8} onPress={() => void openLegalDocument('terms')}>
+            <Pressable hitSlop={8} onPress={() => router.push(LEGAL_APP_ROUTES.terms as Href)}>
               <ThemedText type="linkPrimary">{t.paywall.terms}</ThemedText>
             </Pressable>
             <ThemedText themeColor="textSecondary">·</ThemedText>
-            <Pressable hitSlop={8} onPress={() => void openLegalDocument('privacy')}>
+            <Pressable hitSlop={8} onPress={() => router.push(LEGAL_APP_ROUTES.privacy as Href)}>
               <ThemedText type="linkPrimary">{t.paywall.privacy}</ThemedText>
             </Pressable>
           </ThemedView>

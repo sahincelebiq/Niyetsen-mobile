@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -10,7 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
@@ -22,16 +22,22 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
-import { getZodiacGlyph, zodiacFromBirthDate, zodiacLabel } from '@/constants/zodiac';
+import {
+  getZodiacIconName,
+  zodiacDisplayName,
+  zodiacFromBirthDate,
+} from '@/constants/zodiac';
 import { useTheme } from '@/hooks/use-theme';
 import { regionById } from '@/i18n/regions';
 import type { RegionId } from '@/i18n/types';
 import { deleteAccount, GENDER_OPTIONS, type GenderOption, updateProfile } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
-import { openLegalDocument } from '@/lib/legal-links';
+import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
+import { LEGAL_MIN_AGE } from '@/constants/legal';
 import {
   birthDateDisplayFromIso,
   birthDateIsoFromDisplay,
+  isAtLeastYearsOld,
 } from '@/lib/birth-date';
 import { presentCustomerCenter } from '@/lib/customer-center';
 import {
@@ -52,7 +58,6 @@ export default function SettingsScreen() {
   const appearance = useAppearance();
   const { t, regionId, setRegion, timezone, locale } = useI18n();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const auth = useAuth();
   const { profile, refresh } = useProfile();
   const { status: subscriptionStatus, refresh: refreshSubscription } = useSubscription();
@@ -103,6 +108,7 @@ export default function SettingsScreen() {
     const iso = birthDateIsoFromDisplay(birthDate);
     return zodiacFromBirthDate(iso) ?? profile?.zodiac_sign ?? null;
   }, [birthDate, profile?.zodiac_sign]);
+  const zodiacIcon = getZodiacIconName(previewZodiac);
 
   async function save() {
     if (!profile) return;
@@ -113,6 +119,11 @@ export default function SettingsScreen() {
       const isoBirthDate = birthDateIsoFromDisplay(birthDate);
       if (!isoBirthDate) {
         setError(t.settings.birthInvalid);
+        setBusy(null);
+        return;
+      }
+      if (!isAtLeastYearsOld(isoBirthDate, LEGAL_MIN_AGE)) {
+        setError(t.onboarding.under18);
         setBusy(null);
         return;
       }
@@ -257,7 +268,7 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      <KeyboardAwareView offset={Platform.OS === 'ios' ? insets.top : 0}>
+      <KeyboardAwareView>
         <ScreenScaffold scrollable contentStyle={styles.scaffoldTight}>
         {/* Kimlik → mistik → hesap → tercihler; uzun kart yığını yok */}
         <SurfaceCard>
@@ -279,15 +290,18 @@ export default function SettingsScreen() {
                 <ThemedText type="smallBold" style={styles.profileName} numberOfLines={1}>
                   {name.trim() || t.settings.you}
                 </ThemedText>
-                {previewZodiac ? (
-                  <ThemedText style={[styles.zodiacGlyph, { color: theme.tint }]}>
-                    {getZodiacGlyph(previewZodiac)}
-                  </ThemedText>
+                {zodiacIcon ? (
+                  <MaterialCommunityIcons
+                    name={zodiacIcon}
+                    size={18}
+                    color={theme.tint}
+                    accessibilityLabel={zodiacDisplayName(previewZodiac, t.zodiac)}
+                  />
                 ) : null}
               </View>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                 {previewZodiac
-                  ? zodiacLabel(previewZodiac, t.zodiac)
+                  ? zodiacDisplayName(previewZodiac, t.zodiac)
                   : subscriptionStatus?.status === 'active'
                     ? t.settings.subActive
                     : t.settings.subTrial(subscriptionStatus?.trial_days_remaining ?? 0)}
@@ -301,16 +315,19 @@ export default function SettingsScreen() {
           type="backgroundElement"
           style={[styles.card, { borderColor: theme.border }]}>
           <SettingsRow
+            icon="account-group-outline"
             label={t.settings.friends}
             value={t.settings.leagueHint}
             onPress={() => router.push('/arkadaslar' as Href)}
           />
           <SettingsRow
+            icon="weather-night"
             label={t.settings.mysticChat}
             value={t.settings.mysticGuide}
             onPress={() => router.push(mysticHref.chat)}
           />
           <SettingsRow
+            icon="chart-box-outline"
             label={t.settings.reportPanel}
             value={t.settings.reportHint}
             onPress={() => router.push('/rapor' as Href)}
@@ -324,7 +341,7 @@ export default function SettingsScreen() {
             <BirthDateField value={birthDate} onChangeText={setBirthDate} />
             {previewZodiac ? (
               <ThemedText type="small" themeColor="textSecondary">
-                {t.settings.zodiacPrefix}: {zodiacLabel(previewZodiac, t.zodiac)}
+                {t.settings.zodiacPrefix}: {zodiacDisplayName(previewZodiac, t.zodiac)}
               </ThemedText>
             ) : null}
           </View>
@@ -542,19 +559,19 @@ export default function SettingsScreen() {
           {consentError && <ThemedText themeColor="danger">{consentError}</ThemedText>}
           <SettingsRow
             label={t.auth.legalPrivacy}
-            onPress={() => void openLegalDocument('privacy')}
+            onPress={() => router.push(LEGAL_APP_ROUTES.privacy as Href)}
           />
           <SettingsRow
             label={t.auth.legalKvkk}
-            onPress={() => void openLegalDocument('kvkk')}
+            onPress={() => router.push(LEGAL_APP_ROUTES.kvkk as Href)}
           />
           <SettingsRow
             label={t.auth.legalConsent}
-            onPress={() => void openLegalDocument('consent')}
+            onPress={() => router.push(LEGAL_APP_ROUTES.consent as Href)}
           />
           <SettingsRow
             label={t.auth.legalTerms}
-            onPress={() => void openLegalDocument('terms')}
+            onPress={() => router.push(LEGAL_APP_ROUTES.terms as Href)}
           />
         </CollapsibleCard>
 
@@ -648,12 +665,14 @@ function ConsentSwitch({
 }
 
 function SettingsRow({
+  icon,
   label,
   value,
   onPress,
   busy = false,
   danger = false,
 }: {
+  icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
   label: string;
   value?: string;
   onPress?: () => void;
@@ -671,12 +690,21 @@ function SettingsRow({
         styles.settingsRow,
         { borderBottomColor: theme.border, opacity: pressed && clickable ? 0.75 : 1 },
       ]}>
-      <ThemedText
-        type="smallBold"
-        style={[styles.rowLabel, danger ? { color: theme.danger } : null]}
-        numberOfLines={1}>
-        {label}
-      </ThemedText>
+      <View style={styles.rowLeading}>
+        {icon ? (
+          <MaterialCommunityIcons
+            name={icon}
+            size={20}
+            color={danger ? theme.danger : theme.textSecondary}
+          />
+        ) : null}
+        <ThemedText
+          type="smallBold"
+          style={[styles.rowLabel, danger ? { color: theme.danger } : null]}
+          numberOfLines={1}>
+          {label}
+        </ThemedText>
+      </View>
       {busy ? (
         <ActivityIndicator color={theme.tint} />
       ) : (
@@ -781,6 +809,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  rowLeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flex: 1,
+    minWidth: 0,
+  },
   rowLabel: { flexShrink: 1 },
   rowTrailing: {
     flexDirection: 'row',
@@ -821,10 +856,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 21,
     flexShrink: 1,
-  },
-  zodiacGlyph: {
-    fontSize: 18,
-    lineHeight: 22,
   },
   sectionLabel: {
     letterSpacing: 0.8,

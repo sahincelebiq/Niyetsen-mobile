@@ -22,6 +22,7 @@ import { LEGAL_VERSIONS } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ConsentStatus, getConsentStatus, updateConsent } from '@/lib/api';
+import { useI18n } from '@/providers/locale-provider';
 
 type ConsentContextValue = {
   status: ConsentStatus;
@@ -70,11 +71,13 @@ function choicesFromStatus(status: ConsentStatus): ConsentChoicesValue {
     ai: status.ai_chat_processing.accepted,
     proofPhoto: status.proof_photo_processing.accepted,
     marketing: status.marketing_communications.accepted,
+    age18: false,
   };
 }
 
 export function ConsentGate({ children }: PropsWithChildren) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [status, setStatus] = useState<ConsentStatus | null>(null);
   const [choices, setChoices] = useState(EMPTY_CONSENT_CHOICES);
   const [loading, setLoading] = useState(true);
@@ -99,14 +102,14 @@ export function ConsentGate({ children }: PropsWithChildren) {
     } catch (value) {
       // Arka plan doğrulaması sessiz düşer; cache'li kullanıcı engellenmez.
       if (!background) {
-        setError(value instanceof Error ? value.message : 'Rıza tercihleri yüklenemedi.');
+        setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
       }
     } finally {
       if (!background) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [t.legal.gateLoadFailed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +172,7 @@ export function ConsentGate({ children }: PropsWithChildren) {
     return (
       <ThemedView style={styles.center}>
         <ActivityIndicator color={theme.tint} />
-        <ThemedText themeColor="textSecondary">Yasal tercihler kontrol ediliyor…</ThemedText>
+        <ThemedText themeColor="textSecondary">{t.common.loading}</ThemedText>
       </ThemedView>
     );
   }
@@ -180,14 +183,14 @@ export function ConsentGate({ children }: PropsWithChildren) {
       <ThemedView style={styles.center}>
         <ThemedText themeColor="danger">{error}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-          Bağlantı kurulamadı — tekrar dene.
+          {t.legal.gateLoadFailed}
         </ThemedText>
         <Pressable
           accessibilityRole="button"
           hitSlop={12}
           onPress={() => void load()}
           style={{ minHeight: 44, justifyContent: 'center' }}>
-          <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+          <ThemedText themeColor="tint">{t.legal.gateRetry}</ThemedText>
         </Pressable>
       </ThemedView>
     );
@@ -198,8 +201,12 @@ export function ConsentGate({ children }: PropsWithChildren) {
   }
 
   async function save() {
+    if (!choices.age18) {
+      setError(t.legal.gateAgeRequired);
+      return;
+    }
     if (!choices.privacy) {
-      setError('Devam etmek için aydınlatma metinlerini okuduğunu belirtmelisin.');
+      setError(t.legal.gatePrivacyRequired);
       return;
     }
     try {
@@ -215,11 +222,10 @@ export function ConsentGate({ children }: PropsWithChildren) {
         <ScrollView contentContainerStyle={styles.page}>
           <View style={styles.header}>
             <ThemedText type="title" style={styles.title}>
-              Yasal tercihlerini güncelle
+              {t.legal.gateTitle}
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Metinler veya veri işleme tercihleri yenilendi. Seçimlerini ayrı ayrı
-              inceleyebilirsin.
+              {t.legal.gateBody}
             </ThemedText>
           </View>
 
@@ -240,14 +246,14 @@ export function ConsentGate({ children }: PropsWithChildren) {
                 <ActivityIndicator color={theme.onAccent} />
               ) : (
                 <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  Tercihlerimi Kaydet
+                  {t.legal.gateSave}
                 </ThemedText>
               )}
             </Pressable>
             {!status && (
               <Pressable onPress={() => void load()}>
                 <ThemedText type="smallBold" themeColor="tint" style={styles.centerText}>
-                  Tekrar dene
+                  {t.legal.gateRetry}
                 </ThemedText>
               </Pressable>
             )}

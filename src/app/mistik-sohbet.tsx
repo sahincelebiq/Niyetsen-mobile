@@ -150,8 +150,7 @@ export default function MysticChatScreen() {
         pointerEvents="none"
       />
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right', 'bottom']}>
-        <KeyboardAwareView
-          style={[styles.flex, keyboardLift > 0 ? { paddingBottom: keyboardLift } : null]}>
+        <KeyboardAwareView lift={keyboardLift} style={styles.flex}>
           {/* Üst bar: geri + başlık */}
           <View style={styles.topBar}>
             <Pressable
@@ -270,6 +269,9 @@ export default function MysticChatScreen() {
               placeholder={t.mystic.placeholder}
               placeholderTextColor={colors.textSecondary}
               multiline
+              textAlignVertical="center"
+              underlineColorAndroid="transparent"
+              selectionColor={colors.tint}
               accessibilityLabel={t.mystic.writeToGuide}
               style={[styles.input, { color: colors.text }]}
             />
@@ -350,20 +352,24 @@ const styles = StyleSheet.create({
   },
   composer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: Spacing.two,
     marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
     borderWidth: 1,
     borderRadius: Radii.large,
     paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
+    paddingVertical: Spacing.one,
+    minHeight: 56,
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     maxHeight: 120,
     fontSize: 16,
+    lineHeight: 22,
     paddingVertical: 8,
+    includeFontPadding: false,
   },
   sendButton: {
     width: 44,

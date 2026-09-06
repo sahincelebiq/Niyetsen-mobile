@@ -154,6 +154,7 @@ export function looksLikeAuthCallback(url: string): boolean {
     url.includes('auth/callback') ||
     url.includes('auth-callback') ||
     url.includes('reset-password') ||
+    url.includes('sifre-sifirla') ||
     /[?&#](code|access_token|refresh_token|token_hash|type)=/.test(url)
   );
 }

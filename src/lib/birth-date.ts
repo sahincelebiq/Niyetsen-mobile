@@ -45,3 +45,22 @@ export function birthDateIsoFromDisplay(display: string): string | null {
 export function isValidBirthDateDisplay(display: string): boolean {
   return birthDateIsoFromDisplay(display) !== null;
 }
+
+/** ISO YYYY-MM-DD için yaş kontrolü (kayıt ve profil 18+ kapısı). */
+export function isAtLeastYearsOld(
+  iso: string,
+  years: number,
+  now = new Date(),
+): boolean {
+  const match = ISO_PATTERN.exec(iso.trim());
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  let age = now.getFullYear() - year;
+  const monthDiff = now.getMonth() + 1 - month;
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < day)) {
+    age -= 1;
+  }
+  return age >= years;
+}

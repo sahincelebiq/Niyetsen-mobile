@@ -14,6 +14,11 @@ import {
 import { InteractionManager, Platform } from 'react-native';
 
 import {
+  AuthFlowError,
+  logAuthEvent,
+  toAuthFlowError,
+} from '@/features/auth/auth-errors';
+import {
   completeAuthFromUrl,
   getAuthRedirectUri,
   looksLikeAuthCallback,
@@ -24,60 +29,8 @@ import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type AuthFlowCode =
-  | 'email_not_confirmed'
-  | 'wrong_password'
-  | 'already_registered'
-  | 'google_incomplete'
-  | 'provider_not_enabled'
-  | 'session_failed'
-  | 'recovery_expired'
-  | 'invalid_otp'
-  | 'generic';
-
-export class AuthFlowError extends Error {
-  code: AuthFlowCode;
-  constructor(code: AuthFlowCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
-function toAuthFlowError(error: unknown): AuthFlowError {
-  const raw = error instanceof Error ? error.message : String(error);
-  const text = raw.toLowerCase();
-  if (text.includes('email not confirmed')) {
-    return new AuthFlowError('email_not_confirmed', raw);
-  }
-  if (text.includes('invalid login credentials')) {
-    return new AuthFlowError('wrong_password', raw);
-  }
-  if (text.includes('already registered') || text.includes('already been registered')) {
-    return new AuthFlowError('already_registered', raw);
-  }
-  if (text.includes('provider is not enabled')) {
-    return new AuthFlowError('provider_not_enabled', raw);
-  }
-  if (
-    text.includes('otp_expired') ||
-    text.includes('token has expired') ||
-    (text.includes('expired') && text.includes('token'))
-  ) {
-    return new AuthFlowError('recovery_expired', raw);
-  }
-  if (
-    text.includes('invalid otp') ||
-    text.includes('token not found') ||
-    text.includes('otp_disabled') ||
-    (text.includes('invalid') && (text.includes('otp') || text.includes('token')))
-  ) {
-    return new AuthFlowError('invalid_otp', raw);
-  }
-  if (text.includes('tamamlanmadı') || text.includes('cancelled') || text.includes('canceled')) {
-    return new AuthFlowError('google_incomplete', raw);
-  }
-  return new AuthFlowError('generic', raw);
-}
+export { AuthFlowError } from '@/features/auth/auth-errors';
+export type { AuthFlowKod as AuthFlowCode } from '@/features/auth/auth-errors';
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -132,22 +85,45 @@ async function openOAuth(provider: 'google' | 'apple') {
           : undefined,
     },
   });
-  if (error) throw toAuthFlowError(error);
+  if (error) {
+    const mapped = toAuthFlowError(error);
+    logAuthEvent(mapped.kod, `oauth:${provider}`, mapped.teknikDetay);
+    throw mapped;
+  }
   if (Platform.OS === 'web' || !data.url) return;
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  // Android Custom Tab çoğu zaman 'dismiss' döner; oturum deep link ile
+  // zaten kurulmuş olabilir. Bunu iptal sanıp kullanıcıyı atma.
+  if (result.type === 'success' && result.url) {
+    try {
+      const exchanged = await completeAuthFromUrl(result.url);
+      if (exchanged.handled) return;
+    } catch (error) {
+      if (error instanceof AuthFlowError) throw error;
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, `oauth:${provider}:exchange`, mapped.teknikDetay);
+      throw mapped;
+    }
+  }
+  // Deep link AuthProvider'da işleniyor olabilir; hemen iptal deme.
+  for (let i = 0; i < 8; i += 1) {
+    const { data: after } = await supabase.auth.getSession();
+    if (after.session) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
   if (result.type !== 'success') {
-    throw new AuthFlowError('google_incomplete', 'Giriş işlemi tamamlanmadı.');
+    throw new AuthFlowError({ kod: 'iptal' });
   }
-  const exchanged = await completeAuthFromUrl(result.url);
-  if (!exchanged.handled) {
-    throw new AuthFlowError('session_failed', 'Supabase oturumu alınamadı.');
-  }
+  const mapped = new AuthFlowError({ kod: 'bilinmeyen' });
+  logAuthEvent(mapped.kod, `oauth:${provider}:session`, 'oturum alınamadı');
+  throw mapped;
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [oauthHold, setOauthHold] = useState(false);
   const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
@@ -159,18 +135,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const result = await completeAuthFromUrl(url);
         if (mounted && result.recovery) setRecovery(true);
       } catch (error) {
-        console.warn('OAuth geri dönüşü tamamlanamadı', error);
+        const mapped = toAuthFlowError(error);
+        logAuthEvent(mapped.kod, 'authCallback', mapped.teknikDetay);
       }
     };
 
     void (async () => {
       try {
-        const { data } = await withTimeout(
-          supabase.auth.getSession(),
-          SESSION_BOOT_MS,
-          'session_timeout',
-        );
-        if (mounted) setSession(data.session);
+        const initialUrl = await Linking.getInitialURL();
+        const fromOAuth = Boolean(initialUrl && looksLikeAuthCallback(initialUrl));
+        if (fromOAuth && initialUrl) {
+          await applyUrl(initialUrl);
+        }
+        const attempts = fromOAuth ? 10 : 1;
+        let next: Session | null = null;
+        for (let i = 0; i < attempts; i += 1) {
+          const { data } = await withTimeout(
+            supabase.auth.getSession(),
+            SESSION_BOOT_MS,
+            'session_timeout',
+          );
+          next = data.session;
+          if (next) break;
+          if (fromOAuth) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+        }
+        if (mounted) {
+          // OAuth deep link SIGNED_IN olmuşken geç gelen null boot sonucu
+          // oturumu ezmesin — Google sonrası giriş ekranına düşüren yarış.
+          setSession((current) => next ?? current);
+        }
       } catch (error) {
         console.warn('Oturum okunamadı', error);
         // Timeout'ta session'ı silme — OAuth/onAuthStateChange gelmiş olabilir.
@@ -180,7 +175,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     })();
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      setSession(nextSession);
+      setSession((current) => {
+        // INITIAL_SESSION depo henüz yazılmadan null gelebilir; OAuth
+        // SIGNED_IN'i ezmek Google sonrası giriş ekranına düşürür.
+        if (event === 'INITIAL_SESSION' && !nextSession && current) {
+          return current;
+        }
+        return nextSession;
+      });
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
       if (event === 'SIGNED_OUT') setRecovery(false);
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
@@ -203,6 +205,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  // Custom Tab dönüşünde depo yazısı gecikirse giriş ekranı bir kez
+  // görünür; kısa süre sonra oturumu tekrar oku — kapat-aç gerekmesin.
+  useEffect(() => {
+    if (loading || session) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!cancelled && data.session) {
+          setSession(data.session);
+        }
+      });
+    }, 700);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loading, session]);
+
+  useEffect(() => {
+    if (session) setOauthHold(false);
+  }, [session]);
+
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) {
@@ -220,7 +244,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       email: normalizeEmail(email),
       password,
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) {
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, 'signInWithEmail', mapped.teknikDetay);
+      throw mapped;
+    }
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
@@ -230,7 +258,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       password,
       options: { emailRedirectTo: redirectTo },
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) {
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, 'signUpWithEmail', mapped.teknikDetay);
+      throw mapped;
+    }
     return !data.session;
   }, []);
 
@@ -243,11 +275,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: normalized,
         options: { emailRedirectTo: redirectTo },
       });
-      if (error) throw toAuthFlowError(error);
+      if (error) {
+        const mapped = toAuthFlowError(error);
+        logAuthEvent(mapped.kod, 'resendSignup', mapped.teknikDetay);
+        throw mapped;
+      }
       return;
     }
-    // Şifre unuttum: 6 haneli OTP (şablon {{ .Token }}). Magic-link yedek değil —
-    // kapalı testte deep link kırılıyordu.
+    // Şifre unuttum: e-posta OTP (şablon {{ .Token }}, 6 veya 8 hane).
+    // Magic-link yedek değil — kapalı testte deep link kırılıyordu.
     const { error } = await supabase.auth.signInWithOtp({
       email: normalized,
       options: {
@@ -255,7 +291,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         emailRedirectTo: redirectTo,
       },
     });
-    if (error) throw toAuthFlowError(error);
+    if (error) {
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, 'sendEmailOtp', mapped.teknikDetay);
+      throw mapped;
+    }
   }, []);
 
   const resetPassword = useCallback(
@@ -284,38 +324,62 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         lastError = error;
       }
-      throw toAuthFlowError(lastError);
+      const mapped = toAuthFlowError(lastError);
+      logAuthEvent(mapped.kod, 'verifyEmailOtp', mapped.teknikDetay);
+      throw mapped;
     },
     [],
   );
 
   const updatePassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw toAuthFlowError(error);
+    if (error) {
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, 'updatePassword', mapped.teknikDetay);
+      throw mapped;
+    }
     setRecovery(false);
   }, []);
 
-  const signInWithGoogle = useCallback(() => openOAuth('google'), []);
+  const signInWithGoogle = useCallback(async () => {
+    setOauthHold(true);
+    try {
+      await openOAuth('google');
+    } catch (error) {
+      setOauthHold(false);
+      throw error;
+    }
+  }, []);
 
   const signInWithApple = useCallback(async () => {
-    if (Platform.OS !== 'ios') {
-      await openOAuth('apple');
-      return;
+    setOauthHold(true);
+    try {
+      if (Platform.OS !== 'ios') {
+        await openOAuth('apple');
+        return;
+      }
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        throw new Error('Apple kimlik belirteci alınamadı.');
+      }
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+      if (error) {
+        const mapped = toAuthFlowError(error);
+        logAuthEvent(mapped.kod, 'signInWithApple', mapped.teknikDetay);
+        throw mapped;
+      }
+    } catch (error) {
+      setOauthHold(false);
+      throw error;
     }
-    const credential = await AppleAuthentication.signInAsync({
-      requestedScopes: [
-        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-        AppleAuthentication.AppleAuthenticationScope.EMAIL,
-      ],
-    });
-    if (!credential.identityToken) {
-      throw new Error('Apple kimlik belirteci alınamadı.');
-    }
-    const { error } = await supabase.auth.signInWithIdToken({
-      provider: 'apple',
-      token: credential.identityToken,
-    });
-    if (error) throw toAuthFlowError(error);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -329,7 +393,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       session,
       user: session?.user ?? null,
-      loading,
+      loading: loading || oauthHold,
       recovery,
       signInWithEmail,
       signUpWithEmail,
@@ -343,6 +407,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }),
     [
       loading,
+      oauthHold,
       recovery,
       resetPassword,
       sendEmailOtp,

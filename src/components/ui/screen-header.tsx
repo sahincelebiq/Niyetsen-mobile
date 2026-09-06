@@ -35,9 +35,10 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.two,
+    minHeight: 44,
   },
   titles: {
     flex: 1,
