@@ -7,6 +7,7 @@ export const fr: Messages = {
     save: 'Enregistrer',
     cancel: 'Annuler',
     retry: 'Réessayer',
+    retrying: 'Nouvel essai…',
     loading: 'Chargement…',
     back: 'Retour',
     next: 'Suivant',
@@ -34,6 +35,10 @@ export const fr: Messages = {
     longPressEdit: 'Appui long pour déplacer, modifier ou supprimer',
     closeSection: 'Fermer la section',
     openSection: 'Ouvrir la section',
+    openOnWeb: 'Ouvrir sur le web ↗',
+    versionLabel: (version) => `Version ${version}`,
+    effectiveDate: (date) => `En vigueur : ${date}`,
+    dataController: 'Responsable du traitement / prestataire',
   },
   tabs: {
     chat: 'Chat',
@@ -208,6 +213,10 @@ export const fr: Messages = {
     statusDone: 'Terminé',
     statusMissed: 'Manqué',
     statusExcused: 'Excusé',
+    proofApproved: (confidence, declaration) =>
+      `Maillon fermé · confiance ${confidence}/100.${declaration}`,
+    proofRejected: (reason, confidence, attempt) =>
+      `${reason} Confiance ${confidence}/100 · essai ${attempt}/3. Tu peux reprendre une photo.`,
   },
   chain: {
     title: 'Chaîne',
@@ -233,6 +242,9 @@ export const fr: Messages = {
     recapOpen: 'Ouvrir ton rapport Niyetsen',
     recapHintFree: 'Le panneau reste ouvert ; 7 jours gratuits, 30 jours PRO',
     then: 'Ensuite',
+    gameStateDetail: (excuses, silent) =>
+      `${excuses} excuses · ${silent} absences silencieuses d’affilée`,
+    emptyBody: 'La chaîne n’est pas encore arrivée. Réessaie — tes traces s’accumulent ici.',
   },
   plan: {
     title: 'Mon plan',
@@ -330,6 +342,8 @@ export const fr: Messages = {
     catalogProTitle: 'Illimité avec PRO',
     terms: 'Conditions d’utilisation',
     privacy: 'Politique de confidentialité',
+    pricePerMonth: (price) => `${price} / mois`,
+    pricePerYear: (price) => `${price} / an`,
   },
   settings: {
     friends: '🏆  Amis & ligue',

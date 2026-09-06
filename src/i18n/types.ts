@@ -20,6 +20,7 @@ export type Messages = {
     save: string;
     cancel: string;
     retry: string;
+    retrying: string;
     loading: string;
     back: string;
     next: string;
@@ -45,6 +46,10 @@ export type Messages = {
     longPressEdit: string;
     closeSection: string;
     openSection: string;
+    openOnWeb: string;
+    versionLabel: (version: string) => string;
+    effectiveDate: (date: string) => string;
+    dataController: string;
   };
   tabs: {
     chat: string;
@@ -207,6 +212,8 @@ export type Messages = {
     statusDone: string;
     statusMissed: string;
     statusExcused: string;
+    proofApproved: (confidence: number, declaration: string) => string;
+    proofRejected: (reason: string, confidence: number, attempt: number) => string;
   };
   chain: {
     title: string;
@@ -232,6 +239,8 @@ export type Messages = {
     recapOpen: string;
     recapHintFree: string;
     then: string;
+    gameStateDetail: (excuses: number, silent: number) => string;
+    emptyBody: string;
   };
   plan: {
     title: string;
@@ -323,6 +332,8 @@ export type Messages = {
     catalogProTitle: string;
     terms: string;
     privacy: string;
+    pricePerMonth: (price: string) => string;
+    pricePerYear: (price: string) => string;
   };
   settings: {
     friends: string;

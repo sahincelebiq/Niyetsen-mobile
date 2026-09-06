@@ -7,6 +7,7 @@ export const tr: Messages = {
     save: 'Kaydet',
     cancel: 'Vazgeç',
     retry: 'Tekrar dene',
+    retrying: 'Deneniyor…',
     loading: 'Yükleniyor…',
     back: 'Geri',
     next: 'İleri',
@@ -34,6 +35,10 @@ export const tr: Messages = {
     longPressEdit: 'Uzun basarak taşı, düzenle veya sil',
     closeSection: 'Bölümü kapat',
     openSection: 'Bölümü aç',
+    openOnWeb: 'Web’de aç ↗',
+    versionLabel: (version) => `Sürüm ${version}`,
+    effectiveDate: (date) => `Yürürlük: ${date}`,
+    dataController: 'Veri sorumlusu / hizmeti sunan',
   },
   tabs: {
     chat: 'Sohbet',
@@ -208,6 +213,10 @@ export const tr: Messages = {
     statusDone: 'Tamamlandı',
     statusMissed: 'Kaçırıldı',
     statusExcused: 'Mazeretli',
+    proofApproved: (confidence, declaration) =>
+      `Halka tamamlandı · güven ${confidence}/100.${declaration}`,
+    proofRejected: (reason, confidence, attempt) =>
+      `${reason} Güven ${confidence}/100 · deneme ${attempt}/3. Yeni bir kare deneyebilirsin.`,
   },
   chain: {
     title: 'Zincir',
@@ -233,6 +242,9 @@ export const tr: Messages = {
     recapOpen: 'Niyetsen raporunu aç',
     recapHintFree: 'Panel açık; 7 günlük özet ücretsiz, 30 gün PRO',
     then: 'Sonra',
+    gameStateDetail: (excuses, silent) =>
+      `${excuses} mazeret · ${silent} ardışık sessiz kaçırma`,
+    emptyBody: 'Zincir bilgisi henüz gelmedi. Birazdan tekrar dene — izlerin burada birikir.',
   },
   plan: {
     title: 'Planım',
@@ -330,6 +342,8 @@ export const tr: Messages = {
     catalogProTitle: 'PRO ile sınırsız',
     terms: 'Kullanım Koşulları',
     privacy: 'Gizlilik Politikası',
+    pricePerMonth: (price) => `${price} / ay`,
+    pricePerYear: (price) => `${price} / yıl`,
   },
   settings: {
     friends: '🏆  Arkadaşlar & Lig',

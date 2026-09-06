@@ -1,5 +1,5 @@
 import { type Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator, Pressable, ScrollView, StyleSheet, View,
@@ -43,23 +43,29 @@ export default function PaywallScreen() {
     storeUnavailableReason() ? 'unavailable' : 'loading',
   );
 
-  function applyPrices(prices: Awaited<ReturnType<typeof getStorePrices>>) {
-    if (prices.monthly) setMonthlyPrice(`${prices.monthly} / ay`);
-    if (prices.yearly) setYearlyPrice(`${prices.yearly} / yıl`);
-    setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
-  }
+  const applyPrices = useCallback(
+    (prices: Awaited<ReturnType<typeof getStorePrices>>) => {
+      if (prices.monthly) setMonthlyPrice(t.paywall.pricePerMonth(prices.monthly));
+      if (prices.yearly) setYearlyPrice(t.paywall.pricePerYear(prices.yearly));
+      setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
+    },
+    [t],
+  );
 
   useEffect(() => {
-    let mounted = true;
     void trackEvent('paywall_shown', { status: status?.status ?? 'unknown' });
+  }, [status?.status]);
+
+  useEffect(() => {
     if (storeUnavailableReason()) return undefined;
+    let mounted = true;
     void getStorePrices().then((prices) => {
       if (mounted) applyPrices(prices);
     });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [applyPrices, t]);
 
   async function refreshPrices() {
     setPriceState('loading');
@@ -158,7 +164,7 @@ export default function PaywallScreen() {
           </Pressable>
 
           <ThemedView style={styles.hero}>
-            <ThemedText type="title">{t.paywall.title}</ThemedText>
+            <ThemedText type="screenTitle">{t.paywall.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
               {t.paywall.body}
             </ThemedText>
@@ -261,11 +267,17 @@ export default function PaywallScreen() {
           </Pressable>
 
           <ThemedView style={styles.legalRow}>
-            <Pressable hitSlop={8} onPress={() => void openLegalDocument('terms')}>
+            <Pressable
+              accessibilityRole="link"
+              style={styles.legalHit}
+              onPress={() => void openLegalDocument('terms')}>
               <ThemedText type="linkPrimary">{t.paywall.terms}</ThemedText>
             </Pressable>
             <ThemedText themeColor="textSecondary">·</ThemedText>
-            <Pressable hitSlop={8} onPress={() => void openLegalDocument('privacy')}>
+            <Pressable
+              accessibilityRole="link"
+              style={styles.legalHit}
+              onPress={() => void openLegalDocument('privacy')}>
               <ThemedText type="linkPrimary">{t.paywall.privacy}</ThemedText>
             </Pressable>
           </ThemedView>
@@ -458,6 +470,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     flexWrap: 'wrap',
+  },
+  legalHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
   },
   renewal: { textAlign: 'center', lineHeight: 20 },
   message: { textAlign: 'center' },

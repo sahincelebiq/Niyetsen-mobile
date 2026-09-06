@@ -268,8 +268,8 @@ export default function DailyTasksScreen() {
     setOutcome(task.id, {
       tone: result.approved ? 'success' : 'danger',
       message: result.approved
-        ? `Halka tamamlandı · güven ${result.confidence}/100.${declaration}`
-        : `${result.reason} Güven ${result.confidence}/100 · deneme ${result.attempt_no}/3. Yeni bir kare deneyebilirsin.`,
+        ? t.daily.proofApproved(result.confidence, declaration)
+        : t.daily.proofRejected(result.reason, result.confidence, result.attempt_no),
     });
   }
 
@@ -660,7 +660,7 @@ const TaskCard = memo(function TaskCard({
                     );
                   }}
                   style={styles.attributionBadge}>
-                  <ThemedText type="smallBold" style={styles.attributionIcon}>
+                  <ThemedText type="smallBold" style={[styles.attributionIcon, { color: theme.onAccent }]}>
                     ⓘ
                   </ThemedText>
                 </Pressable>
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   bonusLink: {
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
@@ -867,15 +867,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.two,
     bottom: Spacing.two,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   attributionIcon: {
-    color: '#fff',
     fontSize: 14,
     lineHeight: 16,
   },
@@ -923,6 +922,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   cameraTextButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
