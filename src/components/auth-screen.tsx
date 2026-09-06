@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +17,7 @@ import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { authMesaji } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
@@ -27,23 +26,27 @@ import { useLocale } from '@/providers/locale-provider';
 import { supabaseConfigured } from '@/lib/supabase';
 
 const MAIL_COOLDOWN_MS = 60_000;
-/** GoTrue OTP 6 veya 8 hane olabilir; kutuyu 6'da kesmek kodu kırar. */
 const OTP_MAX_LEN = 8;
 
-type Mode = 'sign-in' | 'sign-up';
-type Step = 'form' | 'otp';
+type Screen = 'sign-in' | 'email' | 'password' | 'otp';
+type Intent = 'sign-in' | 'sign-up' | 'forgot';
+
+function emailLooksValid(value: string): boolean {
+  const email = value.trim();
+  const at = email.indexOf('@');
+  return at > 0 && email.includes('.', at) && !email.includes(' ') && email.length >= 6;
+}
 
 export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
   const { t, regionId, setRegion } = useLocale();
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('sign-in');
-  const [step, setStep] = useState<Step>('form');
-  const [otpPurpose, setOtpPurpose] = useState<'recovery' | 'signup'>('recovery');
-  const [otp, setOtp] = useState('');
+  const [screen, setScreen] = useState<Screen>(auth.recovery ? 'password' : 'sign-in');
+  const [intent, setIntent] = useState<Intent>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -51,6 +54,10 @@ export function AuthScreen() {
   const [preferGoogle, setPreferGoogle] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (auth.recovery) setScreen('password');
+  }, [auth.recovery]);
 
   useEffect(() => {
     if (cooldownUntil <= now) return;
@@ -71,6 +78,15 @@ export function AuthScreen() {
     return email.trim().toLowerCase();
   }
 
+  function goBackToSignIn() {
+    setScreen('sign-in');
+    setIntent('sign-in');
+    setOtp('');
+    setError(null);
+    setMessage(null);
+    if (!auth.recovery) setPassword('');
+  }
+
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
     setLastIntent(label);
@@ -78,7 +94,7 @@ export function AuthScreen() {
     setMessage(null);
     try {
       await action();
-      if (label === 'reset' || (label === 'email' && mode === 'sign-up')) {
+      if (label === 'reset' || (label === 'email' && intent === 'sign-up')) {
         startMailCooldown();
       }
     } catch (value) {
@@ -106,11 +122,7 @@ export function AuthScreen() {
       return;
     }
     if (lastIntent === 'reset') {
-      if (mailLocked || !normalizedEmail()) return;
-      void run('reset', async () => {
-        await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
-        setMessage(t.auth.otpSent);
-      });
+      submitEmailOnly();
       return;
     }
     if (lastIntent === 'google') {
@@ -121,38 +133,73 @@ export function AuthScreen() {
       void run('apple', auth.signInWithApple);
       return;
     }
-    submitEmail();
+    if (screen === 'password') {
+      submitPassword();
+      return;
+    }
+    submitSignIn();
   }
 
-  function submitEmail() {
-    if (auth.recovery) {
-      if (password.length < 6) {
-        setError(t.auth.invalidCredentials);
-        return;
-      }
-      void run('email', async () => {
-        await auth.updatePassword(password);
-        setMessage(t.auth.passwordUpdated);
-        setStep('form');
+  function openEmailScreen(nextIntent: 'sign-up' | 'forgot') {
+    setIntent(nextIntent);
+    setScreen('email');
+    setError(null);
+    setMessage(null);
+    setOtp('');
+    setPassword('');
+  }
+
+  function submitEmailOnly() {
+    if (!emailLooksValid(normalizedEmail())) {
+      setError(t.auth.invalidEmail);
+      return;
+    }
+    if (intent === 'forgot') {
+      if (mailLocked) return;
+      void run('reset', async () => {
+        await auth.sendEmailOtp(normalizedEmail(), 'recovery');
+        setScreen('otp');
         setOtp('');
+        setMessage(t.auth.otpSent);
       });
       return;
     }
-    if (!email.trim() || password.length < 6) {
+    setError(null);
+    setMessage(null);
+    setScreen('password');
+  }
+
+  function submitSignIn() {
+    if (!emailLooksValid(normalizedEmail()) || password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
     }
     void run('email', async () => {
-      if (mode === 'sign-in') {
-        await auth.signInWithEmail(normalizedEmail(), password);
-      } else {
-        const needsVerification = await auth.signUpWithEmail(normalizedEmail(), password);
-        if (needsVerification) {
-          setOtpPurpose('signup');
-          setStep('otp');
-          setOtp('');
-          setMessage(t.auth.otpSent);
-        }
+      await auth.signInWithEmail(normalizedEmail(), password);
+    });
+  }
+
+  function submitPassword() {
+    if (password.length < 6) {
+      setError(t.auth.invalidCredentials);
+      return;
+    }
+    if (auth.recovery) {
+      void run('email', async () => {
+        await auth.updatePassword(password);
+        setMessage(t.auth.passwordUpdated);
+        setScreen('sign-in');
+        setIntent('sign-in');
+        setOtp('');
+      });
+      return;
+    }
+    void run('email', async () => {
+      const needsVerification = await auth.signUpWithEmail(normalizedEmail(), password);
+      if (needsVerification) {
+        setScreen('otp');
+        setOtp('');
+        setMessage(t.auth.otpSent);
       }
     });
   }
@@ -162,16 +209,41 @@ export function AuthScreen() {
       setError(t.auth.invalidOtp);
       return;
     }
+    const purpose = intent === 'sign-up' ? 'signup' : 'recovery';
     void run('otp', async () => {
-      await auth.verifyEmailOtp(normalizedEmail(), otp, otpPurpose);
-      setMessage(otpPurpose === 'recovery' ? t.auth.newPasswordHint : t.auth.passwordUpdated);
-      if (otpPurpose === 'recovery') {
-        setStep('form');
+      await auth.verifyEmailOtp(normalizedEmail(), otp, purpose);
+      setMessage(purpose === 'recovery' ? t.auth.newPasswordHint : t.auth.passwordUpdated);
+      if (purpose === 'recovery') {
+        setScreen('password');
         setOtp('');
         setPassword('');
       }
     });
   }
+
+  const title = auth.recovery
+    ? t.auth.newPassword
+    : screen === 'otp'
+      ? t.auth.otpVerify
+      : screen === 'email'
+        ? intent === 'forgot'
+          ? t.auth.forgotTitle
+          : t.auth.emailFirstTitle
+        : screen === 'password' && intent === 'sign-up'
+          ? t.auth.createPasswordTitle
+          : t.auth.welcomeBack;
+
+  const subtitle = auth.recovery
+    ? t.auth.newPasswordHint
+    : screen === 'otp'
+      ? t.auth.otpHint
+      : screen === 'email'
+        ? intent === 'forgot'
+          ? t.auth.forgotHint
+          : t.auth.emailFirstHint
+        : screen === 'password' && intent === 'sign-up'
+          ? t.auth.createPasswordHint
+          : t.auth.hero;
 
   return (
     <KeyboardAwareView>
@@ -181,19 +253,14 @@ export function AuthScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            <View style={styles.topBar}>
-              <ThemedView
-                type="backgroundElement"
-                style={[styles.langCard, { borderColor: theme.tint }]}>
-                <ThemedText type="smallBold">{t.auth.languageRegion}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.auth.languageRegionHint}
-                </ThemedText>
-                <RegionLanguageSheet
-                  value={regionId}
-                  onChange={(id) => void setRegion(id)}
-                />
-              </ThemedView>
+            <View style={styles.langRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.auth.languageRegionHint}
+              </ThemedText>
+              <RegionLanguageSheet
+                value={regionId}
+                onChange={(id) => void setRegion(id)}
+              />
             </View>
 
             <View style={styles.hero}>
@@ -203,9 +270,6 @@ export function AuthScreen() {
                 contentFit="contain"
               />
               <ThemedText type="screenTitle">Niyetsen</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                {t.auth.hero}
-              </ThemedText>
               {!supabaseConfigured ? (
                 <ThemedText themeColor="danger" style={styles.center}>
                   {t.auth.supabaseMissing}
@@ -216,61 +280,106 @@ export function AuthScreen() {
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
-              <ThemedText type="subtitle">
-                {auth.recovery
-                  ? t.auth.newPassword
-                  : step === 'otp'
-                    ? t.auth.otpVerify
-                    : mode === 'sign-in'
-                      ? t.auth.welcomeBack
-                      : t.auth.startJourney}
+              <ThemedText type="subtitle">{title}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {subtitle}
               </ThemedText>
 
-              {auth.recovery ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.auth.newPasswordHint}
-                </ThemedText>
+              {screen === 'otp' ? (
+                <TextInput
+                  autoFocus
+                  autoCapitalize="none"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  keyboardType="number-pad"
+                  maxLength={OTP_MAX_LEN}
+                  placeholder={t.auth.otpPlaceholder}
+                  placeholderTextColor={theme.textSecondary}
+                  value={otp}
+                  onChangeText={(value) =>
+                    setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
+                  }
+                  onSubmitEditing={submitOtp}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: theme.border,
+                      color: theme.text,
+                      fontFamily: Fonts.sans,
+                      letterSpacing: 4,
+                      textAlign: 'center',
+                    },
+                  ]}
+                />
               ) : null}
 
-              {step === 'otp' && !auth.recovery ? (
+              {screen === 'email' || screen === 'sign-in' ? (
+                <TextInput
+                  autoFocus={screen === 'email'}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  inputMode="email"
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  placeholder={t.auth.email}
+                  placeholderTextColor={theme.textSecondary}
+                  value={email}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    setPreferGoogle(false);
+                  }}
+                  onSubmitEditing={screen === 'email' ? submitEmailOnly : undefined}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: theme.border,
+                      color: theme.text,
+                      fontFamily: Fonts.sans,
+                    },
+                  ]}
+                />
+              ) : null}
+
+              {screen === 'sign-in' || screen === 'password' ? (
+                <TextInput
+                  autoFocus={screen === 'password'}
+                  autoCapitalize="none"
+                  autoComplete={
+                    screen === 'sign-in' && !auth.recovery
+                      ? 'current-password'
+                      : 'new-password'
+                  }
+                  placeholder={t.auth.password}
+                  placeholderTextColor={theme.textSecondary}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  onSubmitEditing={screen === 'sign-in' ? submitSignIn : submitPassword}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: theme.border,
+                      color: theme.text,
+                      fontFamily: Fonts.sans,
+                    },
+                  ]}
+                />
+              ) : null}
+
+              {error ? (
+                <ErrorBanner
+                  message={error}
+                  onRetry={retryLast}
+                  retrying={!!busy}
+                  retryLabel={t.common.retry}
+                  retryingLabel={t.common.loading}
+                />
+              ) : null}
+              {message ? <ThemedText themeColor="success">{message}</ThemedText> : null}
+
+              {screen === 'otp' ? (
                 <>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {t.auth.otpHint}
-                  </ThemedText>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    keyboardType="number-pad"
-                    maxLength={OTP_MAX_LEN}
-                    placeholder={t.auth.otpPlaceholder}
-                    placeholderTextColor={theme.textSecondary}
-                    value={otp}
-                    onChangeText={(value) =>
-                      setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
-                    }
-                    onSubmitEditing={submitOtp}
-                    style={[
-                      styles.input,
-                      {
-                        borderColor: theme.border,
-                        color: theme.text,
-                        fontFamily: Fonts.sans,
-                        letterSpacing: 6,
-                        textAlign: 'center',
-                      },
-                    ]}
-                  />
-                  {error ? (
-                    <ErrorBanner
-                      message={error}
-                      onRetry={retryLast}
-                      retrying={!!busy}
-                      retryLabel={t.common.retry}
-                      retryingLabel={t.common.loading}
-                    />
-                  ) : null}
-                  {message && <ThemedText themeColor="success">{message}</ThemedText>}
                   <AuthButton
                     label={t.auth.otpVerify}
                     busy={busy === 'otp'}
@@ -282,130 +391,66 @@ export function AuthScreen() {
                     onPress={() => {
                       if (mailLocked) return;
                       void run('reset', async () => {
-                        await auth.sendEmailOtp(normalizedEmail(), otpPurpose);
+                        await auth.sendEmailOtp(
+                          normalizedEmail(),
+                          intent === 'sign-up' ? 'signup' : 'recovery',
+                        );
                         setMessage(t.auth.otpSent);
                       });
                     }}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {mailLocked
-                        ? t.auth.cooldownWait(cooldownSec)
-                        : t.auth.otpResend}
-                    </ThemedText>
-                  </Pressable>
-                  <Pressable
-                    disabled={!!busy}
-                    onPress={() => {
-                      setStep('form');
-                      setOtp('');
-                      setError(null);
-                      setMessage(null);
-                    }}>
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                      {t.common.back}
+                      {mailLocked ? t.auth.cooldownWait(cooldownSec) : t.auth.otpResend}
                     </ThemedText>
                   </Pressable>
                 </>
-              ) : (
-                <>
-              {!auth.recovery && (
-                <TextInput
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  inputMode="email"
-                  keyboardType="email-address"
-                  placeholder={t.auth.email}
-                  placeholderTextColor={theme.textSecondary}
-                  value={email}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    setPreferGoogle(false);
-                  }}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.border,
-                      color: theme.text,
-                      fontFamily: Fonts.sans,
-                    },
-                  ]}
-                />
-              )}
-              <TextInput
-                autoCapitalize="none"
-                autoComplete={
-                  mode === 'sign-in' && !auth.recovery
-                    ? 'current-password'
-                    : 'new-password'
-                }
-                placeholder={t.auth.password}
-                placeholderTextColor={theme.textSecondary}
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                onSubmitEditing={submitEmail}
-                style={[
-                  styles.input,
-                  {
-                    borderColor: theme.border,
-                    color: theme.text,
-                    fontFamily: Fonts.sans,
-                  },
-                ]}
-              />
+              ) : null}
 
-              {error ? (
-                <ErrorBanner
-                  message={error}
-                  onRetry={retryLast}
-                  retrying={!!busy}
-                  retryLabel={t.common.retry}
-                  retryingLabel={t.common.loading}
+              {screen === 'email' ? (
+                <AuthButton
+                  label={intent === 'forgot' ? t.auth.sendCode : t.common.continue}
+                  busy={busy === 'reset'}
+                  onPress={submitEmailOnly}
+                  primary
                 />
               ) : null}
-              {message && <ThemedText themeColor="success">{message}</ThemedText>}
 
-              <AuthButton
-                label={
-                  auth.recovery
-                    ? t.common.save
-                    : mode === 'sign-in'
-                      ? t.auth.signIn
-                      : t.auth.signUp
-                }
-                busy={busy === 'email'}
-                onPress={submitEmail}
-                primary
-                warm={mode === 'sign-up' && !auth.recovery}
-              />
+              {screen === 'password' ? (
+                <AuthButton
+                  label={auth.recovery ? t.common.save : t.auth.signUp}
+                  busy={busy === 'email'}
+                  onPress={submitPassword}
+                  primary
+                  warm={!auth.recovery}
+                />
+              ) : null}
 
-              {mode === 'sign-in' && !auth.recovery && (
-                <Pressable
-                  disabled={!!busy || mailLocked}
-                  onPress={() => {
-                    if (mailLocked) return;
-                    if (!normalizedEmail()) {
-                      setError(t.auth.resetEmailRequired);
-                      return;
-                    }
-                    void run('reset', async () => {
-                      await auth.sendEmailOtp(normalizedEmail(), 'recovery');
-                      setOtpPurpose('recovery');
-                      setStep('otp');
-                      setOtp('');
-                      setMessage(t.auth.otpSent);
-                    });
-                  }}>
-                  <ThemedText type="small" themeColor="tint" style={styles.center}>
-                    {mailLocked
-                      ? t.auth.cooldownWait(cooldownSec)
-                      : t.auth.forgotPassword}
+              {screen === 'sign-in' ? (
+                <>
+                  <AuthButton
+                    label={t.auth.signIn}
+                    busy={busy === 'email'}
+                    onPress={submitSignIn}
+                    primary
+                  />
+                  <Pressable
+                    disabled={!!busy}
+                    onPress={() => openEmailScreen('forgot')}>
+                    <ThemedText type="small" themeColor="tint" style={styles.center}>
+                      {t.auth.forgotPassword}
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : null}
+
+              {screen !== 'sign-in' ? (
+                <Pressable disabled={!!busy} onPress={goBackToSignIn}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+                    {t.common.back}
                   </ThemedText>
                 </Pressable>
-              )}
-                </>
-              )}
+              ) : null}
 
-              {step !== 'otp' && !auth.recovery && (
+              {screen === 'sign-in' ? (
                 <>
                   <View style={styles.dividerRow}>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -428,21 +473,14 @@ export function AuthScreen() {
                   />
 
                   <Pressable
-                    onPress={() => {
-                      setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
-                      setError(null);
-                      setMessage(null);
-                      setStep('form');
-                      setOtp('');
-                    }}>
+                    disabled={!!busy}
+                    onPress={() => openEmailScreen('sign-up')}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {mode === 'sign-in'
-                        ? t.auth.switchToSignUp
-                        : t.auth.switchToSignIn}
+                      {t.auth.switchToSignUp}
                     </ThemedText>
                   </Pressable>
                 </>
-              )}
+              ) : null}
             </ThemedView>
 
             <View style={styles.legalLinks}>
@@ -513,11 +551,7 @@ function AuthButton({
         styles.button,
         {
           backgroundColor: fill,
-          borderColor: primary
-            ? fill
-            : highlighted
-              ? theme.tint
-              : theme.border,
+          borderColor: primary ? fill : highlighted ? theme.tint : theme.border,
           borderWidth: highlighted && !primary ? 2 : 1,
           opacity: pressed || busy ? 0.7 : 1,
         },
@@ -525,9 +559,7 @@ function AuthButton({
       {busy ? (
         <ActivityIndicator color={primary ? theme.onAccent : theme.tint} />
       ) : (
-        <ThemedText
-          type="smallBold"
-          style={{ color: onFill }}>
+        <ThemedText type="smallBold" style={{ color: onFill }}>
           {label}
         </ThemedText>
       )}
@@ -540,45 +572,36 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 520),
+    maxWidth: Math.min(MaxContentWidth, 440),
     alignSelf: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.four,
+    gap: Spacing.four,
   },
-  topBar: {
-    alignItems: 'stretch',
-  },
-  langCard: {
-    borderWidth: 1.5,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
+  langRow: {
     gap: Spacing.two,
   },
-  langWrap: {
-    gap: Spacing.one,
-  },
-  hero: { alignItems: 'center', gap: Spacing.half },
-  logo: { width: 64, height: 64, borderRadius: 18, marginBottom: Spacing.half },
+  hero: { alignItems: 'center', gap: Spacing.two },
+  logo: { width: 56, height: 56, borderRadius: 16, marginBottom: Spacing.one },
   center: { textAlign: 'center' },
   card: {
     borderWidth: 1,
-    borderRadius: Spacing.four,
-    padding: Spacing.three,
-    gap: Spacing.two,
+    borderRadius: Radii.large,
+    padding: Spacing.four,
+    gap: Spacing.three,
   },
   input: {
-    minHeight: 48,
+    minHeight: 52,
     borderWidth: 1,
-    borderRadius: Spacing.three,
+    borderRadius: Radii.medium,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
   },
   button: {
-    minHeight: 48,
+    minHeight: 52,
     borderWidth: 1,
-    borderRadius: Spacing.three,
+    borderRadius: Radii.medium,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
@@ -590,5 +613,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: Spacing.three,
+    paddingBottom: Spacing.two,
   },
 });

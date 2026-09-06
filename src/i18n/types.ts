@@ -100,6 +100,14 @@ export type Messages = {
     legalKvkk: string;
     legalConsent: string;
     legalTerms: string;
+    emailFirstTitle: string;
+    emailFirstHint: string;
+    forgotTitle: string;
+    forgotHint: string;
+    sendCode: string;
+    createPasswordTitle: string;
+    createPasswordHint: string;
+    invalidEmail: string;
   };
   onboarding: {
     regionTitle: string;

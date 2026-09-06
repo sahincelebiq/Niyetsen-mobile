@@ -1,9 +1,9 @@
-import { type Href, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { LegalDocumentScreen } from '@/components/legal-document-screen';
 import { ThemedText } from '@/components/themed-text';
 import { LEGAL_VERSIONS, type LegalDocumentId } from '@/constants/legal';
-import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useI18n } from '@/providers/locale-provider';
@@ -33,6 +33,7 @@ export function ConsentChoices({
   onChange: (value: ConsentChoicesValue) => void;
 }) {
   const { t } = useI18n();
+  const [openDoc, setOpenDoc] = useState<LegalDocumentId | null>(null);
 
   return (
     <View style={styles.container}>
@@ -51,8 +52,8 @@ export function ConsentChoices({
         required
       />
       <View style={styles.links}>
-        <LegalLink documentId="privacy" label={t.legal.privacyLink} />
-        <LegalLink documentId="kvkk" label={t.legal.noticeLink} />
+        <LegalLink documentId="privacy" label={t.legal.privacyLink} onOpen={setOpenDoc} />
+        <LegalLink documentId="kvkk" label={t.legal.noticeLink} onOpen={setOpenDoc} />
       </View>
 
       <ConsentRow
@@ -77,12 +78,21 @@ export function ConsentChoices({
       />
 
       <View style={styles.links}>
-        <LegalLink documentId="consent" label={t.legal.consentLink} />
-        <LegalLink documentId="terms" label={t.legal.termsLink} />
+        <LegalLink documentId="consent" label={t.legal.consentLink} onOpen={setOpenDoc} />
+        <LegalLink documentId="terms" label={t.legal.termsLink} onOpen={setOpenDoc} />
       </View>
       <ThemedText type="small" themeColor="textSecondary">
         {t.legal.versionLine(LEGAL_VERSIONS.privacyPolicy)}
       </ThemedText>
+
+      <Modal
+        visible={openDoc !== null}
+        animationType="slide"
+        onRequestClose={() => setOpenDoc(null)}>
+        {openDoc ? (
+          <LegalDocumentScreen documentId={openDoc} onClose={() => setOpenDoc(null)} />
+        ) : null}
+      </Modal>
     </View>
   );
 }
@@ -132,18 +142,19 @@ function ConsentRow({
 function LegalLink({
   documentId,
   label,
+  onOpen,
 }: {
   documentId: LegalDocumentId;
   label: string;
+  onOpen: (id: LegalDocumentId) => void;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   return (
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={t.legal.openDocument(label)}
       hitSlop={8}
-      onPress={() => router.push(LEGAL_APP_ROUTES[documentId] as Href)}
+      onPress={() => onOpen(documentId)}
       style={({ pressed }) => pressed && styles.pressed}>
       <ThemedText type="smallBold" themeColor="tint">
         {label}
@@ -153,11 +164,17 @@ function LegalLink({
 }
 
 const styles = StyleSheet.create({
-  container: { gap: Spacing.three },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.three },
+  container: { gap: Spacing.four },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+    minHeight: 44,
+  },
   checkbox: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
+    marginTop: 2,
     borderWidth: 2,
     borderRadius: Radii.small,
     alignItems: 'center',

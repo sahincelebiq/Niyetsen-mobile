@@ -22,6 +22,7 @@ import { LEGAL_VERSIONS } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ConsentStatus, getConsentStatus, updateConsent } from '@/lib/api';
+import { canEnterApp } from '@/lib/consent-access';
 import { useI18n } from '@/providers/locale-provider';
 
 type ConsentContextValue = {
@@ -49,20 +50,8 @@ function optimisticGrantedStatus(): ConsentStatus {
   } as ConsentStatus;
 }
 
-function hasCurrentDecisions(status: ConsentStatus): boolean {
-  return (
-    !status.needs_reconsent &&
-    status.privacy_policy.version === LEGAL_VERSIONS.privacyPolicy &&
-    status.privacy_policy.accepted &&
-    status.kvkk_explicit_consent.version === LEGAL_VERSIONS.kvkkConsent &&
-    status.kvkk_explicit_consent.decided_at !== null &&
-    status.ai_chat_processing.version === LEGAL_VERSIONS.aiChatConsent &&
-    status.ai_chat_processing.decided_at !== null &&
-    status.proof_photo_processing.version === LEGAL_VERSIONS.proofPhotoConsent &&
-    status.proof_photo_processing.decided_at !== null &&
-    status.marketing_communications.version === LEGAL_VERSIONS.marketingConsent &&
-    status.marketing_communications.decided_at !== null
-  );
+function persistConsentOk(ok: boolean) {
+  void AsyncStorage.setItem(CONSENT_OK_KEY, ok ? CONSENT_OK_VALUE : '');
 }
 
 function choicesFromStatus(status: ConsentStatus): ConsentChoicesValue {
@@ -96,9 +85,9 @@ export function ConsentGate({ children }: PropsWithChildren) {
       const nextStatus = await getConsentStatus();
       setStatus(nextStatus);
       setChoices(choicesFromStatus(nextStatus));
-      const ok = hasCurrentDecisions(nextStatus);
+      const ok = canEnterApp(nextStatus);
       setCachedOk(ok);
-      void AsyncStorage.setItem(CONSENT_OK_KEY, ok ? CONSENT_OK_VALUE : '');
+      persistConsentOk(ok);
     } catch (value) {
       // Arka plan doğrulaması sessiz düşer; cache'li kullanıcı engellenmez.
       if (!background) {
@@ -152,13 +141,16 @@ export function ConsentGate({ children }: PropsWithChildren) {
       });
       setStatus(nextStatus);
       setChoices(choicesFromStatus(nextStatus));
+      const ok = canEnterApp(nextStatus);
+      setCachedOk(ok);
+      persistConsentOk(ok);
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Tercihler kaydedilemedi.');
+      setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
       throw value;
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [t.legal.gateLoadFailed]);
 
   // Sunucu yanıtı yoksa ama cache "tamam" diyorsa iyimser durumla ilerle —
   // kullanıcı beklemez; sunucu farklı derse gate kendiliğinden geri gelir.
@@ -196,7 +188,7 @@ export function ConsentGate({ children }: PropsWithChildren) {
     );
   }
 
-  if (effectiveStatus && hasCurrentDecisions(effectiveStatus) && contextValue) {
+  if (effectiveStatus && canEnterApp(effectiveStatus) && contextValue) {
     return <ConsentContext.Provider value={contextValue}>{children}</ConsentContext.Provider>;
   }
 
@@ -221,7 +213,7 @@ export function ConsentGate({ children }: PropsWithChildren) {
       <SafeAreaView style={styles.flex}>
         <ScrollView contentContainerStyle={styles.page}>
           <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
+            <ThemedText type="screenTitle">
               {t.legal.gateTitle}
             </ThemedText>
             <ThemedText themeColor="textSecondary">
@@ -289,7 +281,6 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   header: { gap: Spacing.two },
-  title: { fontSize: 32, lineHeight: 38 },
   card: {
     borderWidth: 1,
     borderRadius: Radii.large,

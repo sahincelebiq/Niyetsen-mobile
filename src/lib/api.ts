@@ -59,13 +59,40 @@ export function generateMessageId(): string {
   });
 }
 
+const SESSION_READ_MS = 8_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(label)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
   options?: { timeoutMs?: number },
 ): Promise<T> {
-  const { data } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
+  let accessToken: string | undefined;
+  try {
+    const { data } = await withTimeout(
+      supabase.auth.getSession(),
+      SESSION_READ_MS,
+      'session_timeout',
+    );
+    accessToken = data.session?.access_token;
+  } catch {
+    throw new ApiError(401, uiCopy().common.sessionExpired);
+  }
   if (!accessToken) {
     throw new ApiError(401, uiCopy().common.sessionExpired);
   }

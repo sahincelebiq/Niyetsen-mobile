@@ -22,12 +22,30 @@ const LEGAL_LINKS = [
   { id: 'terms', href: '/legal/terms' as const },
 ] satisfies { id: LegalDocumentId; href: string }[];
 
-export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentId }) {
+export function LegalDocumentScreen({
+  documentId,
+  onClose,
+}: {
+  documentId: LegalDocumentId;
+  onClose?: () => void;
+}) {
   const { t, locale } = useI18n();
   const documents = getLegalDocuments(locale);
   const document = documents[documentId];
   const router = useRouter();
   const theme = useTheme();
+
+  function close() {
+    if (onClose) {
+      onClose();
+      return;
+    }
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  }
 
   return (
     <ThemedView style={styles.flex}>
@@ -37,7 +55,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t.legal.back}
-              onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              onPress={close}
               style={({ pressed }) => [
                 styles.backButton,
                 { borderColor: theme.border },
