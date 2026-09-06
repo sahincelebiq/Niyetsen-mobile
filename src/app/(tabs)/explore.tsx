@@ -443,7 +443,7 @@ function VisionTaskCard({
                   );
                 }}
                 style={styles.attributionBadge}>
-                <ThemedText type="smallBold" style={styles.attributionIcon}>
+                <ThemedText type="smallBold" style={[styles.attributionIcon, { color: theme.onAccent }]}>
                   ⓘ
                 </ThemedText>
               </Pressable>
@@ -602,15 +602,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.two,
     bottom: Spacing.two,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   attributionIcon: {
-    color: '#fff',
     fontSize: 14,
     lineHeight: 16,
   },

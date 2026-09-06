@@ -1,5 +1,5 @@
 import { type Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,6 +10,7 @@ import {
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { ProBadge } from '@/components/pro-badge';
 import { sproutGlyph } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
@@ -53,23 +54,20 @@ export default function PhilosophyPathsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const load = useCallback(() => {
+    setError(null);
+    setPaths(null);
     getPhilosophyPaths()
-      .then((result) => {
-        if (mounted) setPaths(result);
-      })
+      .then(setPaths)
       .catch((value) => {
-        if (!mounted) return;
         setPaths([]);
-        setError(
-          value instanceof ApiError ? value.message : t.paths.loadFailed,
-        );
+        setError(value instanceof ApiError ? value.message : t.paths.loadFailed);
       });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [t]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function openDetail(path: PhilosophyPath) {
     const key = path.slug?.trim() || path.name;
@@ -158,9 +156,11 @@ export default function PhilosophyPathsScreen() {
             <ActivityIndicator color={theme.tint} style={styles.loader} />
           ) : null}
 
-          {paths && paths.length === 0 ? (
+          {error ? <ErrorBanner message={error} onRetry={load} /> : null}
+
+          {paths && paths.length === 0 && !error ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-              {error ?? t.paths.empty}
+              {t.paths.empty}
             </ThemedText>
           ) : null}
 
@@ -342,8 +342,8 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   expandChip: {
-    minWidth: 36,
-    minHeight: 36,
+    minWidth: 44,
+    minHeight: 44,
     borderRadius: Radii.pill,
     borderWidth: 1,
     alignItems: 'center',

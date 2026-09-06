@@ -7,6 +7,7 @@ export const enUS: Messages = {
     save: 'Save',
     cancel: 'Cancel',
     retry: 'Try again',
+    retrying: 'Trying…',
     loading: 'Loading…',
     back: 'Back',
     next: 'Next',
@@ -34,6 +35,10 @@ export const enUS: Messages = {
     longPressEdit: 'Long-press to move, edit or delete',
     closeSection: 'Close section',
     openSection: 'Open section',
+    openOnWeb: 'Open on web ↗',
+    versionLabel: (version) => `Version ${version}`,
+    effectiveDate: (date) => `Effective: ${date}`,
+    dataController: 'Data controller / service provider',
   },
   tabs: {
     chat: 'Chat',
@@ -208,6 +213,10 @@ export const enUS: Messages = {
     statusDone: 'Done',
     statusMissed: 'Missed',
     statusExcused: 'Excused',
+    proofApproved: (confidence, declaration) =>
+      `Link completed · confidence ${confidence}/100.${declaration}`,
+    proofRejected: (reason, confidence, attempt) =>
+      `${reason} Confidence ${confidence}/100 · try ${attempt}/3. You can take another shot.`,
   },
   chain: {
     title: 'Streak',
@@ -233,6 +242,9 @@ export const enUS: Messages = {
     recapOpen: 'Open your Niyetsen report',
     recapHintFree: 'Panel is open; 7-day summary is free, 30-day needs PRO',
     then: 'Next',
+    gameStateDetail: (excuses, silent) =>
+      `${excuses} excuses · ${silent} silent misses in a row`,
+    emptyBody: 'Streak info has not arrived yet. Try again shortly — your marks gather here.',
   },
   plan: {
     title: 'My Plan',
@@ -330,6 +342,8 @@ export const enUS: Messages = {
     catalogProTitle: 'Unlimited with PRO',
     terms: 'Terms of Use',
     privacy: 'Privacy Policy',
+    pricePerMonth: (price) => `${price} / month`,
+    pricePerYear: (price) => `${price} / year`,
   },
   settings: {
     friends: '🏆  Friends & League',

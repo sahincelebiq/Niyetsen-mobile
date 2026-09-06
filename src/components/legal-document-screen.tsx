@@ -13,6 +13,7 @@ import {
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { openLegalDocument } from '@/lib/legal-links';
+import { useLocale } from '@/providers/locale-provider';
 
 const LEGAL_LINKS = [
   { id: 'privacy', href: '/legal/privacy' as const },
@@ -25,6 +26,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
   const document = LEGAL_DOCUMENTS[documentId];
   const router = useRouter();
   const theme = useTheme();
+  const { t } = useLocale();
 
   return (
     <ThemedView style={styles.flex}>
@@ -33,7 +35,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
           <View style={styles.topRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Geri dön"
+              accessibilityLabel={t.common.back}
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
               style={({ pressed }) => [
                 styles.backButton,
@@ -41,40 +43,39 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" themeColor="tint">
-                ← Geri
+                ← {t.common.back}
               </ThemedText>
             </Pressable>
             <View style={styles.topActions}>
               <Pressable
                 accessibilityRole="link"
-                accessibilityLabel="Bu dokümanı web'de aç"
-                hitSlop={8}
+                accessibilityLabel={t.common.openOnWeb}
                 onPress={() => void openLegalDocument(documentId)}
-                style={({ pressed }) => pressed && styles.pressed}>
+                style={({ pressed }) => [styles.webHit, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" themeColor="tint">
-                  {'Web’de aç ↗'}
+                  {t.common.openOnWeb}
                 </ThemedText>
               </Pressable>
               <ThemedText type="small" themeColor="textSecondary">
-                Sürüm {document.version}
+                {t.common.versionLabel(document.version)}
               </ThemedText>
             </View>
           </View>
 
           <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
+            <ThemedText type="screenTitle">
               {document.title}
             </ThemedText>
             <ThemedText themeColor="textSecondary">{document.summary}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Yürürlük: {LEGAL_EFFECTIVE_DATE}
+              {t.common.effectiveDate(LEGAL_EFFECTIVE_DATE)}
             </ThemedText>
           </View>
 
           <ThemedView
             type="backgroundElement"
             style={[styles.identityCard, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold">Veri sorumlusu / hizmeti sunan</ThemedText>
+            <ThemedText type="smallBold">{t.common.dataController}</ThemedText>
             <ThemedText>{LEGAL_IDENTITY.dataController} · {LEGAL_IDENTITY.service}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {LEGAL_IDENTITY.email}
@@ -101,7 +102,7 @@ export function LegalDocumentScreen({ documentId }: { documentId: LegalDocumentI
           <View style={[styles.linkGrid, { borderTopColor: theme.border }]}>
             {LEGAL_LINKS.map((item) => (
               <Link key={item.id} href={item.href as Href} asChild>
-                <Pressable style={({ pressed }) => pressed && styles.pressed}>
+                <Pressable style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
                   <ThemedText
                     type="smallBold"
                     themeColor={item.id === documentId ? 'textSecondary' : 'tint'}>
@@ -139,14 +140,17 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   backButton: {
-    minHeight: 42,
+    minHeight: 44,
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
   },
+  webHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   header: { gap: Spacing.two },
-  title: { fontSize: 32, lineHeight: 38 },
   identityCard: {
     borderWidth: 1,
     borderRadius: Radii.medium,
@@ -157,6 +161,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, lineHeight: 24 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   bulletText: { flex: 1 },
+  legalLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   linkGrid: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.four,
