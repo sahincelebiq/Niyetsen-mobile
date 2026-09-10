@@ -50,6 +50,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
+  completePlanEvent,
+  type DailyEventItem,
   ensureTodayPlan,
   excuseTask,
   getDailyTasks,
@@ -59,6 +61,7 @@ import {
   type Task,
   uploadTaskProof,
 } from '@/lib/api';
+import { DailyEventCard } from '@/components/plan-event-card';
 import { getPushStatus } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -84,6 +87,8 @@ export default function DailyTasksScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [tasks, setTasks] = useState<DailyTask[]>([]);
+  // 2026-09-10 plan etkinlikleri: fotosuz “Yaptım”, kamera yok, ceza yok.
+  const [events, setEvents] = useState<DailyEventItem[]>([]);
   const [needsExtension, setNeedsExtension] = useState(false);
   const [yesterdayMisses, setYesterdayMisses] = useState(0);
   const [showPushHint, setShowPushHint] = useState(false);
@@ -112,6 +117,7 @@ export default function DailyTasksScreen() {
       let daily = await getDailyTasks();
       setNeedsExtension(!!daily.needs_extension);
       setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+      setEvents(daily.events);
       // İlk cevap geldi — Gemini uzatması (90 sn) tam ekran spinner'da tutmasın.
       setLoading(false);
 
@@ -123,6 +129,7 @@ export default function DailyTasksScreen() {
           daily = await getDailyTasks();
           setNeedsExtension(!!daily.needs_extension);
           setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+          setEvents(daily.events);
         } catch (value) {
           if (isPaywallError(value)) {
             router.push('/paywall' as Href);
@@ -182,11 +189,43 @@ export default function DailyTasksScreen() {
     }
   }
 
-  useWarmFocusReload(load, tasks.length > 0 || needsExtension);
+  useWarmFocusReload(load, tasks.length > 0 || events.length > 0 || needsExtension);
 
   const setOutcome = useCallback((taskId: string, outcome: Outcome) => {
     setOutcomes((current) => ({ ...current, [taskId]: outcome }));
   }, []);
+
+  const completeEvent = useCallback(
+    async (event: DailyEventItem) => {
+      const key = `event:${event.occurrence_id}`;
+      setBusy(key);
+      try {
+        const response = await completePlanEvent(event.occurrence_id);
+        setEvents(response.events);
+        if (typeof response.streak_len === 'number') syncStreak(response.streak_len);
+        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
+        setOutcome(key, { tone: 'success', message: t.events.completed(50) });
+        void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
+      } catch (value) {
+        const status = value instanceof ApiError ? value.status : 0;
+        setOutcome(key, {
+          tone: status === 409 ? 'success' : 'danger',
+          message:
+            status === 409
+              ? t.events.alreadyDone
+              : status === 400
+                ? t.events.notYet
+                : value instanceof ApiError
+                  ? value.message
+                  : t.common.errorGeneric,
+        });
+        if (status === 409 || status === 400) void load(true);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load, setOutcome, syncStreak, t],
+  );
 
   async function openCamera(task: Task) {
     if (!consentStatus.proof_photo_processing.accepted) {
@@ -448,7 +487,7 @@ export default function DailyTasksScreen() {
           {t.daily.extending}
         </ThemedText>
       ) : null}
-      {!error && tasks.length === 0 ? (
+      {!error && tasks.length === 0 && events.length === 0 ? (
         <SurfaceCard elevated>
           {loading ? (
             <View style={styles.emptyLoading}>
@@ -511,6 +550,25 @@ export default function DailyTasksScreen() {
           keyExtractor={(task) => task.id}
           renderItem={renderTask}
           ListHeaderComponent={listHeader}
+          ListFooterComponent={
+            events.length > 0 ? (
+              <View style={styles.eventsBlock}>
+                <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.events.sectionHint}
+                </ThemedText>
+                {events.map((event) => (
+                  <DailyEventCard
+                    key={event.occurrence_id}
+                    event={event}
+                    busy={busy === `event:${event.occurrence_id}`}
+                    outcome={outcomes[`event:${event.occurrence_id}`]}
+                    onComplete={() => void completeEvent(event)}
+                  />
+                ))}
+              </View>
+            ) : null
+          }
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: screenInsets.bottom },
@@ -807,6 +865,10 @@ function TaskButton({
 }
 
 const styles = StyleSheet.create({
+  eventsBlock: {
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
   flex: { flex: 1 },
   listContent: {
     width: '100%',

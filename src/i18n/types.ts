@@ -224,6 +224,45 @@ export type Messages = {
     statusMissed: string;
     statusExcused: string;
   };
+  /** Plan etkinlikleri + plan-içi asistan (2026-09-10). */
+  events: {
+    sectionTitle: string;
+    sectionHint: string;
+    markDone: string;
+    done: string;
+    completed: (points: number) => string;
+    alreadyDone: string;
+    notYet: string;
+    addTitle: string;
+    addHint: string;
+    titleLabel: string;
+    titlePlaceholder: string;
+    titleRequired: string;
+    timeLabel: string;
+    startLabel: string;
+    today: string;
+    tomorrow: string;
+    recurrenceLabel: string;
+    recurrence: Record<'none' | 'daily' | 'weekdays' | 'weekly', string>;
+    weekdaysShort: readonly [string, string, string, string, string, string, string];
+    weekdayRequired: string;
+    addAction: string;
+    created: (title: string) => string;
+    delete: string;
+    deleteTitle: string;
+    deleteBody: string;
+    listEmpty: string;
+    byAgent: string;
+    agentOpen: string;
+    agentTitle: string;
+    agentSubtitle: string;
+    agentEmpty: string;
+    agentPlaceholder: string;
+    agentSuggestions: string[];
+    agentUnavailable: string;
+    planNameFallback: string;
+    durationShort: (minutes: number) => string;
+  };
   chain: {
     title: string;
     subtitle: string;
