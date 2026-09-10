@@ -189,7 +189,24 @@ export function AuthScreen() {
       return;
     }
     void run('email', async () => {
-      await auth.signInWithEmail(normalizedEmail(), password);
+      try {
+        await auth.signInWithEmail(normalizedEmail(), password);
+      } catch (value) {
+        if (value instanceof AuthFlowError && value.kod === 'mail_dogrulanmadi') {
+          setIntent('sign-up');
+          setScreen('otp');
+          setOtp('');
+          setMessage(t.auth.otpSent);
+          try {
+            await auth.sendEmailOtp(normalizedEmail(), 'signup');
+            startMailCooldown();
+          } catch {
+            // Kod zaten gitmiş olabilir — kutuyu yine aç.
+          }
+          return;
+        }
+        throw value;
+      }
     });
   }
 
@@ -226,8 +243,8 @@ export function AuthScreen() {
     const purpose = intent === 'sign-up' ? 'signup' : 'recovery';
     void run('otp', async () => {
       await auth.verifyEmailOtp(normalizedEmail(), otp, purpose);
-      setMessage(purpose === 'recovery' ? t.auth.newPasswordHint : t.auth.passwordUpdated);
       if (purpose === 'recovery') {
+        setMessage(t.auth.newPasswordHint);
         setScreen('password');
         setOtp('');
         setPassword('');
@@ -295,9 +312,6 @@ export function AuthScreen() {
               <ThemedText type="smallBold" themeColor="tint" style={styles.center}>
                 {t.brand.tagline}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
-                {t.chat.subtitle}
-              </ThemedText>
               {!supabaseConfigured ? (
                 <ThemedText themeColor="danger" style={styles.center}>
                   {t.auth.supabaseMissing}
@@ -310,6 +324,11 @@ export function AuthScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 {subtitle}
               </ThemedText>
+              {screen === 'otp' ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {normalizedEmail()}
+                </ThemedText>
+              ) : null}
 
               {screen === 'otp' ? (
                 <View style={styles.field}>
@@ -318,6 +337,7 @@ export function AuthScreen() {
                     autoFocus
                     autoCapitalize="none"
                     autoComplete="one-time-code"
+                    textContentType="oneTimeCode"
                     inputMode="numeric"
                     keyboardType="number-pad"
                     maxLength={OTP_MAX_LEN}
@@ -370,6 +390,9 @@ export function AuthScreen() {
                         screen === 'sign-in' && !auth.recovery
                           ? 'current-password'
                           : 'new-password'
+                      }
+                      textContentType={
+                        screen === 'sign-in' && !auth.recovery ? 'password' : 'newPassword'
                       }
                       placeholder={t.auth.password}
                       placeholderTextColor={theme.textSecondary}
@@ -440,8 +463,15 @@ export function AuthScreen() {
 
               {screen === 'email' ? (
                 <AuthButton
-                  label={intent === 'forgot' ? t.auth.sendCode : t.common.continue}
+                  label={
+                    intent === 'forgot' && mailLocked
+                      ? t.auth.cooldownWait(cooldownSec)
+                      : intent === 'forgot'
+                        ? t.auth.sendCode
+                        : t.common.continue
+                  }
                   busy={busy === 'reset'}
+                  locked={intent === 'forgot' && mailLocked}
                   onPress={submitEmailOnly}
                   primary
                 />
@@ -574,6 +604,7 @@ function AuthButton({
   primary = false,
   highlighted = false,
   warm = false,
+  locked = false,
   icon,
 }: {
   label: string;
@@ -582,6 +613,7 @@ function AuthButton({
   primary?: boolean;
   highlighted?: boolean;
   warm?: boolean;
+  locked?: boolean;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
 }) {
   const theme = useTheme();
@@ -605,7 +637,7 @@ function AuthButton({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
-        disabled={busy}
+        disabled={busy || locked}
         onPress={onPress}
         onPressIn={() => {
           if (reduceMotion) return;
@@ -628,7 +660,7 @@ function AuthButton({
             backgroundColor: fill,
             borderColor: primary ? fill : highlighted ? theme.tint : theme.border,
             borderWidth: highlighted && !primary ? 2 : 1,
-            opacity: busy || (pressed && reduceMotion) ? 0.7 : 1,
+            opacity: busy || locked || (pressed && reduceMotion) ? 0.7 : 1,
           },
         ]}>
         {busy ? (
