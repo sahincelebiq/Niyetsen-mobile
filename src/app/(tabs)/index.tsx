@@ -36,7 +36,7 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
-import { useKeyboardDockLift } from '@/hooks/use-keyboard-height';
+import { KEYBOARD_CLOSED, type KeyboardLiftState } from '@/hooks/use-keyboard-height';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ApiError,
@@ -98,8 +98,9 @@ export default function ChatScreen() {
   const { t, locale } = useLocale();
   const theme = useTheme();
   const router = useRouter();
-  const composerRef = useRef<View>(null);
-  const { lift: keyboardLift, open: keyboardOpen, overlaying } = useKeyboardDockLift(composerRef);
+  // Klavye telafisi KeyboardAwareView'de; burada yalnız durum (composer padding + scroll).
+  const [keyboard, setKeyboard] = useState<KeyboardLiftState>(KEYBOARD_CLOSED);
+  const keyboardLift = keyboard.lift;
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -521,7 +522,7 @@ export default function ChatScreen() {
             {t.chat.activeIntent(activePlanName)}
           </ThemedText>
         ) : null}
-        <KeyboardAwareView lift={keyboardLift}>
+        <KeyboardAwareView onKeyboardChange={setKeyboard}>
           <View style={styles.chatColumn}>
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
@@ -578,7 +579,6 @@ export default function ChatScreen() {
             ) : null}
 
             <ChatComposer
-              ref={composerRef}
               value={input}
               onChangeText={setInput}
               onSubmit={handleSend}
@@ -588,7 +588,7 @@ export default function ChatScreen() {
               onAttach={() => void handleAttach()}
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
-              keyboardOpen={keyboardOpen && overlaying}
+              keyboardOpen={keyboard.open && keyboard.covering}
             />
           </View>
         </KeyboardAwareView>

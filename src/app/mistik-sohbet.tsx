@@ -18,7 +18,6 @@ import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticGrantButton, useMysticColors } from '@/components/mystic-screen-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Spacing } from '@/constants/theme';
-import { useKeyboardDockLift } from '@/hooks/use-keyboard-height';
 import { trackEvent } from '@/lib/analytics';
 import { ApiError, isPaywallError, sendMysticChat, type MysticChatMessage } from '@/lib/api';
 import { mysticHref } from '@/lib/mystic-routes';
@@ -46,8 +45,6 @@ export default function MysticChatScreen() {
   const [sending, setSending] = useState(false);
   const [granting, setGranting] = useState(false);
   const listRef = useRef<FlatList<Bubble>>(null);
-  const composerRef = useRef<View>(null);
-  const { lift: keyboardLift } = useKeyboardDockLift(composerRef);
   const aiAllowed = consentStatus.ai_chat_processing.accepted;
 
   const shortcuts: { symbol: string; label: string; href: Href }[] = [
@@ -150,7 +147,7 @@ export default function MysticChatScreen() {
         pointerEvents="none"
       />
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right', 'bottom']}>
-        <KeyboardAwareView lift={keyboardLift} style={styles.flex}>
+        <KeyboardAwareView style={styles.flex}>
           {/* Üst bar: geri + başlık */}
           <View style={styles.topBar}>
             <Pressable
@@ -254,8 +251,6 @@ export default function MysticChatScreen() {
             {t.mystic.disclaimer}
           </ThemedText>
           <View
-            ref={composerRef}
-            collapsable={false}
             style={[
               styles.composer,
               {
