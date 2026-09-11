@@ -270,11 +270,12 @@ export default function ChatScreen() {
     }, [scrollToEnd]),
   );
 
+  // Android `pan` modunda lift 0 kalabilir; klavye açılınca da son mesaja kay.
   useEffect(() => {
-    if (keyboardLift > 0) {
+    if (keyboard.open || keyboardLift > 0) {
       scrollToEnd(true);
     }
-  }, [keyboardLift, scrollToEnd]);
+  }, [keyboard.open, keyboardLift, scrollToEnd]);
 
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {

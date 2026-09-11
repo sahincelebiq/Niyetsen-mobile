@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import {
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { DailyTaskSkeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticPanel, useMysticPanel } from '@/components/mystic-panel';
@@ -62,6 +63,8 @@ import {
   uploadTaskProof,
 } from '@/lib/api';
 import { DailyEventCard } from '@/components/plan-event-card';
+import { readCachedDaily, writeCachedDaily } from '@/lib/boot-cache';
+import { setPushHintVisible } from '@/lib/push-hint';
 import { getPushStatus } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -91,7 +94,7 @@ export default function DailyTasksScreen() {
   const [events, setEvents] = useState<DailyEventItem[]>([]);
   const [needsExtension, setNeedsExtension] = useState(false);
   const [yesterdayMisses, setYesterdayMisses] = useState(0);
-  const [showPushHint, setShowPushHint] = useState(false);
+  const cachedPaintRef = useRef(false);
   const autoExtendRef = useRef(false);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -107,29 +110,47 @@ export default function DailyTasksScreen() {
   const mysticPanel = useMysticPanel();
   const screenInsets = useScreenInsets();
 
+  const applyDaily = useCallback((daily: Awaited<ReturnType<typeof getDailyTasks>>) => {
+    setNeedsExtension(!!daily.needs_extension);
+    setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
+    // Eski boot önbelleği (events alanı öncesi) dizi taşımayabilir.
+    setEvents(Array.isArray(daily.events) ? daily.events : []);
+    void writeCachedDaily(daily);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readCachedDaily().then((cached) => {
+      if (cancelled || !cached) return;
+      cachedPaintRef.current = true;
+      applyDaily(cached);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyDaily]);
+
   const load = useCallback(async (refresh = false) => {
     if (refresh) {
       autoExtendRef.current = false;
       setRefreshing(true);
-    } else setLoading(true);
+    } else if (!cachedPaintRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       let daily = await getDailyTasks();
-      setNeedsExtension(!!daily.needs_extension);
-      setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
-      setEvents(daily.events);
+      applyDaily(daily);
       // İlk cevap geldi — Gemini uzatması (90 sn) tam ekran spinner'da tutmasın.
       setLoading(false);
-
       if (daily.needs_extension && !autoExtendRef.current) {
         autoExtendRef.current = true;
         setExtending(true);
         try {
           await ensureTodayPlan();
           daily = await getDailyTasks();
-          setNeedsExtension(!!daily.needs_extension);
-          setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
-          setEvents(daily.events);
+          applyDaily(daily);
         } catch (value) {
           if (isPaywallError(value)) {
             router.push('/paywall' as Href);
@@ -154,9 +175,9 @@ export default function DailyTasksScreen() {
       if (user?.id) {
         try {
           const push = await getPushStatus(user.id);
-          setShowPushHint(push.supported && !push.enabled);
+          setPushHintVisible(push.supported && !push.enabled);
         } catch {
-          setShowPushHint(false);
+          setPushHintVisible(false);
         }
       }
     } catch (value) {
@@ -165,7 +186,7 @@ export default function DailyTasksScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [router, syncStreak, user?.id, t]);
+  }, [applyDaily, router, syncStreak, user?.id, t]);
 
   async function handleExtendPlan() {
     if (extending) return;
@@ -201,10 +222,22 @@ export default function DailyTasksScreen() {
       setBusy(key);
       try {
         const response = await completePlanEvent(event.occurrence_id);
-        setEvents(response.events);
+        // Sunucu `events` puan olaylarıdır (kategori/delta), günün listesi değil —
+        // listeyi ezme; yalnız bu etkinliği yerelde tamamlandı işaretle.
+        setEvents((current) =>
+          current.map((item) =>
+            item.occurrence_id === event.occurrence_id ? { ...item, status: 'done' } : item,
+          ),
+        );
         if (typeof response.streak_len === 'number') syncStreak(response.streak_len);
-        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
-        setOutcome(key, { tone: 'success', message: t.events.completed(50) });
+        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir.
+        // Kazanılan puan = pozitif delta toplamı (+50/kategori); okunamazsa 50.
+        const rows = Array.isArray(response.events) ? response.events : [];
+        const gained = rows.reduce(
+          (sum, row) => sum + (typeof row.delta === 'number' && row.delta > 0 ? row.delta : 0),
+          0,
+        );
+        setOutcome(key, { tone: 'success', message: t.events.completed(gained > 0 ? gained : 50) });
         void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
       } catch (value) {
         const status = value instanceof ApiError ? value.status : 0;
@@ -472,32 +505,19 @@ export default function DailyTasksScreen() {
           <ThemedText type="small">{t.daily.missYesterday(yesterdayMisses)}</ThemedText>
         </SurfaceCard>
       ) : null}
-      {showPushHint ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/settings' as Href)}
-          style={{ marginBottom: Spacing.two }}>
-          <ThemedText type="small" themeColor="tint">
-            {t.daily.pushHint}
-          </ThemedText>
-        </Pressable>
-      ) : null}
       {extending ? (
         <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
           {t.daily.extending}
         </ThemedText>
       ) : null}
-      {!error && tasks.length === 0 && events.length === 0 ? (
+      {loading && tasks.length === 0 && events.length === 0 ? (
+        <View style={styles.skeletonStack}>
+          <DailyTaskSkeleton />
+          <DailyTaskSkeleton />
+        </View>
+      ) : null}
+      {!loading && !error && tasks.length === 0 && events.length === 0 ? (
         <SurfaceCard elevated>
-          {loading ? (
-            <View style={styles.emptyLoading}>
-              <ActivityIndicator color={theme.tint} />
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.common.loading}
-              </ThemedText>
-            </View>
-          ) : (
-            <>
           <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
           <ThemedText themeColor="textSecondary">{t.daily.emptyBody}</ThemedText>
           {needsExtension ? (
@@ -535,8 +555,6 @@ export default function DailyTasksScreen() {
               {t.daily.emptyCta}
             </ThemedText>
           </Pressable>
-            </>
-          )}
         </SurfaceCard>
       ) : null}
     </View>
@@ -881,6 +899,9 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: Spacing.three,
   },
+  skeletonStack: {
+    gap: Spacing.three,
+  },
   progressBlock: {
     gap: Spacing.two,
   },
@@ -888,12 +909,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  emptyLoading: {
-    minHeight: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
   },
   emptyCta: {
     alignSelf: 'flex-start',

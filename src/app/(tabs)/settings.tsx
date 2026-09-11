@@ -47,6 +47,7 @@ import {
   type PushStatus,
 } from '@/lib/push-notifications';
 import { hasStoreEntitlement, restorePurchases } from '@/lib/purchases';
+import { setPushHintVisible } from '@/lib/push-hint';
 import { useAuth } from '@/providers/auth-provider';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useI18n } from '@/providers/locale-provider';
@@ -92,7 +93,10 @@ export default function SettingsScreen() {
     let active = true;
     getPushStatus(auth.user.id)
       .then((status) => {
-        if (active) setPushStatus(status);
+        if (active) {
+          setPushStatus(status);
+          setPushHintVisible(status.supported && !status.enabled);
+        }
       })
       .catch((value) => {
         if (active) {
@@ -258,6 +262,7 @@ export default function SettingsScreen() {
         ? await enablePushNotifications(auth.user.id)
         : await disablePushNotifications(auth.user.id);
       setPushStatus(nextStatus);
+      setPushHintVisible(nextStatus.supported && !nextStatus.enabled);
     } catch (value) {
       setPushError(value instanceof Error ? value.message : t.settings.notifPrefFailed);
       setPushStatus(await getPushStatus(auth.user.id));
@@ -438,6 +443,11 @@ export default function SettingsScreen() {
             />
           </View>
           {!pushStatus && !pushError && <ActivityIndicator color={theme.tint} />}
+          {pushStatus && !pushStatus.enabled && pushStatus.supported ? (
+            <ThemedText type="small" themeColor="accentWarm">
+              {t.settings.pushOffHint}
+            </ThemedText>
+          ) : null}
           {pushStatus?.enabled ? (
             <ThemedText type="small" themeColor="textSecondary">
               {t.profile.notificationsWhen}
@@ -494,6 +504,13 @@ export default function SettingsScreen() {
             label={t.settings.manageSub}
             busy={busy === 'customer-center'}
             onPress={() => {
+              const hasStoreSub =
+                subscriptionStatus?.status === 'active'
+                || subscriptionStatus?.status === 'cancelled';
+              if (!hasStoreSub) {
+                router.push('/paywall' as Href);
+                return;
+              }
               void (async () => {
                 setBusy('customer-center');
                 setError(null);

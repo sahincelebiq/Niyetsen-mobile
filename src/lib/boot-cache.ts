@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { SubscriptionInfo, UserProfile } from '@/lib/api';
+import type { DailyTasksResponse, SubscriptionInfo, UserProfile } from '@/lib/api';
 
 const PROFILE_KEY = 'niyetsen.boot.profile.v1';
 const SUBSCRIPTION_KEY = 'niyetsen.boot.subscription.v1';
+const DAILY_KEY = 'niyetsen.boot.daily.v1';
 
 async function readJson<T>(key: string): Promise<T | null> {
   try {
@@ -37,4 +38,12 @@ export async function readCachedSubscription(): Promise<SubscriptionInfo | null>
 
 export async function writeCachedSubscription(info: SubscriptionInfo): Promise<void> {
   await writeJson(SUBSCRIPTION_KEY, info);
+}
+
+export async function readCachedDaily(): Promise<DailyTasksResponse | null> {
+  return readJson<DailyTasksResponse>(DAILY_KEY);
+}
+
+export async function writeCachedDaily(daily: DailyTasksResponse): Promise<void> {
+  await writeJson(DAILY_KEY, daily);
 }

@@ -179,6 +179,8 @@ export type ChatResponse = {
   tool_calls: ToolCall[];
   /** Tek dokunuşluk hızlı yanıtlar (boş olabilir). */
   suggestions?: string[];
+  /** Backend chat_threads.title — konu netleşince (2-4. mesaj) bir kez atanır; null olabilir. */
+  thread_title?: string | null;
 };
 
 export type ChatSession = {
@@ -623,9 +625,14 @@ export function deletePlanEvent(eventId: string): Promise<{ deleted: boolean }> 
   });
 }
 
+/**
+ * Backend `complete_plan_event` sözleşmesi: `events` günün etkinlik listesi DEĞİL,
+ * kategori başına +50 puan olaylarıdır (scoring_service.complete_task).
+ * `points` kategori toplamlarıdır (delta değil).
+ */
 export type CompleteEventResponse = {
   message: string;
-  events: DailyEventItem[];
+  events: ScoreEvent[];
   points?: Record<string, number>;
   streak_len?: number;
 };

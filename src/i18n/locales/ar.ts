@@ -178,7 +178,7 @@ export const ar: Messages = {
   daily: {
     title: 'اليوم',
     subtitle: 'خطوات صغيرة، سلسلة لا تنكسر',
-    emptyTitle: 'لا مهام لليوم',
+    emptyTitle: 'لا نية مخططة لليوم.',
     emptyBody:
       'قد تكون خطتك متأخرة. حمّل مهام هذا الأسبوع — أو جرّب مكافأة.',
     emptyCta: 'المكافآت',
@@ -384,6 +384,8 @@ export const ar: Messages = {
     benefitCompanion: 'الرفيقة فيليز مجانية؛ بقية الشخصيات PRO (كلها ظاهرة).',
     catalogFreeTitle: 'ما يبقى مجانيًا',
     catalogProTitle: 'بلا حد مع PRO',
+    benefitFalFree: 'الفأل والبرج يبقيان مجانيين — والدردشة لا تُقفل.',
+    introFree: (days) => `${days} يوم مجانًا`,
     terms: 'شروط الاستخدام',
     privacy: 'سياسة الخصوصية',
   },
@@ -435,6 +437,7 @@ export const ar: Messages = {
     notifPrefFailed: 'تعذّر تغيير تفضيل الإشعار.',
     sectionOpen: 'افتح القسم',
     sectionClose: 'أغلق القسم',
+    pushOffHint: 'وقت التذكير محفوظ؛ إشعارات الجهاز مغلقة.',
   },
   legal: {
     back: 'رجوع',
@@ -702,6 +705,10 @@ export const ar: Messages = {
     joinTitle: 'انضم للدوري',
     joinBody:
       'الانضمام اختياري. اسمك الحقيقي يبقى مخفيًا — تظهر الكنية والنقاط وطول السلسلة فقط. يمكنك المغادرة في أي وقت؛ يُحذف السجل.',
+    joinHint: 'تظهر الكنية والنقاط والسلسلة. اسمك الحقيقي يبقى مخفيًا.',
+    privacyLink: 'الخصوصية',
+    privacyTitle: 'خصوصية الدوري',
+    scoreLabel: 'النقاط',
     aliasPlaceholder: 'كنيتك (مثال نسر 34)',
     aliasA11y: 'كنية الدوري',
     joinCta: 'انضم بالكنية',

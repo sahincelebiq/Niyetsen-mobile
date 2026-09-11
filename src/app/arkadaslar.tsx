@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -11,9 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { DailyTaskSkeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
@@ -45,6 +48,7 @@ export default function LeagueScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) {
@@ -59,6 +63,13 @@ export default function LeagueScreen() {
       setError(
         err instanceof ApiError ? err.message : t.league.loadFailed,
       );
+      // TODO: /league 404 veya eski backend — kabuk düşmesin; katılım formu kalsın.
+      setLeague((current) => current ?? {
+        opted_in: false,
+        alias: null,
+        my_rank: null,
+        members: [],
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,14 +122,28 @@ export default function LeagueScreen() {
         subtitle={t.league.subtitle}
       />
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
-      {loading ? <ActivityIndicator color={theme.tint} size="large" /> : null}
+      {loading && !league ? (
+        <View style={styles.skeletonStack}>
+          <DailyTaskSkeleton />
+        </View>
+      ) : null}
 
       {!loading && league && !league.opted_in ? (
         <SurfaceCard elevated>
           <ThemedText type="subtitle">{t.league.joinTitle}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {t.league.joinBody}
+            {t.league.joinHint}
           </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.league.privacyTitle}
+            onPress={() => setPrivacyOpen(true)}
+            hitSlop={8}
+            style={styles.privacyLink}>
+            <ThemedText type="smallBold" themeColor="tint">
+              {t.league.privacyLink}
+            </ThemedText>
+          </Pressable>
           <TextInput
             value={alias}
             onChangeText={setAlias}
@@ -160,8 +185,13 @@ export default function LeagueScreen() {
       ) : null}
 
       {!loading && league?.opted_in ? (
-        <SurfaceCard>
+        <SurfaceCard hero>
           <View style={styles.meRow}>
+            <View style={styles.rankBadge} accessibilityRole="text">
+              <ThemedText type="title" themeColor="tint">
+                {league.my_rank ? `#${league.my_rank}` : '—'}
+              </ThemedText>
+            </View>
             <View style={styles.meText}>
               <ThemedText type="smallBold">☘ {league.alias}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
@@ -185,6 +215,14 @@ export default function LeagueScreen() {
         </SurfaceCard>
       ) : null}
 
+      {!loading && league && league.members.length > 0 ? (
+        <View style={styles.listMeta}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            {t.league.scoreLabel}
+          </ThemedText>
+        </View>
+      ) : null}
+
       {!loading && league && league.members.length === 0 ? (
         <SurfaceCard>
           <ThemedText type="subtitle">{t.league.emptyTitle}</ThemedText>
@@ -199,6 +237,7 @@ export default function LeagueScreen() {
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+        <KeyboardAwareView>
         <FlatList
           data={league?.members ?? []}
           keyExtractor={(member) => `${member.rank}-${member.alias}`}
@@ -209,7 +248,41 @@ export default function LeagueScreen() {
           }
           renderItem={({ item }) => <MemberRow member={item} />}
         />
+        </KeyboardAwareView>
       </SafeAreaView>
+
+      <Modal
+        visible={privacyOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPrivacyOpen(false)}>
+        <View style={styles.sheetBackdrop}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPrivacyOpen(false)}
+            style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.text, opacity: 0.35 }]}
+          />
+          <Pressable
+            style={[styles.sheet, { backgroundColor: theme.backgroundElement }]}
+            onPress={(event) => event.stopPropagation()}>
+            <ThemedText type="subtitle">{t.league.privacyTitle}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.league.joinBody}
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPrivacyOpen(false)}
+              style={({ pressed }) => [
+                styles.cta,
+                { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                {t.common.done}
+              </ThemedText>
+            </Pressable>
+          </Pressable>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -249,6 +322,7 @@ function MemberRow({ member }: { member: LeagueMember }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headerBlock: { gap: Spacing.three, marginBottom: Spacing.two },
+  skeletonStack: { gap: Spacing.two },
   listContent: {
     width: '100%',
     maxWidth: MaxContentWidth,
@@ -270,13 +344,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
   },
+  privacyLink: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   meRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
+  rankBadge: {
+    minWidth: 56,
+    alignItems: 'center',
+  },
   meText: { flex: 1, gap: 2 },
   leaveButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.two },
+  listMeta: {
+    paddingHorizontal: Spacing.one,
+  },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -289,4 +375,14 @@ const styles = StyleSheet.create({
   },
   rank: { width: 32, textAlign: 'center' },
   memberText: { flex: 1, gap: 2 },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: Radii.large,
+    borderTopRightRadius: Radii.large,
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
 });

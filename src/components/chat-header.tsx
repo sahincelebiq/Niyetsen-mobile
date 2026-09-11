@@ -157,7 +157,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   leftCluster: {
-    minWidth: 88,
+    minWidth: 44,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -176,7 +177,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: Spacing.one,
-    minWidth: 88,
+    minWidth: 44,
+    maxWidth: 120,
+    flexShrink: 1,
     zIndex: 3,
   },
   mysticButton: {
@@ -205,6 +208,7 @@ const styles = StyleSheet.create({
   },
   titleText: {
     textAlign: 'center',
+    width: '100%',
     flexShrink: 1,
   },
   trialChip: {
