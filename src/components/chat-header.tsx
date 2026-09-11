@@ -209,6 +209,7 @@ const styles = StyleSheet.create({
   titleText: {
     textAlign: 'center',
     width: '100%',
+    flexShrink: 1,
   },
   trialChip: {
     alignSelf: 'center',

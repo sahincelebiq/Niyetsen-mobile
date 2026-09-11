@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { InteractionManager, Platform } from 'react-native';
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [oauthHold, setOauthHold] = useState(false);
   const [deepLinkHold, setDeepLinkHold] = useState(false);
   const [recovery, setRecovery] = useState(false);
+  const recoveryHoldRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -189,8 +191,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         return nextSession;
       });
-      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
-      if (event === 'SIGNED_OUT') setRecovery(false);
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && recoveryHoldRef.current)) {
+        setRecovery(true);
+      }
+      if (event === 'SIGNED_OUT') {
+        recoveryHoldRef.current = false;
+        setRecovery(false);
+      }
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
         resetAnalyticsIdentity();
       }
@@ -304,8 +311,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       return;
     }
-    // Şifre unuttum: e-posta OTP (şablon {{ .Token }}, 6 veya 8 hane).
-    // Magic-link yedek değil — kapalı testte deep link kırılıyordu.
+    // Şifremi unuttum = recovery şablonu ({{ .Token }}). Kullanıcı kodu
+    // uygulamaya yazar; deep link gerekmez. Email OTP yalnız yedek.
+    const recovered = await supabase.auth.resetPasswordForEmail(normalized, {
+      redirectTo,
+    });
+    if (!recovered.error) return;
+    const recoverMapped = toAuthFlowError(recovered.error);
+    logAuthEvent(recoverMapped.kod, 'resetPasswordForEmail', recoverMapped.teknikDetay);
+    if (recoverMapped.kod !== 'saglayici_kapali') {
+      throw recoverMapped;
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email: normalized,
       options: {
@@ -332,7 +348,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const normalized = normalizeEmail(email);
       const code = token.replace(/\s/g, '');
       const order: Array<'recovery' | 'email' | 'signup'> =
-        purpose === 'signup' ? ['signup', 'email'] : ['email', 'recovery'];
+        purpose === 'signup' ? ['signup', 'email'] : ['recovery', 'email'];
+      if (purpose === 'recovery') recoveryHoldRef.current = true;
       let lastError: unknown;
       for (const type of order) {
         const { error } = await supabase.auth.verifyOtp({
@@ -346,6 +363,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
         lastError = error;
       }
+      if (purpose === 'recovery') recoveryHoldRef.current = false;
       const mapped = toAuthFlowError(lastError);
       logAuthEvent(mapped.kod, 'verifyEmailOtp', mapped.teknikDetay);
       throw mapped;
@@ -360,6 +378,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logAuthEvent(mapped.kod, 'updatePassword', mapped.teknikDetay);
       throw mapped;
     }
+    recoveryHoldRef.current = false;
     setRecovery(false);
   }, []);
 
@@ -406,6 +425,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     await logOutPurchases();
+    recoveryHoldRef.current = false;
     setRecovery(false);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;

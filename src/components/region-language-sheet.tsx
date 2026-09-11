@@ -22,6 +22,8 @@ type Props = {
   value: RegionId;
   onChange: (id: RegionId) => void;
   busy?: boolean;
+  /** Üst çubuk için içeriği saran hap — tam satır kaplamaz. */
+  compact?: boolean;
 };
 
 /**
@@ -29,7 +31,12 @@ type Props = {
  * Auth, onboarding ve Profil aynı bileşeni kullanır.
  * RTL (Arapça) geçişinde forceRTL yalnız yeniden başlatma onayına bağlıdır.
  */
-export function RegionLanguageSheet({ value, onChange, busy = false }: Props) {
+export function RegionLanguageSheet({
+  value,
+  onChange,
+  busy = false,
+  compact = false,
+}: Props) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -70,13 +77,17 @@ export function RegionLanguageSheet({ value, onChange, busy = false }: Props) {
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           styles.row,
+          compact ? styles.rowCompact : null,
           {
             borderColor: theme.border,
             backgroundColor: theme.surfaceMuted,
             opacity: pressed || busy ? 0.85 : 1,
           },
         ]}>
-        <ThemedText type="smallBold" style={styles.rowLabel} numberOfLines={1}>
+        <ThemedText
+          type="smallBold"
+          style={compact ? styles.rowLabelCompact : styles.rowLabel}
+          numberOfLines={1}>
           {t.regions[region.labelKey]}
         </ThemedText>
         <ThemedText type="smallBold" themeColor="tint">
@@ -152,7 +163,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
+  rowCompact: {
+    alignSelf: 'flex-end',
+    maxWidth: 220,
+  },
   rowLabel: { flex: 1 },
+  rowLabelCompact: { flexGrow: 0, flexShrink: 1 },
   sheetRoot: {
     flex: 1,
     justifyContent: 'flex-end',

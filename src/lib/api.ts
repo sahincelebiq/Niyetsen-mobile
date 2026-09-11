@@ -254,8 +254,66 @@ export type DailyTaskItem = {
   task: Task;
 };
 
+/** schemas.EventRecurrence */
+export type EventRecurrence = 'none' | 'daily' | 'weekdays' | 'weekly';
+
+/** schemas.DailyEventItem — fotosuz etkinlik kalemi (Bugün → Yaptım, kamera yok). */
+export type DailyEventItem = {
+  occurrence_id: string;
+  event_id: string;
+  plan_id: string;
+  plan_name: string;
+  title: string;
+  categories: Category[];
+  scheduled_time: string; // HH:MM
+  duration_min: number;
+  status: 'pending' | 'done';
+  recurrence: EventRecurrence;
+};
+
+/** schemas.PlanEventOccurrence */
+export type PlanEventOccurrence = {
+  id: string;
+  event_id: string;
+  plan_id: string;
+  date: string; // YYYY-MM-DD
+  status: 'pending' | 'done';
+  completed_at: string | null;
+};
+
+/** schemas.PlanEvent — plan-içi etkinlik (365 görevi DEĞİL). */
+export type PlanEvent = {
+  id: string;
+  plan_id: string;
+  title: string;
+  categories: Category[];
+  scheduled_time: string;
+  duration_min: number;
+  recurrence: EventRecurrence;
+  /** 0 = Pazartesi … 6 = Pazar (yalnız weekly). */
+  byweekday: number[];
+  start_date: string;
+  end_date: string | null;
+  created_by: 'user' | 'agent';
+  occurrences: PlanEventOccurrence[];
+};
+
+/** schemas.PlanEventCreateRequest */
+export type PlanEventCreateRequest = {
+  title: string;
+  scheduled_time: string; // HH:MM
+  start_date: string; // YYYY-MM-DD
+  end_date?: string | null;
+  recurrence?: EventRecurrence;
+  byweekday?: number[];
+  categories?: Category[];
+  duration_min?: number;
+};
+
 export type DailyTasksResponse = {
   items: DailyTaskItem[];
+  /** Plan etkinlikleri (eski backend göndermeyebilir → []). */
+  events: DailyEventItem[];
   needs_extension: boolean;
   plan_day: number | null;
   batch_generated_until: number | null;
@@ -532,6 +590,7 @@ export async function getDailyTasks(): Promise<DailyTasksResponse> {
   if (Array.isArray(raw)) {
     return {
       items: raw,
+      events: [],
       needs_extension: false,
       plan_day: null,
       batch_generated_until: null,
@@ -539,7 +598,68 @@ export async function getDailyTasks(): Promise<DailyTasksResponse> {
       has_active_plan: raw.length > 0,
     };
   }
-  return raw;
+  return { ...raw, events: Array.isArray(raw.events) ? raw.events : [] };
+}
+
+// ---------- Plan etkinlikleri + plan-içi ajan (2026-09-10) ----------
+
+export function listPlanEvents(planId: string): Promise<PlanEvent[]> {
+  return request<PlanEvent[]>(`/plan/${encodeURIComponent(planId)}/events`);
+}
+
+export function createPlanEvent(
+  planId: string,
+  body: PlanEventCreateRequest,
+): Promise<PlanEvent> {
+  return request<PlanEvent>(`/plan/${encodeURIComponent(planId)}/events`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePlanEvent(eventId: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/plan/events/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+  });
+}
+
+export type CompleteEventResponse = {
+  message: string;
+  events: DailyEventItem[];
+  points?: Record<string, number>;
+  streak_len?: number;
+};
+
+/** Fotosuz Yaptım: +50/kategori; ikinci basış 409, gelecek gün 400. */
+export function completePlanEvent(occurrenceId: string): Promise<CompleteEventResponse> {
+  return request<CompleteEventResponse>(
+    `/plan/events/${encodeURIComponent(occurrenceId)}/complete`,
+    { method: 'POST' },
+  );
+}
+
+/** Plan-içi ajan: ayrı thread, yeni 365 plan üretmez, etkinlik ekler. */
+export function sendPlanAgentMessage(
+  planId: string,
+  messages: ChatMessage[],
+): Promise<ChatResponse> {
+  return request<ChatResponse>(
+    `/plan/${encodeURIComponent(planId)}/chat`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: messages.slice(-CHAT_HISTORY_SEND_LIMIT),
+        collected: EMPTY_COLLECTED,
+      }),
+    },
+    { timeoutMs: ChatTimeoutMs },
+  );
+}
+
+export function getPlanAgentHistory(planId: string): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>(`/plan/${encodeURIComponent(planId)}/chat/history`, undefined, {
+    timeoutMs: ChatTimeoutMs,
+  });
 }
 
 /** Bugünün günü üretilmemişse partiyi bugünden üretir (geçmiş doldurulmaz).

@@ -158,19 +158,25 @@ export default function LeagueScreen() {
           />
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: busy || alias.trim().length < 2 }}
             disabled={busy || alias.trim().length < 2}
             onPress={() => void handleJoin()}
             style={({ pressed }) => [
               styles.cta,
               {
-                backgroundColor: theme.tint,
-                opacity: busy || alias.trim().length < 2 ? 0.4 : pressed ? 0.8 : 1,
+                backgroundColor:
+                  alias.trim().length < 2 ? theme.surfaceMuted : theme.tint,
+                opacity: busy ? 0.7 : pressed && alias.trim().length >= 2 ? 0.85 : 1,
               },
             ]}>
             {busy ? (
               <ActivityIndicator color={theme.onAccent} />
             ) : (
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText
+                type="smallBold"
+                style={{
+                  color: alias.trim().length < 2 ? theme.textSecondary : theme.onAccent,
+                }}>
                 {t.league.joinCta}
               </ThemedText>
             )}

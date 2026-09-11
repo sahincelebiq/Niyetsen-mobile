@@ -18,6 +18,7 @@ import {
   PlanTaskEditor,
   type PlanTaskEditorTarget,
 } from '@/components/plan-task-editor';
+import { PlanEventsSection } from '@/components/plan-events-section';
 import { PlanPickerSheet } from '@/components/project-sheets';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { CategoryBadge } from '@/components/ui/category-badge';
@@ -72,11 +73,14 @@ export default function PlanScreen() {
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
   const [addDate, setAddDate] = useState<string | null>(null);
   const [extending, setExtending] = useState(false);
+  // Etkinlik bölümü kendi verisini çeker; ekran yenilenince o da yenilensin.
+  const [eventsReloadKey, setEventsReloadKey] = useState(0);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
+    if (isRefresh) setEventsReloadKey((key) => key + 1);
     try {
       let next = await getCurrentPlan();
       if (next) {
@@ -218,6 +222,14 @@ export default function PlanScreen() {
               </ThemedText>
             </Pressable>
           </SurfaceCard>
+        )}
+
+        {!loading && !error && plan && (
+          <PlanEventsSection
+            planId={plan.id}
+            planName={plan.name ?? t.events.planNameFallback}
+            reloadKey={eventsReloadKey}
+          />
         )}
 
         {!loading && !error && plan && (

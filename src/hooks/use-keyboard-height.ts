@@ -9,182 +9,174 @@ import {
 
 import {
   KEYBOARD_GAP_PX,
-  KEYBOARD_OPEN_PX,
-  isKeyboardOverlaying,
+  isKeyboardFrameOnScreen,
+  isKeyboardOpen,
   resolveKeyboardLift,
 } from '@/lib/keyboard-geometry';
 
-function subscribeKeyboard(handler: (event: KeyboardEvent) => void) {
-  if (Platform.OS === 'ios') {
-    return [
-      Keyboard.addListener('keyboardWillChangeFrame', handler),
-      Keyboard.addListener('keyboardWillHide', handler),
-    ];
-  }
-  return [
-    Keyboard.addListener('keyboardDidShow', handler),
-    Keyboard.addListener('keyboardDidHide', handler),
-    Keyboard.addListener('keyboardDidChangeFrame', handler),
-  ];
-}
+/** app.json → android.softwareKeyboardLayoutMode = "resize": ölçüm yoksa lift 0 güvenlidir. */
+const PLATFORM_RESIZES = Platform.OS === 'android';
+/**
+ * Android'de root'un küçülmesi (edge-to-edge IME padding → Yoga relayout)
+ * keyboardDidShow'dan bir-iki kare sonra biter; ölçümü yeniden al.
+ * Kap ölçümü lift'ten etkilenmediği için tekrar ölçüm salınım yaratmaz.
+ */
+const REMEASURE_DELAYS_MS = [48, 160, 400] as const;
 
-function windowHeight(): number {
-  return Dimensions.get('window').height;
+export type KeyboardLiftState = {
+  /** Kaba uygulanacak paddingBottom. */
+  lift: number;
+  /** Klavye yüksekliği (kapalıysa 0). */
+  height: number;
+  open: boolean;
+  /** Klavye yazı kutusunu örtüyor ve lift ile telafi ediliyor (overlay). */
+  covering: boolean;
+};
+
+export const KEYBOARD_CLOSED: KeyboardLiftState = {
+  lift: 0,
+  height: 0,
+  open: false,
+  covering: false,
+};
+
+type KeyboardFrame = { top: number; height: number; open: boolean };
+const NO_KEYBOARD: KeyboardFrame = { top: 0, height: 0, open: false };
+
+function frameFromEvent(event: KeyboardEvent): KeyboardFrame {
+  const height = event.endCoordinates?.height ?? 0;
+  const top = event.endCoordinates?.screenY ?? 0;
+  const open =
+    isKeyboardOpen(height) && isKeyboardFrameOnScreen(top, Dimensions.get('screen').height);
+  return { top, height: open ? height : 0, open };
 }
 
 export function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
   useEffect(() => {
-    const onEvent = (event: KeyboardEvent) => {
-      const next = event.endCoordinates?.height ?? 0;
-      setHeight(next > KEYBOARD_OPEN_PX ? next : 0);
-    };
-    const subs = subscribeKeyboard(onEvent);
+    const onFrame = (event: KeyboardEvent) => setHeight(frameFromEvent(event).height);
+    const onHide = () => setHeight(0);
+    const subs =
+      Platform.OS === 'ios'
+        ? [
+            Keyboard.addListener('keyboardWillChangeFrame', onFrame),
+            Keyboard.addListener('keyboardWillHide', onHide),
+          ]
+        : [
+            Keyboard.addListener('keyboardDidShow', onFrame),
+            Keyboard.addListener('keyboardDidHide', onHide),
+          ];
     return () => subs.forEach((sub) => sub.remove());
   }, []);
   return height;
 }
 
 /**
- * NativeTabs + edge-to-edge'de KeyboardAvoidingView kutuyu klavyenin altında
- * bırakıyordu. Yazı kutusunu ekranda ölç; overlay ise lift et.
+ * NativeTabs + edge-to-edge için tek klavye telafisi.
  *
- * Pencere Android'de zaten küçüldüyse overlay=false → lift 0 (çift kaydırma yok).
- * measureInWindow 0/geç dönerse klavye yüksekliği yedek — yazı kutusu gömülmesin.
+ * containerRef: paddingBottom'un UYGULANDIĞI kap (KeyboardAwareView). Kabın dibi
+ * lift'ten etkilenmez → her ölçüm bağımsızdır, "uygulanan lift'i geri ekle"
+ * düzeltmesi ve onun yarış hatası yok.
+ *
+ * - Android adjustResize root'u küçülttüyse kap dibi ≈ klavye üstü → lift 0.
+ * - iOS / resize olmayan pencere: kap dibi klavyenin altında → lift = örtüşme + gap.
+ * - Kabın onLayout'unu bağla: root küçülünce anında yeniden ölçülür.
  */
-export function useKeyboardDockLift(
-  dockRef: RefObject<View | null>,
-  gap = KEYBOARD_GAP_PX,
-): { lift: number; height: number; open: boolean; overlaying: boolean } {
-  const [height, setHeight] = useState(0);
-  const [lift, setLift] = useState(0);
-  const [overlaying, setOverlaying] = useState(false);
-  const liftRef = useRef(0);
-  liftRef.current = lift;
-  const keyboardTopRef = useRef(0);
-  const keyboardHeightRef = useRef(0);
+export function useKeyboardLift(
+  containerRef: RefObject<View | null>,
+  opts: { gap?: number; bottomInset?: number } = {},
+): KeyboardLiftState & { onLayout: () => void } {
+  const gap = opts.gap ?? KEYBOARD_GAP_PX;
+  const bottomInset = opts.bottomInset ?? 0;
+  const [state, setState] = useState<KeyboardLiftState>(KEYBOARD_CLOSED);
+  const frameRef = useRef<KeyboardFrame>(NO_KEYBOARD);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const applyFromMeasure = useCallback(
-    (keyboardTop: number, keyboardHeight: number) => {
-      const open = keyboardHeight > KEYBOARD_OPEN_PX;
-      const overlay = open && isKeyboardOverlaying(keyboardTop, windowHeight());
-      setOverlaying(overlay);
-      if (!open) {
-        setLift(0);
-        return;
-      }
-      const node = dockRef.current;
-      const finish = (measuredRestBottom: number | null) => {
-        setLift(
-          resolveKeyboardLift({
-            open,
-            overlaying: overlay,
-            keyboardHeight,
-            keyboardTop,
-            measuredRestBottom,
-            gap,
-          }),
-        );
-      };
-      if (!node || typeof node.measureInWindow !== 'function') {
-        finish(null);
-        return;
-      }
-      node.measureInWindow((_x, y, _w, h) => {
-        const measuredBottom = y + h;
-        if (measuredBottom <= 1) {
-          finish(null);
-          return;
-        }
-        finish(measuredBottom + liftRef.current);
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach((timer) => clearTimeout(timer));
+    timersRef.current = [];
+  }, []);
+
+  const measureAndApply = useCallback(() => {
+    const frame = frameRef.current;
+    if (!frame.open) {
+      setState(KEYBOARD_CLOSED);
+      return;
+    }
+    const finish = (containerBottom: number | null) => {
+      // Ölçüm döndüğünde klavye kapanmış olabilir (hızlı dismiss) — eski kareyi uygulama.
+      if (!frameRef.current.open) return;
+      const lift = resolveKeyboardLift({
+        keyboardHeight: frame.height,
+        keyboardTop: frame.top,
+        containerBottom,
+        bottomInset,
+        gap,
+        platformResizes: PLATFORM_RESIZES,
       });
-    },
-    [dockRef, gap],
-  );
-
-  const applyEvent = useCallback(
-    (event: KeyboardEvent) => {
-      const nextHeight = event.endCoordinates?.height ?? 0;
-      const keyboardTop = event.endCoordinates?.screenY ?? 0;
-      const open = nextHeight > KEYBOARD_OPEN_PX;
-      setHeight(open ? nextHeight : 0);
-      keyboardTopRef.current = keyboardTop;
-      keyboardHeightRef.current = open ? nextHeight : 0;
-      if (!open) {
-        setOverlaying(false);
-        setLift(0);
-        return;
-      }
-      applyFromMeasure(keyboardTop, nextHeight);
-    },
-    [applyFromMeasure],
-  );
-
-  useEffect(() => {
-    const subs = subscribeKeyboard(applyEvent);
-    return () => subs.forEach((sub) => sub.remove());
-  }, [applyEvent]);
-
-  // Composer padding / pencere resize bir kare sonra netleşir — yeniden ölç.
-  useEffect(() => {
-    if (height <= KEYBOARD_OPEN_PX) return;
-    const timer = setTimeout(() => {
-      applyFromMeasure(keyboardTopRef.current, keyboardHeightRef.current);
-    }, 48);
-    return () => clearTimeout(timer);
-  }, [applyFromMeasure, height]);
-
-  useEffect(() => {
-    const sub = Dimensions.addEventListener('change', () => {
-      if (keyboardHeightRef.current <= KEYBOARD_OPEN_PX) return;
-      applyFromMeasure(keyboardTopRef.current, keyboardHeightRef.current);
-    });
-    return () => sub.remove();
-  }, [applyFromMeasure]);
-
-  return { lift, height, open: height > 0, overlaying };
-}
-
-/** Overlay klavye için yedek inset — ölçüm yoksa (profil formu) kullanılır. */
-export function useOverlayKeyboardInset(gap = KEYBOARD_GAP_PX): number {
-  const [inset, setInset] = useState(0);
-
-  useEffect(() => {
-    const apply = (event: KeyboardEvent) => {
-      const nextHeight = event.endCoordinates?.height ?? 0;
-      const keyboardTop = event.endCoordinates?.screenY ?? 0;
-      const open = nextHeight > KEYBOARD_OPEN_PX;
-      const overlay = open && isKeyboardOverlaying(keyboardTop, windowHeight());
-      setInset(
-        resolveKeyboardLift({
-          open,
-          overlaying: overlay,
-          keyboardHeight: nextHeight,
-          keyboardTop,
-          measuredRestBottom: null,
-          gap,
-        }),
+      setState((prev) =>
+        prev.open && prev.lift === lift && prev.height === frame.height
+          ? prev
+          : { lift, height: frame.height, open: true, covering: lift > 0 },
       );
     };
-    const subs = subscribeKeyboard(apply);
+    const node = containerRef.current;
+    if (!node || typeof node.measureInWindow !== 'function') {
+      finish(null);
+      return;
+    }
+    node.measureInWindow((_x, y, _w, h) => {
+      finish(h > 0 ? y + h : null);
+    });
+  }, [bottomInset, containerRef, gap]);
+
+  const schedule = useCallback(() => {
+    clearTimers();
+    measureAndApply();
+    for (const delay of REMEASURE_DELAYS_MS) {
+      timersRef.current.push(setTimeout(measureAndApply, delay));
+    }
+  }, [clearTimers, measureAndApply]);
+
+  useEffect(() => {
+    const onFrame = (event: KeyboardEvent) => {
+      frameRef.current = frameFromEvent(event);
+      schedule();
+    };
+    const onHide = () => {
+      frameRef.current = NO_KEYBOARD;
+      clearTimers();
+      setState(KEYBOARD_CLOSED);
+    };
+    const subs =
+      Platform.OS === 'ios'
+        ? [
+            Keyboard.addListener('keyboardWillChangeFrame', onFrame),
+            Keyboard.addListener('keyboardWillHide', onHide),
+          ]
+        : [
+            Keyboard.addListener('keyboardDidShow', onFrame),
+            Keyboard.addListener('keyboardDidChangeFrame', onFrame),
+            Keyboard.addListener('keyboardDidHide', onHide),
+          ];
     const dim = Dimensions.addEventListener('change', () => {
-      const metrics = Keyboard.metrics();
-      if (!metrics) {
-        setInset(0);
-        return;
-      }
-      apply({ endCoordinates: metrics } as KeyboardEvent);
+      if (frameRef.current.open) schedule();
     });
     return () => {
       subs.forEach((sub) => sub.remove());
       dim.remove();
+      clearTimers();
     };
-  }, [gap]);
+  }, [clearTimers, schedule]);
 
-  return inset;
+  const onLayout = useCallback(() => {
+    if (frameRef.current.open) measureAndApply();
+  }, [measureAndApply]);
+
+  return { ...state, onLayout };
 }
 
-/** @deprecated useKeyboardDockLift — eski pencere-küçülme tahmini. */
+/** @deprecated useKeyboardLift(containerRef) — eski pencere-küçülme tahmini. */
 export function useKeyboardInset(): { height: number; lift: number } {
   const height = useKeyboardHeight();
   return { height, lift: 0 };

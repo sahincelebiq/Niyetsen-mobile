@@ -1,23 +1,34 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
-
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ChatWallpaper } from '@/components/chat-wallpaper';
 import { ErrorBanner } from '@/components/error-banner';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { Fonts, Motion, Radii, Spacing } from '@/constants/theme';
 import { authMesaji } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
@@ -54,6 +65,7 @@ export function AuthScreen() {
   const [preferGoogle, setPreferGoogle] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   useEffect(() => {
     if (auth.recovery) setScreen('password');
@@ -84,6 +96,7 @@ export function AuthScreen() {
     setOtp('');
     setError(null);
     setMessage(null);
+    setPasswordVisible(false);
     if (!auth.recovery) setPassword('');
   }
 
@@ -147,6 +160,7 @@ export function AuthScreen() {
     setMessage(null);
     setOtp('');
     setPassword('');
+    setPasswordVisible(false);
   }
 
   function submitEmailOnly() {
@@ -175,7 +189,24 @@ export function AuthScreen() {
       return;
     }
     void run('email', async () => {
-      await auth.signInWithEmail(normalizedEmail(), password);
+      try {
+        await auth.signInWithEmail(normalizedEmail(), password);
+      } catch (value) {
+        if (value instanceof AuthFlowError && value.kod === 'mail_dogrulanmadi') {
+          setIntent('sign-up');
+          setScreen('otp');
+          setOtp('');
+          setMessage(t.auth.otpSent);
+          try {
+            await auth.sendEmailOtp(normalizedEmail(), 'signup');
+            startMailCooldown();
+          } catch {
+            // Kod zaten gitmiş olabilir — kutuyu yine aç.
+          }
+          return;
+        }
+        throw value;
+      }
     });
   }
 
@@ -212,8 +243,8 @@ export function AuthScreen() {
     const purpose = intent === 'sign-up' ? 'signup' : 'recovery';
     void run('otp', async () => {
       await auth.verifyEmailOtp(normalizedEmail(), otp, purpose);
-      setMessage(purpose === 'recovery' ? t.auth.newPasswordHint : t.auth.passwordUpdated);
       if (purpose === 'recovery') {
+        setMessage(t.auth.newPasswordHint);
         setScreen('password');
         setOtp('');
         setPassword('');
@@ -245,19 +276,26 @@ export function AuthScreen() {
           ? t.auth.createPasswordHint
           : t.auth.hero;
 
+  const showApple = Platform.OS === 'ios' || Platform.OS === 'web';
+  const inputChrome = {
+    borderColor: theme.border,
+    color: theme.text,
+    backgroundColor: theme.surfaceMuted,
+    fontFamily: Fonts.sans,
+  };
+
   return (
     <KeyboardAwareView>
       <ThemedView style={styles.flex}>
+        <ChatWallpaper />
         <SafeAreaView style={styles.flex}>
           <ScrollView
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            <View style={styles.langRow}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.auth.languageRegionHint}
-              </ThemedText>
+            <View style={styles.topBar}>
               <RegionLanguageSheet
+                compact
                 value={regionId}
                 onChange={(id) => void setRegion(id)}
               />
@@ -268,8 +306,12 @@ export function AuthScreen() {
                 source={require('@/assets/images/niyetsen-logo.png')}
                 style={styles.logo}
                 contentFit="contain"
+                accessibilityIgnoresInvertColors
               />
               <ThemedText type="screenTitle">Niyetsen</ThemedText>
+              <ThemedText type="smallBold" themeColor="tint" style={styles.center}>
+                {t.brand.tagline}
+              </ThemedText>
               {!supabaseConfigured ? (
                 <ThemedText themeColor="danger" style={styles.center}>
                   {t.auth.supabaseMissing}
@@ -277,94 +319,106 @@ export function AuthScreen() {
               ) : null}
             </View>
 
-            <ThemedView
-              type="backgroundElement"
-              style={[styles.card, { borderColor: theme.border }]}>
+            <SurfaceCard elevated style={styles.card}>
               <ThemedText type="subtitle">{title}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 {subtitle}
               </ThemedText>
+              {screen === 'otp' ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {normalizedEmail()}
+                </ThemedText>
+              ) : null}
 
               {screen === 'otp' ? (
-                <TextInput
-                  autoFocus
-                  autoCapitalize="none"
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  keyboardType="number-pad"
-                  maxLength={OTP_MAX_LEN}
-                  placeholder={t.auth.otpPlaceholder}
-                  placeholderTextColor={theme.textSecondary}
-                  value={otp}
-                  onChangeText={(value) =>
-                    setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
-                  }
-                  onSubmitEditing={submitOtp}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.border,
-                      color: theme.text,
-                      fontFamily: Fonts.sans,
-                      letterSpacing: 4,
-                      textAlign: 'center',
-                    },
-                  ]}
-                />
+                <View style={styles.field}>
+                  <ThemedText type="smallBold">{t.auth.otpPlaceholder}</ThemedText>
+                  <TextInput
+                    autoFocus
+                    autoCapitalize="none"
+                    autoComplete="one-time-code"
+                    textContentType="oneTimeCode"
+                    inputMode="numeric"
+                    keyboardType="number-pad"
+                    maxLength={OTP_MAX_LEN}
+                    placeholder={t.auth.otpPlaceholder}
+                    placeholderTextColor={theme.textSecondary}
+                    accessibilityLabel={t.auth.otpPlaceholder}
+                    value={otp}
+                    onChangeText={(value) =>
+                      setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
+                    }
+                    onSubmitEditing={submitOtp}
+                    style={[styles.input, inputChrome, styles.otpInput]}
+                  />
+                </View>
               ) : null}
 
               {screen === 'email' || screen === 'sign-in' ? (
-                <TextInput
-                  autoFocus={screen === 'email'}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  inputMode="email"
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  placeholder={t.auth.email}
-                  placeholderTextColor={theme.textSecondary}
-                  value={email}
-                  onChangeText={(value) => {
-                    setEmail(value);
-                    setPreferGoogle(false);
-                  }}
-                  onSubmitEditing={screen === 'email' ? submitEmailOnly : undefined}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.border,
-                      color: theme.text,
-                      fontFamily: Fonts.sans,
-                    },
-                  ]}
-                />
+                <View style={styles.field}>
+                  <ThemedText type="smallBold">{t.auth.email}</ThemedText>
+                  <TextInput
+                    autoFocus={screen === 'email'}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    inputMode="email"
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    placeholder={t.auth.email}
+                    placeholderTextColor={theme.textSecondary}
+                    accessibilityLabel={t.auth.email}
+                    value={email}
+                    onChangeText={(value) => {
+                      setEmail(value);
+                      setPreferGoogle(false);
+                    }}
+                    onSubmitEditing={screen === 'email' ? submitEmailOnly : undefined}
+                    style={[styles.input, inputChrome]}
+                  />
+                </View>
               ) : null}
 
               {screen === 'sign-in' || screen === 'password' ? (
-                <TextInput
-                  autoFocus={screen === 'password'}
-                  autoCapitalize="none"
-                  autoComplete={
-                    screen === 'sign-in' && !auth.recovery
-                      ? 'current-password'
-                      : 'new-password'
-                  }
-                  placeholder={t.auth.password}
-                  placeholderTextColor={theme.textSecondary}
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  onSubmitEditing={screen === 'sign-in' ? submitSignIn : submitPassword}
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: theme.border,
-                      color: theme.text,
-                      fontFamily: Fonts.sans,
-                    },
-                  ]}
-                />
+                <View style={styles.field}>
+                  <ThemedText type="smallBold">{t.auth.password}</ThemedText>
+                  <View style={styles.passwordWrap}>
+                    <TextInput
+                      autoFocus={screen === 'password'}
+                      autoCapitalize="none"
+                      autoComplete={
+                        screen === 'sign-in' && !auth.recovery
+                          ? 'current-password'
+                          : 'new-password'
+                      }
+                      textContentType={
+                        screen === 'sign-in' && !auth.recovery ? 'password' : 'newPassword'
+                      }
+                      placeholder={t.auth.password}
+                      placeholderTextColor={theme.textSecondary}
+                      accessibilityLabel={t.auth.password}
+                      secureTextEntry={!passwordVisible}
+                      value={password}
+                      onChangeText={setPassword}
+                      onSubmitEditing={screen === 'sign-in' ? submitSignIn : submitPassword}
+                      style={[styles.input, styles.passwordInput, inputChrome]}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        passwordVisible ? t.auth.hidePassword : t.auth.showPassword
+                      }
+                      hitSlop={8}
+                      onPress={() => setPasswordVisible((value) => !value)}
+                      style={styles.eyeHit}>
+                      <MaterialCommunityIcons
+                        name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
+                        size={22}
+                        color={theme.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
               ) : null}
 
               {error ? (
@@ -387,6 +441,7 @@ export function AuthScreen() {
                     primary
                   />
                   <Pressable
+                    accessibilityRole="button"
                     disabled={!!busy || mailLocked}
                     onPress={() => {
                       if (mailLocked) return;
@@ -397,7 +452,8 @@ export function AuthScreen() {
                         );
                         setMessage(t.auth.otpSent);
                       });
-                    }}>
+                    }}
+                    style={styles.textHit}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
                       {mailLocked ? t.auth.cooldownWait(cooldownSec) : t.auth.otpResend}
                     </ThemedText>
@@ -407,8 +463,15 @@ export function AuthScreen() {
 
               {screen === 'email' ? (
                 <AuthButton
-                  label={intent === 'forgot' ? t.auth.sendCode : t.common.continue}
+                  label={
+                    intent === 'forgot' && mailLocked
+                      ? t.auth.cooldownWait(cooldownSec)
+                      : intent === 'forgot'
+                        ? t.auth.sendCode
+                        : t.common.continue
+                  }
                   busy={busy === 'reset'}
+                  locked={intent === 'forgot' && mailLocked}
                   onPress={submitEmailOnly}
                   primary
                 />
@@ -433,8 +496,10 @@ export function AuthScreen() {
                     primary
                   />
                   <Pressable
+                    accessibilityRole="button"
                     disabled={!!busy}
-                    onPress={() => openEmailScreen('forgot')}>
+                    onPress={() => openEmailScreen('forgot')}
+                    style={styles.textHit}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
                       {t.auth.forgotPassword}
                     </ThemedText>
@@ -443,7 +508,11 @@ export function AuthScreen() {
               ) : null}
 
               {screen !== 'sign-in' ? (
-                <Pressable disabled={!!busy} onPress={goBackToSignIn}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!!busy}
+                  onPress={goBackToSignIn}
+                  style={styles.textHit}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
                     {t.common.back}
                   </ThemedText>
@@ -462,65 +531,69 @@ export function AuthScreen() {
 
                   <AuthButton
                     label={t.auth.continueWithGoogle}
+                    icon="google"
                     busy={busy === 'google'}
                     highlighted={preferGoogle}
                     onPress={() => void run('google', auth.signInWithGoogle)}
                   />
-                  <AuthButton
-                    label={t.auth.continueWithApple}
-                    busy={busy === 'apple'}
-                    onPress={() => void run('apple', auth.signInWithApple)}
-                  />
+                  {showApple ? (
+                    <AuthButton
+                      label={t.auth.continueWithApple}
+                      icon="apple"
+                      busy={busy === 'apple'}
+                      onPress={() => void run('apple', auth.signInWithApple)}
+                    />
+                  ) : null}
 
                   <Pressable
+                    accessibilityRole="button"
                     disabled={!!busy}
-                    onPress={() => openEmailScreen('sign-up')}>
+                    onPress={() => openEmailScreen('sign-up')}
+                    style={styles.textHit}>
                     <ThemedText type="small" themeColor="tint" style={styles.center}>
                       {t.auth.switchToSignUp}
                     </ThemedText>
                   </Pressable>
                 </>
               ) : null}
-            </ThemedView>
+            </SurfaceCard>
 
             <View style={styles.legalLinks}>
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => router.push(LEGAL_APP_ROUTES.privacy as Href)}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {t.auth.legalPrivacy}
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => router.push(LEGAL_APP_ROUTES.kvkk as Href)}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {t.auth.legalKvkk}
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => router.push(LEGAL_APP_ROUTES.consent as Href)}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {t.auth.legalConsent}
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => router.push(LEGAL_APP_ROUTES.terms as Href)}>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {t.auth.legalTerms}
-                </ThemedText>
-              </Pressable>
+              <LegalLink
+                label={t.auth.legalPrivacy}
+                onPress={() => router.push(LEGAL_APP_ROUTES.privacy as Href)}
+              />
+              <LegalLink
+                label={t.auth.legalKvkk}
+                onPress={() => router.push(LEGAL_APP_ROUTES.kvkk as Href)}
+              />
+              <LegalLink
+                label={t.auth.legalConsent}
+                onPress={() => router.push(LEGAL_APP_ROUTES.consent as Href)}
+              />
+              <LegalLink
+                label={t.auth.legalTerms}
+                onPress={() => router.push(LEGAL_APP_ROUTES.terms as Href)}
+              />
             </View>
           </ScrollView>
         </SafeAreaView>
       </ThemedView>
     </KeyboardAwareView>
+  );
+}
+
+function LegalLink({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.legalHit, pressed ? { opacity: 0.7 } : null]}>
+      <ThemedText type="smallBold" themeColor="tint">
+        {label}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -531,6 +604,8 @@ function AuthButton({
   primary = false,
   highlighted = false,
   warm = false,
+  locked = false,
+  icon,
 }: {
   label: string;
   busy: boolean;
@@ -538,32 +613,70 @@ function AuthButton({
   primary?: boolean;
   highlighted?: boolean;
   warm?: boolean;
+  locked?: boolean;
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
 }) {
   const theme = useTheme();
-  const fill = primary ? (warm ? theme.accentWarm : theme.tint) : theme.background;
+  const fill = primary ? (warm ? theme.accentWarm : theme.tint) : theme.backgroundElement;
   const onFill = primary ? theme.onAccent : highlighted ? theme.tint : theme.text;
+  const scale = useSharedValue(1);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    return () => sub.remove();
+  }, []);
+
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={busy}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: fill,
-          borderColor: primary ? fill : highlighted ? theme.tint : theme.border,
-          borderWidth: highlighted && !primary ? 2 : 1,
-          opacity: pressed || busy ? 0.7 : 1,
-        },
-      ]}>
-      {busy ? (
-        <ActivityIndicator color={primary ? theme.onAccent : theme.tint} />
-      ) : (
-        <ThemedText type="smallBold" style={{ color: onFill }}>
-          {label}
-        </ThemedText>
-      )}
-    </Pressable>
+    <Animated.View style={animated}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        disabled={busy || locked}
+        onPress={onPress}
+        onPressIn={() => {
+          if (reduceMotion) return;
+          scale.value = withTiming(0.97, {
+            duration: Motion.fast,
+            easing: Easing.out(Easing.quad),
+            reduceMotion: ReduceMotion.System,
+          });
+        }}
+        onPressOut={() => {
+          scale.value = withTiming(1, {
+            duration: Motion.fast,
+            easing: Easing.out(Easing.quad),
+            reduceMotion: ReduceMotion.System,
+          });
+        }}
+        style={({ pressed }) => [
+          styles.button,
+          {
+            backgroundColor: fill,
+            borderColor: primary ? fill : highlighted ? theme.tint : theme.border,
+            borderWidth: highlighted && !primary ? 2 : 1,
+            opacity: busy || locked || (pressed && reduceMotion) ? 0.7 : 1,
+          },
+        ]}>
+        {busy ? (
+          <ActivityIndicator color={primary ? theme.onAccent : theme.tint} />
+        ) : (
+          <View style={styles.buttonInner}>
+            {icon ? (
+              <MaterialCommunityIcons name={icon} size={18} color={onFill} />
+            ) : null}
+            <ThemedText type="smallBold" style={{ color: onFill }}>
+              {label}
+            </ThemedText>
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -572,25 +685,24 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: Math.min(MaxContentWidth, 440),
+    maxWidth: 440,
     alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
     gap: Spacing.four,
   },
-  langRow: {
-    gap: Spacing.two,
+  topBar: {
+    alignItems: 'flex-end',
   },
-  hero: { alignItems: 'center', gap: Spacing.two },
+  hero: { alignItems: 'center', gap: Spacing.one },
   logo: { width: 56, height: 56, borderRadius: 16, marginBottom: Spacing.one },
   center: { textAlign: 'center' },
   card: {
-    borderWidth: 1,
-    borderRadius: Radii.large,
     padding: Spacing.four,
     gap: Spacing.three,
   },
+  field: { gap: Spacing.one },
   input: {
     minHeight: 52,
     borderWidth: 1,
@@ -598,13 +710,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     fontSize: 16,
   },
+  otpInput: {
+    letterSpacing: 4,
+    textAlign: 'center',
+  },
+  passwordWrap: { position: 'relative' },
+  passwordInput: { paddingRight: 52 },
+  eyeHit: {
+    position: 'absolute',
+    right: 4,
+    top: 0,
+    bottom: 0,
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   button: {
     minHeight: 52,
     borderWidth: 1,
-    borderRadius: Radii.medium,
+    borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
+  },
+  buttonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  textHit: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
   },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   divider: { height: StyleSheet.hairlineWidth, flex: 1 },
@@ -612,7 +750,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: Spacing.three,
+    gap: Spacing.one,
     paddingBottom: Spacing.two,
+  },
+  legalHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
   },
 });

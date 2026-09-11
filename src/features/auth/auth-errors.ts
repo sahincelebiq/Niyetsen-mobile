@@ -6,6 +6,7 @@ import type { Messages } from '@/i18n/types';
  */
 export type AuthFlowKod =
   | 'gecersiz_kimlik'
+  | 'gecersiz_otp'
   | 'mail_dogrulanmadi'
   | 'kullanici_var'
   | 'zayif_sifre'
@@ -19,8 +20,9 @@ export type AuthFlowKod =
 
 export const AUTH_HATA_MESAJI: Record<AuthFlowKod, string> = {
   gecersiz_kimlik: 'E-posta veya şifre hatalı.',
+  gecersiz_otp: 'Kod hatalı. E-postadaki kodu tekrar yaz.',
   mail_dogrulanmadi:
-    'E-postanı doğrulaman gerekiyor. Yeni bir doğrulama bağlantısı gönderebiliriz.',
+    'E-postanı doğrulaman gerekiyor. Maildeki kodu giriş ekranına yaz.',
   kullanici_var: 'Bu e-posta ile bir hesap zaten var. Giriş yapmayı dene.',
   zayif_sifre: 'Şifre çok zayıf. En az 8 karakter, harf ve rakam kullan.',
   cok_fazla_deneme: 'Çok fazla deneme yaptın. Kısa bir süre sonra tekrar dene.',
@@ -28,13 +30,14 @@ export const AUTH_HATA_MESAJI: Record<AuthFlowKod, string> = {
     'Bu giriş yöntemi şu an kullanılamıyor. E-posta ile devam edebilirsin.',
   sunucu_hatasi: 'Şu an bağlanamadık. Birazdan tekrar dene — sorun bizde.',
   baglanti_hatasi: 'İnternet bağlantını kontrol edip tekrar dene.',
-  baglanti_suresi_doldu: 'Bu bağlantının süresi dolmuş. Yeni bir tane isteyebilirsin.',
+  baglanti_suresi_doldu: 'Bu kodun süresi dolmuş. Yeni bir tane iste.',
   bilinmeyen: 'Beklenmeyen bir sorun oldu. Tekrar dene.',
   iptal: '',
 };
 
 const TEKRAR_DENENEBILIR: Record<AuthFlowKod, boolean> = {
   gecersiz_kimlik: true,
+  gecersiz_otp: true,
   mail_dogrulanmadi: true,
   kullanici_var: false,
   zayif_sifre: true,
@@ -78,6 +81,8 @@ export function authMesaji(kod: AuthFlowKod, t: Messages): string {
   switch (kod) {
     case 'gecersiz_kimlik':
       return t.auth.wrongPassword;
+    case 'gecersiz_otp':
+      return t.auth.invalidOtp;
     case 'mail_dogrulanmadi':
       return t.auth.emailNotConfirmed;
     case 'kullanici_var':
@@ -188,18 +193,22 @@ export function classifyAuthFailure(input: {
     code === 'otp_expired' ||
     text.includes('otp_expired') ||
     text.includes('token has expired') ||
-    (text.includes('expired') && text.includes('token'))
+    (text.includes('expired') && (text.includes('otp') || text.includes('token')))
   ) {
     return 'baglanti_suresi_doldu';
   }
 
+  if (code === 'otp_disabled') {
+    return 'saglayici_kapali';
+  }
+
   if (
-    code === 'otp_disabled' ||
+    code === 'otp_invalid' ||
     text.includes('invalid otp') ||
     text.includes('token not found') ||
     (text.includes('invalid') && (text.includes('otp') || text.includes('token')))
   ) {
-    return 'baglanti_suresi_doldu';
+    return 'gecersiz_otp';
   }
 
   if (

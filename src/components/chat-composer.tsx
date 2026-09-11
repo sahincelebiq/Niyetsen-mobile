@@ -60,16 +60,17 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
     : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
 
   return (
-    <ThemedView
-      style={[
-        styles.dock,
-        {
-          paddingBottom: bottomPadding,
-          borderTopColor: theme.border,
-          backgroundColor: theme.background,
-        },
-      ]}>
-      <View ref={ref} collapsable={false} style={styles.inputRow}>
+    <View ref={ref} collapsable={false} style={styles.dockMeasure}>
+      <ThemedView
+        style={[
+          styles.dock,
+          {
+            paddingBottom: bottomPadding,
+            borderTopColor: theme.border,
+            backgroundColor: theme.background,
+          },
+        ]}>
+        <View style={styles.inputRow}>
         {pendingAttachment ? (
           <View
             style={[
@@ -133,14 +134,18 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             <ThemedText style={[styles.sendGlyph, { color: theme.onAccent }]}>↑</ThemedText>
           </Pressable>
         </View>
-      </View>
-    </ThemedView>
+        </View>
+      </ThemedView>
+    </View>
   );
 });
 
 ChatComposer.displayName = 'ChatComposer';
 
 const styles = StyleSheet.create({
+  dockMeasure: {
+    width: '100%',
+  },
   dock: {
     width: '100%',
     borderTopWidth: StyleSheet.hairlineWidth,

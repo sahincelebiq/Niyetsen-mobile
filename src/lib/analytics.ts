@@ -23,7 +23,10 @@ export type AnalyticsEvent =
   | 'subscription_cancelled'
   | 'notification_opened'
   | 'mystic_secret_entry'
-  | 'mystic_chat_message';
+  | 'mystic_chat_message'
+  | 'plan_event_created'
+  | 'plan_event_completed'
+  | 'plan_agent_message';
 
 let distinctId: string | null = null;
 

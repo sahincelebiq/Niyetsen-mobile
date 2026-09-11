@@ -36,6 +36,23 @@ const ConsentContext = createContext<ConsentContextValue | null>(null);
 // anahtar değişir → eski "tamam" cache'i otomatik geçersizleşir, gate döner.
 const CONSENT_OK_KEY = `niyetsen.consent.ok.${Object.values(LEGAL_VERSIONS).join('|')}`;
 const CONSENT_OK_VALUE = '1';
+const CONSENT_CACHE_READ_MS = 2000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 /** Cache'li hızlı yolda, sunucu yanıtı gelene dek geçerli iyimser durum. */
 function optimisticGrantedStatus(): ConsentStatus {
@@ -104,7 +121,10 @@ export function ConsentGate({ children }: PropsWithChildren) {
     let cancelled = false;
     (async () => {
       try {
-        const cached = await AsyncStorage.getItem(CONSENT_OK_KEY);
+        const cached = await withTimeout(
+          AsyncStorage.getItem(CONSENT_OK_KEY),
+          CONSENT_CACHE_READ_MS,
+        );
         if (cancelled) return;
         if (cached === CONSENT_OK_VALUE) {
           // Hızlı yol: son bilinen durum "tamam" — uygulamayı hemen aç,

@@ -657,7 +657,7 @@ function DashboardPanel({
 
       <Animated.View entering={enter(Motion.stagger * 4)}>
         <SurfaceCard>
-          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+          <ThemedText type="smallBold" style={styles.panelCardTitle}>
             {t.recap.gained}
           </ThemedText>
           {Object.entries(dashboard.category_counts).map(([category, count]) => (

@@ -1,31 +1,46 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { useOverlayKeyboardInset } from '@/hooks/use-keyboard-height';
+import { useKeyboardLift, type KeyboardLiftState } from '@/hooks/use-keyboard-height';
 
 type KeyboardAwareViewProps = {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  /**
-   * Dock ölçümünden gelen ek lift (sohbet). Verilmezse overlay klavye
-   * yüksekliği kullanılır — NativeTabs + KAV çift kaydırmasın diye
-   * KeyboardAvoidingView yok.
-   */
-  lift?: number;
-  /** Eski iOS offset — artık yok sayılır; API kırılmasın diye durur. */
-  offset?: number;
+  /** Kabın dibiyle yazı kutusunun dibi arasındaki sabit boşluk (çoğu ekranda 0). */
+  bottomInset?: number;
+  /** Ekranın klavye durumuna ihtiyacı varsa (sohbet: composer padding, scroll). */
+  onKeyboardChange?: (state: KeyboardLiftState) => void;
 };
 
 /**
- * Sohbet / profil / mistik klavye telafisi TEK katman.
- * Overlay IME'de paddingBottom = max(ölçülen lift, klavye yedeği).
- * adjustResize pencereyi küçülttüyse inset 0 kalır.
+ * Sohbet / profil / mistik / auth klavye telafisi TEK katman.
+ *
+ * Kendi dibini ölçer: klavye onu örtüyorsa paddingBottom = örtüşme + gap;
+ * adjustResize pencereyi zaten küçülttüyse 0 kalır. KeyboardAvoidingView YOK
+ * (NativeTabs + edge-to-edge'de çift kaydırıyordu); Dimensions tahmini YOK
+ * (Android'de klavyeyle küçülmüyor, yanlış "overlay" veriyordu).
  */
-export function KeyboardAwareView({ children, style, lift = 0 }: KeyboardAwareViewProps) {
-  const fallback = useOverlayKeyboardInset();
-  const paddingBottom = Math.max(lift, fallback);
+export function KeyboardAwareView({
+  children,
+  style,
+  bottomInset,
+  onKeyboardChange,
+}: KeyboardAwareViewProps) {
+  const containerRef = useRef<View>(null);
+  const { onLayout, ...keyboard } = useKeyboardLift(containerRef, { bottomInset });
+
+  useEffect(() => {
+    onKeyboardChange?.(keyboard);
+    // Yalnız durum değişince bildir — callback kimliği değişse de tekrar tetikleme.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyboard.lift, keyboard.open, keyboard.covering, keyboard.height]);
+
   return (
-    <View style={[styles.flex, paddingBottom > 0 ? { paddingBottom } : null, style]}>
+    <View
+      ref={containerRef}
+      collapsable={false}
+      onLayout={onLayout}
+      style={[styles.flex, keyboard.lift > 0 ? { paddingBottom: keyboard.lift } : null, style]}>
       {children}
     </View>
   );
