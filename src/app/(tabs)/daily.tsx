@@ -222,10 +222,22 @@ export default function DailyTasksScreen() {
       setBusy(key);
       try {
         const response = await completePlanEvent(event.occurrence_id);
-        setEvents(response.events);
+        // Sunucu `events` puan olaylarıdır (kategori/delta), günün listesi değil —
+        // listeyi ezme; yalnız bu etkinliği yerelde tamamlandı işaretle.
+        setEvents((current) =>
+          current.map((item) =>
+            item.occurrence_id === event.occurrence_id ? { ...item, status: 'done' } : item,
+          ),
+        );
         if (typeof response.streak_len === 'number') syncStreak(response.streak_len);
-        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
-        setOutcome(key, { tone: 'success', message: t.events.completed(50) });
+        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir.
+        // Kazanılan puan = pozitif delta toplamı (+50/kategori); okunamazsa 50.
+        const rows = Array.isArray(response.events) ? response.events : [];
+        const gained = rows.reduce(
+          (sum, row) => sum + (typeof row.delta === 'number' && row.delta > 0 ? row.delta : 0),
+          0,
+        );
+        setOutcome(key, { tone: 'success', message: t.events.completed(gained > 0 ? gained : 50) });
         void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
       } catch (value) {
         const status = value instanceof ApiError ? value.status : 0;
