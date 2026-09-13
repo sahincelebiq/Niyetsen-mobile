@@ -3,9 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GenderOption } from '@/lib/api';
 
 const ONBOARDING_DRAFT_PREFIX = 'niyetsen.onboarding.draft.';
+const STEP_ORDER = ['region', 'name', 'gender', 'birth', 'notif', 'consent'] as const;
+
+export type OnboardingStepId = (typeof STEP_ORDER)[number];
 
 export type OnboardingDraft = {
-  step: number;
+  stepId: OnboardingStepId;
   name: string;
   gender: GenderOption | null;
   birthDate: string;
@@ -30,16 +33,29 @@ function isValidNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function normalizeStepId(value: unknown, legacyStep: unknown): OnboardingStepId | null {
+  if (typeof value === 'string' && STEP_ORDER.includes(value as OnboardingStepId)) {
+    return value as OnboardingStepId;
+  }
+  if (isValidNumber(legacyStep)) {
+    const index = Math.min(Math.max(Math.floor(legacyStep), 0), STEP_ORDER.length - 1);
+    return STEP_ORDER[index];
+  }
+  return null;
+}
+
 function normalizeDraft(value: unknown): OnboardingDraft | null {
   if (!value || typeof value !== 'object') return null;
   const source = value as Record<string, unknown>;
-  const stepRaw = source.step;
+  const stepIdRaw = source.stepId;
+  const legacyStepRaw = source.step;
   const nameRaw = source.name;
   const genderRaw = source.gender;
   const birthDateRaw = source.birthDate;
   const notifTimeRaw = source.notifTime;
   const consentsRaw = source.consents;
-  if (!isValidNumber(stepRaw) || stepRaw < 0) return null;
+  const stepId = normalizeStepId(stepIdRaw, legacyStepRaw);
+  if (!stepId) return null;
   if (typeof nameRaw !== 'string') return null;
   if (genderRaw !== null && genderRaw !== 'kadın' && genderRaw !== 'erkek' && genderRaw !== 'belirtmek istemiyorum') {
     return null;
@@ -61,7 +77,7 @@ function normalizeDraft(value: unknown): OnboardingDraft | null {
     return null;
   }
   return {
-    step: stepRaw,
+    stepId,
     name: nameRaw,
     gender: genderRaw,
     birthDate: birthDateRaw,
@@ -79,12 +95,16 @@ function normalizeDraft(value: unknown): OnboardingDraft | null {
   };
 }
 
+export function parseOnboardingDraft(value: unknown): OnboardingDraft | null {
+  return normalizeDraft(value);
+}
+
 export async function readOnboardingDraft(userId: string): Promise<OnboardingDraft | null> {
   try {
     const raw = await AsyncStorage.getItem(keyFor(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    return normalizeDraft(parsed);
+    return parseOnboardingDraft(parsed);
   } catch {
     return null;
   }
@@ -103,5 +123,17 @@ export async function clearOnboardingDraft(userId: string): Promise<void> {
     await AsyncStorage.removeItem(keyFor(userId));
   } catch {
     // Temizlik başarısız olsa da akış sürmeli.
+  }
+}
+
+export async function clearAllOnboardingDrafts(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const draftKeys = keys.filter((key) => key.startsWith(ONBOARDING_DRAFT_PREFIX));
+    if (draftKeys.length > 0) {
+      await AsyncStorage.multiRemove(draftKeys);
+    }
+  } catch {
+    // Toplu temizlik başarısız olsa da akış sürmeli.
   }
 }

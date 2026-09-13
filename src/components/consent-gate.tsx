@@ -106,10 +106,10 @@ export function ConsentGate({ children }: PropsWithChildren) {
       const ok = canEnterApp(nextStatus);
       setCachedOk(ok);
       persistConsentOk(ok);
-    } catch (value) {
+    } catch {
       // Arka plan doğrulaması sessiz düşer; cache'li kullanıcı engellenmez.
       if (!background) {
-        setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
+        setError(t.legal.gateLoadFailed);
       }
     } finally {
       if (!background) {
@@ -165,9 +165,9 @@ export function ConsentGate({ children }: PropsWithChildren) {
       const ok = canEnterApp(nextStatus);
       setCachedOk(ok);
       persistConsentOk(ok);
-    } catch (value) {
-      setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
-      throw value;
+    } catch (error) {
+      setError(t.legal.gateLoadFailed);
+      throw error;
     } finally {
       setSaving(false);
     }

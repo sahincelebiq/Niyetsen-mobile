@@ -81,7 +81,8 @@ export function OnboardingScreen() {
       const draft = await readOnboardingDraft(userId);
       if (cancelled) return;
       if (draft) {
-        setStep(draft.step);
+        const draftIndex = steps.findIndex((item) => item.id === draft.stepId);
+        setStep(draftIndex >= 0 ? draftIndex : 0);
         setName(draft.name);
         setGender(draft.gender);
         setBirthDate(draft.birthDate);
@@ -96,7 +97,7 @@ export function OnboardingScreen() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [steps, user?.id]);
 
   useEffect(() => {
     if (!draftReady || draftLoaded) return;
@@ -125,10 +126,9 @@ export function OnboardingScreen() {
 
   useEffect(() => {
     if (!user?.id || !draftReady) return;
-    const maxStep = Math.max(steps.length - 1, 0);
-    const draftStep = Math.min(step, maxStep);
+    const currentStep = current?.id ?? steps[0]?.id ?? 'region';
     void writeOnboardingDraft(user.id, {
-      step: draftStep,
+      stepId: currentStep,
       name,
       gender,
       birthDate,
@@ -138,7 +138,7 @@ export function OnboardingScreen() {
         age18: Boolean(consents.age18),
       },
     });
-  }, [birthDate, consents, draftReady, gender, name, notifTime, step, steps.length, user?.id]);
+  }, [birthDate, consents, current, draftReady, gender, name, notifTime, steps, user?.id]);
 
   function validateCurrent() {
     if (current.id === 'name' && !name.trim()) return t.onboarding.nameRequired;
@@ -158,6 +158,7 @@ export function OnboardingScreen() {
   }
 
   async function next() {
+    if (busy) return;
     const validationError = validateCurrent();
     if (validationError) {
       setError(validationError);

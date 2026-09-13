@@ -29,7 +29,7 @@ import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
 import { clearBootCache } from '@/lib/boot-cache';
 import { clearConsentOkCache } from '@/lib/consent-cache';
-import { clearOnboardingDraft } from '@/lib/onboarding-draft';
+import { clearAllOnboardingDrafts, clearOnboardingDraft } from '@/lib/onboarding-draft';
 import { clearPendingChatMessage } from '@/lib/pending-chat';
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
 import { disablePushNotifications } from '@/lib/push-notifications';
@@ -147,6 +147,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setCallbackErrorCode(null);
   }, []);
 
+  const clearLocalSessionCaches = useCallback(async (userId?: string) => {
+    const draftTask = userId ? clearOnboardingDraft(userId) : clearAllOnboardingDrafts();
+    await Promise.allSettled([
+      clearBootCache(),
+      clearConsentOkCache(),
+      draftTask,
+    ]);
+    clearPendingChatMessage();
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -211,6 +221,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (event === 'SIGNED_OUT') {
         recoveryHoldRef.current = false;
         setRecovery(false);
+        void clearLocalSessionCaches();
       }
       if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
         resetAnalyticsIdentity();
@@ -230,7 +241,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       data.subscription.unsubscribe();
       linking.remove();
     };
-  }, [reportAuthCallbackError]);
+  }, [clearLocalSessionCaches, reportAuthCallbackError]);
 
   // Custom Tab dönüşünde depo yazısı gecikirse giriş ekranı bir kez
   // görünür; kısa süre sonra oturumu tekrar oku — kapat-aç gerekmesin.
@@ -433,17 +444,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signOut = useCallback(async () => {
     const userId = session?.user?.id;
     await logOutPurchases();
-    if (userId) {
-      await Promise.allSettled([
-        disablePushNotifications(userId),
-        clearOnboardingDraft(userId),
-      ]);
-    }
-    await Promise.allSettled([
-      clearBootCache(),
-      clearConsentOkCache(),
-    ]);
-    clearPendingChatMessage();
+    if (userId) void disablePushNotifications(userId).catch(() => undefined);
+    await clearLocalSessionCaches(userId);
     setOauthHold(false);
     setCallbackErrorCode(null);
     recoveryHoldRef.current = false;
@@ -454,7 +456,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       logAuthEvent(mapped.kod, 'signOut', mapped.teknikDetay);
       throw mapped;
     }
-  }, [session?.user?.id]);
+  }, [clearLocalSessionCaches, session?.user?.id]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

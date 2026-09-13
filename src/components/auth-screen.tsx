@@ -68,6 +68,7 @@ export function AuthScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [passwordVisible, setPasswordVisible] = useState(false);
   const passwordInputRef = useRef<TextInput>(null);
+  const busyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (recovery) setScreen('password');
@@ -110,6 +111,8 @@ export function AuthScreen() {
   }
 
   async function run(label: string, action: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = label;
     setBusy(label);
     setLastIntent(label);
     setError(null);
@@ -139,6 +142,7 @@ export function AuthScreen() {
         setError(t.common.errorGeneric);
       }
     } finally {
+      busyRef.current = null;
       setBusy(null);
     }
   }
@@ -178,7 +182,7 @@ export function AuthScreen() {
   }
 
   function submitEmailOnly() {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!emailLooksValid(normalizedEmail())) {
       setError(t.auth.invalidEmail);
       return;
@@ -199,7 +203,7 @@ export function AuthScreen() {
   }
 
   function submitSignIn() {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!emailLooksValid(normalizedEmail()) || password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
@@ -227,7 +231,7 @@ export function AuthScreen() {
   }
 
   function submitPassword() {
-    if (busy) return;
+    if (busyRef.current) return;
     if (password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
@@ -253,7 +257,7 @@ export function AuthScreen() {
   }
 
   function submitOtp() {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!normalizedEmail() || otp.replace(/\s/g, '').length < 6) {
       setError(t.auth.invalidOtp);
       return;

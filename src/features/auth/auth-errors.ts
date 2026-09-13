@@ -214,6 +214,14 @@ export function classifyAuthFailure(input: {
   }
 
   if (
+    code === 'access_denied' ||
+    text.includes('access_denied') ||
+    text.includes('access denied')
+  ) {
+    return 'iptal';
+  }
+
+  if (
     text.includes('tamamlanmadı') ||
     text.includes('cancelled') ||
     text.includes('canceled')
