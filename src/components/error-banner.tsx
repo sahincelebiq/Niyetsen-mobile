@@ -3,6 +3,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useI18n } from '@/providers/locale-provider';
 
 type ErrorBannerProps = {
   message: string;
@@ -12,30 +13,35 @@ type ErrorBannerProps = {
   retryingLabel?: string;
 };
 
-/** Ağ hatası / 503 (GEMINI_DOWN_MSG) için nazik ortak banner + "Tekrar dene". */
+/** Ağ hatası / 503 için nazik ortak banner + "Tekrar dene". */
 export function ErrorBanner({
   message,
   onRetry,
   retrying,
-  retryLabel = 'Tekrar dene',
-  retryingLabel = 'Deneniyor…',
+  retryLabel,
+  retryingLabel,
 }: ErrorBannerProps) {
+  const { t } = useI18n();
+  const retry = retryLabel ?? t.common.retry;
+  const retryingText = retryingLabel ?? t.common.loading;
+
   return (
-    <ThemedView type="backgroundElement" style={styles.container}>
+    <ThemedView type="backgroundElement" accessibilityRole="alert" style={styles.container}>
       <ThemedText type="small" themeColor="danger" style={styles.message}>
         {message}
       </ThemedText>
-      {onRetry && (
+      {onRetry ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={retrying ? retryingText : retry}
           onPress={onRetry}
           disabled={retrying}
           style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
           <ThemedText type="linkPrimary">
-            {retrying ? retryingLabel : retryLabel}
+            {retrying ? retryingText : retry}
           </ThemedText>
         </Pressable>
-      )}
+      ) : null}
     </ThemedView>
   );
 }

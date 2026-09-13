@@ -95,6 +95,8 @@ export const enUS: Messages = {
     createPasswordTitle: 'Create a password',
     createPasswordHint: 'At least 6 characters. Choose one you don’t use elsewhere.',
     invalidEmail: 'Enter a valid email address.',
+    logoLabel: 'Niyetsen',
+    verifyingSession: 'Confirming your session…',
     legalPrivacy: 'Privacy',
     legalKvkk: 'Privacy notice',
     legalConsent: 'Consent',
@@ -123,6 +125,13 @@ export const enUS: Messages = {
     birthHint: 'Used to calculate your zodiac sign automatically.',
     notifHint: 'When should we send your daily task reminder?',
     notifHourLabel: 'Reminder time',
+    birthPlaceholder: '10.04.1995',
+    stepOf: (current, total) => `Step ${current} of ${total}`,
+    timeChange: 'Change',
+    timeSelectTitle: 'Choose a time',
+    timeRangeHint:
+      'Between 06:00 and 00:00. After midnight it is saved for the next day.',
+    timeSelectA11y: (label) => `Choose ${label}`,
   },
   regions: {
     TR: 'Türkiye · Türkçe',

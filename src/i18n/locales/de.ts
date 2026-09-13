@@ -95,6 +95,8 @@ export const de: Messages = {
     createPasswordTitle: 'Passwort festlegen',
     createPasswordHint: 'Mindestens 6 Zeichen. Nutze ein Passwort, das du sonst nicht verwendest.',
     invalidEmail: 'Gib eine gültige E-Mail-Adresse ein.',
+    logoLabel: 'Niyetsen',
+    verifyingSession: 'Sitzung wird bestätigt…',
     legalPrivacy: 'Datenschutz',
     legalKvkk: 'Datenschutzhinweis',
     legalConsent: 'Einwilligung',
@@ -123,6 +125,13 @@ export const de: Messages = {
     birthHint: 'Dient der automatischen Sternzeichen-Berechnung.',
     notifHint: 'Wann soll die tägliche Aufgabenerinnerung kommen?',
     notifHourLabel: 'Erinnerungszeit',
+    birthPlaceholder: '10.04.1995',
+    stepOf: (current, total) => `Schritt ${current} von ${total}`,
+    timeChange: 'Ändern',
+    timeSelectTitle: 'Uhrzeit wählen',
+    timeRangeHint:
+      'Zwischen 06:00 und 00:00. Nach Mitternacht gilt der nächste Tag.',
+    timeSelectA11y: (label) => `${label} wählen`,
   },
   regions: {
     TR: 'Türkei · Türkçe',

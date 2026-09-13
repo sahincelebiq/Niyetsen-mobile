@@ -95,6 +95,8 @@ export const fr: Messages = {
     createPasswordTitle: 'Choisis un mot de passe',
     createPasswordHint: 'Au moins 6 caractères. Évite un mot de passe déjà utilisé ailleurs.',
     invalidEmail: 'Entre une adresse e-mail valide.',
+    logoLabel: 'Niyetsen',
+    verifyingSession: 'Confirmation de la session…',
     legalPrivacy: 'Confidentialité',
     legalKvkk: 'Information',
     legalConsent: 'Consentement',
@@ -123,6 +125,13 @@ export const fr: Messages = {
     birthHint: 'Sert à calculer ton signe automatiquement.',
     notifHint: 'À quelle heure veux-tu le rappel des tâches ?',
     notifHourLabel: 'Heure de rappel',
+    birthPlaceholder: '10.04.1995',
+    stepOf: (current, total) => `Étape ${current} sur ${total}`,
+    timeChange: 'Modifier',
+    timeSelectTitle: 'Choisir l’heure',
+    timeRangeHint:
+      'De 06:00 à 00:00. Après minuit, c’est enregistré pour le jour suivant.',
+    timeSelectA11y: (label) => `Choisir ${label}`,
   },
   regions: {
     TR: 'Turquie · Türkçe',

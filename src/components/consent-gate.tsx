@@ -16,8 +16,11 @@ import {
   ConsentChoicesValue,
   EMPTY_CONSENT_CHOICES,
 } from '@/components/consent-choices';
+import { ErrorBanner } from '@/components/error-banner';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { LEGAL_VERSIONS } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -105,10 +108,10 @@ export function ConsentGate({ children }: PropsWithChildren) {
       const ok = canEnterApp(nextStatus);
       setCachedOk(ok);
       persistConsentOk(ok);
-    } catch (value) {
+    } catch {
       // Arka plan doğrulaması sessiz düşer; cache'li kullanıcı engellenmez.
       if (!background) {
-        setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
+        setError(t.legal.gateLoadFailed);
       }
     } finally {
       if (!background) {
@@ -165,7 +168,7 @@ export function ConsentGate({ children }: PropsWithChildren) {
       setCachedOk(ok);
       persistConsentOk(ok);
     } catch (value) {
-      setError(value instanceof Error ? value.message : t.legal.gateLoadFailed);
+      setError(t.legal.gateLoadFailed);
       throw value;
     } finally {
       setSaving(false);
@@ -193,17 +196,12 @@ export function ConsentGate({ children }: PropsWithChildren) {
   if (error && !effectiveStatus && !cachedOk) {
     return (
       <ThemedView style={styles.center}>
-        <ThemedText themeColor="danger">{error}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
-          {t.legal.gateLoadFailed}
-        </ThemedText>
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={() => void load()}
-          style={{ minHeight: 44, justifyContent: 'center' }}>
-          <ThemedText themeColor="tint">{t.legal.gateRetry}</ThemedText>
-        </Pressable>
+        <ErrorBanner
+          message={error}
+          onRetry={() => void load()}
+          retryLabel={t.legal.gateRetry}
+          retryingLabel={t.common.loading}
+        />
       </ThemedView>
     );
   }
@@ -229,50 +227,70 @@ export function ConsentGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <ThemedView style={styles.flex}>
-      <SafeAreaView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.page}>
-          <View style={styles.header}>
-            <ThemedText type="screenTitle">
-              {t.legal.gateTitle}
-            </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              {t.legal.gateBody}
-            </ThemedText>
-          </View>
+    <KeyboardAwareView>
+      <ThemedView style={styles.flex}>
+        <SafeAreaView style={styles.flex}>
+          <ScrollView
+            contentContainerStyle={styles.page}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <ThemedText type="screenTitle" accessibilityRole="header">
+                {t.legal.gateTitle}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.legal.gateBody}
+              </ThemedText>
+            </View>
 
-          <ThemedView
-            type="backgroundElement"
-            style={[styles.card, { borderColor: theme.border }]}>
-            <ConsentChoices value={choices} onChange={setChoices} />
-            {error && <ThemedText themeColor="danger">{error}</ThemedText>}
-            <Pressable
-              disabled={saving}
-              onPress={() => void save()}
-              style={({ pressed }) => [
-                styles.button,
-                { backgroundColor: theme.accentWarm },
-                (pressed || saving) && styles.pressed,
-              ]}>
-              {saving ? (
-                <ActivityIndicator color={theme.onAccent} />
-              ) : (
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                  {t.legal.gateSave}
-                </ThemedText>
-              )}
-            </Pressable>
-            {!status && (
-              <Pressable onPress={() => void load()}>
-                <ThemedText type="smallBold" themeColor="tint" style={styles.centerText}>
-                  {t.legal.gateRetry}
-                </ThemedText>
+            <SurfaceCard elevated style={styles.card}>
+              <ConsentChoices value={choices} onChange={setChoices} />
+              {error ? (
+                <ErrorBanner
+                  message={error}
+                  onRetry={() => void save()}
+                  retrying={saving}
+                  retryLabel={t.legal.gateSave}
+                  retryingLabel={t.common.saving}
+                />
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t.legal.gateSave}
+                disabled={saving}
+                onPress={() => void save()}
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    backgroundColor: theme.accentWarm,
+                    opacity: pressed || saving ? 0.7 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  },
+                ]}>
+                {saving ? (
+                  <ActivityIndicator color={theme.onAccent} />
+                ) : (
+                  <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                    {t.legal.gateSave}
+                  </ThemedText>
+                )}
               </Pressable>
-            )}
-          </ThemedView>
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+              {!status ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t.legal.gateRetry}
+                  onPress={() => void load()}
+                  style={({ pressed }) => [styles.retryHit, pressed && styles.pressed]}>
+                  <ThemedText type="smallBold" themeColor="tint" style={styles.centerText}>
+                    {t.legal.gateRetry}
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </SurfaceCard>
+          </ScrollView>
+        </SafeAreaView>
+      </ThemedView>
+    </KeyboardAwareView>
   );
 }
 
@@ -302,17 +320,20 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.two },
   card: {
-    borderWidth: 1,
-    borderRadius: Radii.large,
     padding: Spacing.four,
     gap: Spacing.four,
   },
   button: {
-    minHeight: 50,
-    borderRadius: Radii.medium,
+    minHeight: 52,
+    borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
+  },
+  retryHit: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: { opacity: 0.7 },
   centerText: { textAlign: 'center' },

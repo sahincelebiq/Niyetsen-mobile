@@ -115,6 +115,7 @@ function ConsentRow({
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      accessibilityLabel={required ? `${label} *` : label}
       onPress={() => onChange(!checked)}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View
@@ -125,7 +126,11 @@ function ConsentRow({
             backgroundColor: checked ? theme.tint : 'transparent',
           },
         ]}>
-        {checked && <ThemedText style={{ color: theme.background }}>✓</ThemedText>}
+        {checked ? (
+          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+            ✓
+          </ThemedText>
+        ) : null}
       </View>
       <View style={styles.copy}>
         <ThemedText type="smallBold">
@@ -155,7 +160,7 @@ function LegalLink({
       accessibilityLabel={t.legal.openDocument(label)}
       hitSlop={8}
       onPress={() => onOpen(documentId)}
-      style={({ pressed }) => pressed && styles.pressed}>
+      style={({ pressed }) => [styles.linkHit, pressed && styles.pressed]}>
       <ThemedText type="smallBold" themeColor="tint">
         {label}
       </ThemedText>
@@ -174,7 +179,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 24,
     height: 24,
-    marginTop: 2,
+    marginTop: Spacing.half,
     borderWidth: 2,
     borderRadius: Radii.small,
     alignItems: 'center',
@@ -182,5 +187,10 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1, gap: Spacing.one },
   links: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  linkHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
+  },
   pressed: { opacity: 0.7 },
 });

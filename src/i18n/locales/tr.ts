@@ -95,6 +95,8 @@ export const tr: Messages = {
     createPasswordTitle: 'Şifreni belirle',
     createPasswordHint: 'En az 6 karakter. Başka yerde kullanmadığın bir şifre seç.',
     invalidEmail: 'Geçerli bir e-posta yaz.',
+    logoLabel: 'Niyetsen',
+    verifyingSession: 'Oturum doğrulanıyor…',
     legalPrivacy: 'Gizlilik',
     legalKvkk: 'KVKK Aydınlatma',
     legalConsent: 'Açık Rıza',
@@ -123,6 +125,13 @@ export const tr: Messages = {
     birthHint: 'Burcunu otomatik hesaplamak için kullanılır.',
     notifHint: 'Günlük görev hatırlatıcını hangi saatte almak istersin?',
     notifHourLabel: 'Bildirim saati',
+    birthPlaceholder: '10.04.1995',
+    stepOf: (current, total) => `Adım ${current} / ${total}`,
+    timeChange: 'Değiştir',
+    timeSelectTitle: 'Saat seç',
+    timeRangeHint:
+      '06:00 – 00:00 arası. Gece yarısından sonra kurduğunda bir sonraki güne yazılır.',
+    timeSelectA11y: (label) => `${label} seç`,
   },
   regions: {
     TR: 'Türkiye · Türkçe',
