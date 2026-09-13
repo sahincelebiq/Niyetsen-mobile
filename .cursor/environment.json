@@ -1,0 +1,12 @@
+{
+  "name": "Niyetsen mobile (Expo)",
+  "install": "npm install && ([ -f .env ] || cp .env.example .env)",
+  "ports": [{ "name": "Expo web / Metro", "port": 8081 }],
+  "terminals": [
+    {
+      "name": "expo-web",
+      "command": "npx expo start --web --port 8081",
+      "description": "Expo (Metro) dev server serving the app on the web at http://localhost:8081. Fill EXPO_PUBLIC_* values in .env for functional backend calls; the app boots to the auth screen without them."
+    }
+  ]
+}
