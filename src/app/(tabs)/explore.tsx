@@ -31,6 +31,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { ApiError, ensureTodayPlan, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
+import { invalidateGunlukAkis } from '@/lib/gunluk-akis';
 import { addDaysIso } from '@/lib/plan-dates';
 import { showAlert } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
@@ -92,6 +93,8 @@ export default function PlanScreen() {
           setExtending(true);
           try {
             next = await ensureTodayPlan();
+            // Gün içeriği değişti — Bugün sekmesi aynı kaynaktan beslenir.
+            invalidateGunlukAkis();
           } catch (extendError) {
             setError(
               extendError instanceof ApiError
@@ -229,6 +232,7 @@ export default function PlanScreen() {
             planId={plan.id}
             planName={plan.name ?? t.events.planNameFallback}
             reloadKey={eventsReloadKey}
+            onChanged={() => invalidateGunlukAkis()}
           />
         )}
 
@@ -262,7 +266,10 @@ export default function PlanScreen() {
       <PlanPickerSheet
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        onPlanChanged={() => void load()}
+        onPlanChanged={() => {
+          invalidateGunlukAkis();
+          void load();
+        }}
         subscriptionStatus={subscriptionStatus}
       />
       <PlanTaskEditor
@@ -272,7 +279,10 @@ export default function PlanScreen() {
           setEditTarget(null);
           setAddDate(null);
         }}
-        onChanged={() => void load(true)}
+        onChanged={() => {
+          invalidateGunlukAkis();
+          void load(true);
+        }}
       />
     </ThemedView>
   );
