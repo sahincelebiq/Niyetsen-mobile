@@ -27,15 +27,15 @@ Zincir & Rank · Profil · Felsefe Yolları (İdol Modu) · Mistik bölüm
 ```bash
 npm install
 cp .env.example .env      # EXPO_PUBLIC_* değerlerini doldur
-npx expo start -c         # temiz önbellekle başlat
+eas build --profile development --platform android   # gerçek cihaz build'i
 ```
 
 `.env` **asla commit edilmez** (gitignore'da). Gerekli değişkenler
 `.env.example` içinde listelidir: Supabase URL + publishable key, API URL,
 RevenueCat public key, PostHog key.
 
-> Kamera, takvim ve bildirim izinleri gerektiğinden **Expo Go kısıtlıdır**;
-> tam deneyim için development build veya EAS build kullanın.
+> Test yolu: EAS development build veya Play kapalı test (ayrıntı
+> `docs/RELEASE.md`). Kamera, takvim ve bildirim izinleri native build ister.
 
 ---
 

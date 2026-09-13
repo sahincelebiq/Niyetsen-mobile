@@ -8,6 +8,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "niyetsen",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "icon": "./assets/images/icon.png",
       "usesAppleSignIn": true,
@@ -45,7 +48,10 @@
               "scheme": "niyetsen"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -82,7 +88,8 @@
           "calendarPermission": "Niyetsen, seçtiğin İrade ve Disiplin görevlerini takvimine ekleyebilmek için izin ister.",
           "remindersPermission": "Niyetsen, seçtiğin görevler için takvim hatırlatıcıları oluşturabilmek için izin ister."
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
