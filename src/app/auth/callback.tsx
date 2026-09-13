@@ -9,6 +9,7 @@ import { logAuthEvent, toAuthFlowError } from '@/features/auth/auth-errors';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { completeAuthFromUrl, NATIVE_AUTH_REDIRECT } from '@/lib/auth-redirect';
+import { useAuth } from '@/providers/auth-provider';
 import { useI18n } from '@/providers/locale-provider';
 import { supabase } from '@/lib/supabase';
 
@@ -20,6 +21,7 @@ export default function AuthCallbackScreen() {
   const theme = useTheme();
   const { t } = useI18n();
   const router = useRouter();
+  const { reportAuthCallbackError } = useAuth();
   const params = useLocalSearchParams<{
     code?: string | string[];
     access_token?: string | string[];
@@ -64,6 +66,8 @@ export default function AuthCallbackScreen() {
       } catch (error) {
         const flow = toAuthFlowError(error);
         logAuthEvent(flow.kod, 'callback', flow.teknikDetay);
+        // Onay/sıfırlama linki bozuksa giriş ekranında yerelleştirilmiş hata göster.
+        reportAuthCallbackError(flow.kod);
       } finally {
         // Döngü oturumu bekledi; AuthProvider deepLinkHold kapanmadan reset yok.
         if (!cancelled) router.replace('/');
@@ -72,7 +76,7 @@ export default function AuthCallbackScreen() {
     return () => {
       cancelled = true;
     };
-  }, [params.code, params.type, router]);
+  }, [params.access_token, params.code, params.refresh_token, params.token_hash, params.type, reportAuthCallbackError, router]);
 
   return (
     <ThemedView style={styles.center}>

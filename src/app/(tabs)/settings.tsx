@@ -367,6 +367,8 @@ export default function SettingsScreen() {
           </View>
           <TimeOfDayField
             label={t.settings.notifTime}
+            hint={t.onboarding.notifHint}
+            doneLabel={t.common.done}
             value={notifTime}
             onChange={setNotifTime}
           />

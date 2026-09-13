@@ -25,6 +25,7 @@ import { LEGAL_VERSIONS } from '@/constants/legal';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ConsentStatus, getConsentStatus, updateConsent } from '@/lib/api';
+import { buildConsentOkCacheKey } from '@/lib/consent-cache';
 import { canEnterApp } from '@/lib/consent-access';
 import { useI18n } from '@/providers/locale-provider';
 
@@ -37,7 +38,7 @@ const ConsentContext = createContext<ConsentContextValue | null>(null);
 
 // Cache anahtarı yasal sürümlere bağlı: herhangi bir metin sürümü artarsa
 // anahtar değişir → eski "tamam" cache'i otomatik geçersizleşir, gate döner.
-const CONSENT_OK_KEY = `niyetsen.consent.ok.${Object.values(LEGAL_VERSIONS).join('|')}`;
+const CONSENT_OK_KEY = buildConsentOkCacheKey(Object.values(LEGAL_VERSIONS).join('|'));
 const CONSENT_OK_VALUE = '1';
 const CONSENT_CACHE_READ_MS = 2000;
 

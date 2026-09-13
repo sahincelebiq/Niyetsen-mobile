@@ -38,3 +38,13 @@ test('SMTP gönderim hatası sunucu hatasıdır', () => {
     'sunucu_hatasi',
   );
 });
+
+test('oauth access_denied iptal sayılır', () => {
+  assert.equal(
+    classifyAuthFailure({
+      message: 'access_denied',
+      code: 'access_denied',
+    }),
+    'iptal',
+  );
+});

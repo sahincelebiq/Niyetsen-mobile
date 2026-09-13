@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
+import { toAuthFlowError } from '@/features/auth/auth-errors';
 import { supabase } from '@/lib/supabase';
 
 /** Standalone / Play / TestFlight — Supabase Redirect URLs ile birebir. */
@@ -90,7 +91,7 @@ export async function completeAuthFromUrl(url: string): Promise<AuthUrlResult> {
   }
   const params = parseAuthParams(url);
   if (params.errorDescription) {
-    throw new Error(params.errorDescription);
+    throw toAuthFlowError(new Error(params.errorDescription));
   }
 
   const recovery =
@@ -106,6 +107,9 @@ export async function completeAuthFromUrl(url: string): Promise<AuthUrlResult> {
       });
       if (error) throw error;
       return { handled: true, recovery };
+    } catch (error) {
+      seenCodes.delete(key);
+      throw toAuthFlowError(error);
     } finally {
       release(key);
     }
@@ -118,6 +122,9 @@ export async function completeAuthFromUrl(url: string): Promise<AuthUrlResult> {
       const { error } = await supabase.auth.exchangeCodeForSession(params.code);
       if (error) throw error;
       return { handled: true, recovery };
+    } catch (error) {
+      seenCodes.delete(key);
+      throw toAuthFlowError(error);
     } finally {
       release(key);
     }
@@ -139,6 +146,9 @@ export async function completeAuthFromUrl(url: string): Promise<AuthUrlResult> {
       });
       if (error) throw error;
       return { handled: true, recovery };
+    } catch (error) {
+      seenCodes.delete(key);
+      throw toAuthFlowError(error);
     } finally {
       release(key);
     }

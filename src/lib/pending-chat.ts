@@ -24,3 +24,7 @@ export function consumePendingChatMessage(): PendingChat | null {
   pending = null;
   return value;
 }
+
+export function clearPendingChatMessage(): void {
+  pending = null;
+}

@@ -99,6 +99,8 @@ export function authMesaji(kod: AuthFlowKod, t: Messages): string {
       return t.auth.networkError;
     case 'baglanti_suresi_doldu':
       return t.auth.recoveryExpired;
+    case 'bilinmeyen':
+      return t.auth.sessionFailed;
     case 'iptal':
       return '';
     default:
@@ -209,6 +211,14 @@ export function classifyAuthFailure(input: {
     (text.includes('invalid') && (text.includes('otp') || text.includes('token')))
   ) {
     return 'gecersiz_otp';
+  }
+
+  if (
+    code === 'access_denied' ||
+    text.includes('access_denied') ||
+    text.includes('access denied')
+  ) {
+    return 'iptal';
   }
 
   if (

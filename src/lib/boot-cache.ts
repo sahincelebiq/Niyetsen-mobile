@@ -47,3 +47,11 @@ export async function readCachedDaily(): Promise<DailyTasksResponse | null> {
 export async function writeCachedDaily(daily: DailyTasksResponse): Promise<void> {
   await writeJson(DAILY_KEY, daily);
 }
+
+export async function clearBootCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([PROFILE_KEY, SUBSCRIPTION_KEY]);
+  } catch {
+    // Önbellek temizliği başarısız olsa da oturum akışı sürmeli.
+  }
+}
