@@ -38,9 +38,6 @@ export const ChatWallpaper = memo(function ChatWallpaper() {
     return items;
   }, [width, height]);
 
-  const glyphColor =
-    scheme === 'dark' ? 'rgba(160, 190, 150, 0.11)' : 'rgba(61, 122, 78, 0.09)';
-
   return (
     <View
       pointerEvents="none"
@@ -55,7 +52,8 @@ export const ChatWallpaper = memo(function ChatWallpaper() {
             {
               left: cell.left,
               top: cell.top,
-              color: glyphColor,
+              color: theme.tint,
+              opacity: scheme === 'dark' ? 0.14 : 0.1,
               transform: [{ rotate: cell.rotate }],
             },
           ]}>

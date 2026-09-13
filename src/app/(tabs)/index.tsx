@@ -477,15 +477,11 @@ export default function ChatScreen() {
   const listFooter = (
     <View style={styles.footerGap}>
       {sending ? <ChainThinkingIndicator /> : null}
-      {error ? (
-        <ErrorBanner
-          message={error}
-          onRetry={handleRetry}
-          retrying={sending || generatingPlan}
-        />
-      ) : null}
       {showPlanCta ? (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.chat.planCta}
+          accessibilityState={{ busy: generatingPlan, disabled: generatingPlan }}
           onPress={() => void handleGeneratePlan()}
           disabled={generatingPlan}
           style={({ pressed }) => [
@@ -527,8 +523,14 @@ export default function ChatScreen() {
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
               {loadingHistory ? (
-                <View style={styles.loadingContainer}>
+                <View
+                  style={styles.loadingContainer}
+                  accessibilityRole="progressbar"
+                  accessibilityLabel={t.chat.historyLoading}>
                   <ActivityIndicator size="small" color={theme.textSecondary} />
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.loadingCopy}>
+                    {t.chat.historyLoading}
+                  </ThemedText>
                 </View>
               ) : (
                 <FlatList
@@ -568,8 +570,20 @@ export default function ChatScreen() {
               />
             ) : null}
 
+            {error ? (
+              <View style={styles.errorDock}>
+                <ErrorBanner
+                  message={error}
+                  onRetry={handleRetry}
+                  retrying={sending || generatingPlan}
+                />
+              </View>
+            ) : null}
+
             {!aiAllowed ? (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t.chat.aiConsentOff}
                 onPress={() => router.push('/settings')}
                 style={[styles.consentBanner, { borderColor: theme.border }]}>
                 <ThemedText type="smallBold" themeColor="tint">
@@ -616,6 +630,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+  },
+  loadingCopy: {
+    textAlign: 'center',
+  },
+  errorDock: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
   },
   list: {
     flex: 1,
@@ -649,6 +672,7 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     borderRadius: Radii.pill,
+    minHeight: 44,
     paddingVertical: Spacing.three,
     alignItems: 'center',
     justifyContent: 'center',
@@ -661,7 +685,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   planHint: {
     paddingHorizontal: Spacing.three,

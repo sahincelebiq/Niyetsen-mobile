@@ -80,7 +80,12 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             <ThemedText type="small" numberOfLines={1} style={styles.attachmentName}>
               📎 {pendingAttachment.filename}
             </ThemedText>
-            <Pressable onPress={onClearAttachment} hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.chat.clearAttachment}
+              onPress={onClearAttachment}
+              hitSlop={12}
+              style={styles.clearAttachment}>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 ✕
               </ThemedText>
@@ -107,6 +112,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             onChangeText={onChangeText}
             placeholder={t.chat.inputPlaceholder}
             placeholderTextColor={theme.textSecondary}
+            accessibilityLabel={t.chat.inputPlaceholder}
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
             textAlignVertical="center"
@@ -122,6 +128,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t.chat.sendMessage}
+            accessibilityState={{ disabled: !canSend, busy: sending }}
             onPress={onSubmit}
             disabled={!canSend}
             style={({ pressed }) => [
@@ -208,6 +215,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearAttachment: {
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -169,6 +169,8 @@ export type Messages = {
     trialDaysLeft: (days: number) => string;
     sendMessage: string;
     attachFile: string;
+    clearAttachment: string;
+    historyLoading: string;
     welcomeFallback: string;
     defaultPlanName: string;
     deviceFailed: string;
