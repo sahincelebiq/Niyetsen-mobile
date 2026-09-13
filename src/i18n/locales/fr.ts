@@ -244,6 +244,18 @@ export const fr: Messages = {
       `Maillon fermé · confiance ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Confiance ${confidence}/100 · essai ${attempt}/3. Tu peux reprendre une photo.`,
+    nextUpTitle: 'Prochaine étape',
+    nextUpNow: 'Possible maintenant',
+    nextUpIn: (minutes) => `dans ${minutes} min`,
+    blockMorning: 'Matin',
+    blockNoon: 'Midi',
+    blockEvening: 'Soir',
+    nowLine: (time) => `Maintenant · ${time}`,
+    dayCompleteTitle: 'Journée terminée',
+    dayCompleteBody: 'Tous les anneaux sont fermés — ta chaîne grandit. À demain.',
+    staleOffline: 'Vue hors ligne — dernier plan connu affiché.',
+    emptyAction: 'Ajouter un petit pas pour aujourd’hui',
+    progressLabel: (done, total) => `${done} sur ${total} terminés`,
   },
   events: {
     sectionTitle: 'Événements',

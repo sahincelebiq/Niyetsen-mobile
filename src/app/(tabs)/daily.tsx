@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { useCallback, useMemo, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +21,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocale } from '@/providers/locale-provider';
 import { CountUpText } from '@/components/count-up-text';
 import { ErrorBanner } from '@/components/error-banner';
+import { DailySkeleton } from '@/components/gunluk/daily-skeleton';
+import { EventsTimeline } from '@/components/gunluk/events-timeline';
+import {
+  DayCompleteCard,
+  NextStepCard,
+  type NextStep,
+} from '@/components/gunluk/next-step-card';
+import { ProgressRing } from '@/components/gunluk/progress-ring';
 import { LeafConfetti } from '@/components/leaf-confetti';
 import {
   isTaskEditable,
@@ -28,9 +36,7 @@ import {
   type PlanTaskEditorTarget,
 } from '@/components/plan-task-editor';
 import { CategoryBadge } from '@/components/ui/category-badge';
-import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { DailyTaskSkeleton } from '@/components/ui/skeleton';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticPanel, useMysticPanel } from '@/components/mystic-panel';
@@ -44,6 +50,8 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useDayChange, useNowMinutes } from '@/hooks/use-day-change';
+import { useGunlukAkis } from '@/hooks/use-gunluk-akis';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
@@ -51,20 +59,22 @@ import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import {
   ApiError,
-  completePlanEvent,
   type DailyEventItem,
   ensureTodayPlan,
   excuseTask,
-  getDailyTasks,
   getState,
   isPaywallError,
   type ProofResult,
   type Task,
   uploadTaskProof,
 } from '@/lib/api';
-import { DailyEventCard } from '@/components/plan-event-card';
-import { readCachedDaily, writeCachedDaily } from '@/lib/boot-cache';
-import { setPushHintVisible } from '@/lib/push-hint';
+import {
+  completeEventOptimistic,
+  getGunlukAkis,
+  invalidateGunlukAkis,
+  refreshGunlukAkis,
+  rolloverGunlukAkisIfNeeded,
+} from '@/lib/gunluk-akis';
 import { getPushStatus } from '@/lib/push-notifications';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -73,6 +83,7 @@ import {
   supportsWillpowerReminder,
 } from '@/lib/task-reminders';
 import { showAlert } from '@/lib/web-alert';
+import { hhmmToMinutes } from '@/lib/zaman';
 import { useProfile } from '@/providers/profile-provider';
 
 type Outcome = { tone: 'success' | 'danger'; message: string };
@@ -89,20 +100,17 @@ export default function DailyTasksScreen() {
   const { status: consentStatus } = useConsentPreferences();
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [tasks, setTasks] = useState<DailyTask[]>([]);
-  // 2026-09-10 plan etkinlikleri: fotosuz “Yaptım”, kamera yok, ceza yok.
-  const [events, setEvents] = useState<DailyEventItem[]>([]);
-  const [needsExtension, setNeedsExtension] = useState(false);
+  // Tek doğruluk kaynağı: gün servisi (önbellek + retry + optimistic burada).
+  const akis = useGunlukAkis();
+  const nowMinutes = useNowMinutes();
   const [yesterdayMisses, setYesterdayMisses] = useState(0);
-  const cachedPaintRef = useRef(false);
+  const [showPushHint, setShowPushHint] = useState(false);
   const autoExtendRef = useRef(false);
   const [cameraTask, setCameraTask] = useState<Task | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [extending, setExtending] = useState(false);
+  const [extensionError, setExtensionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
@@ -110,61 +118,47 @@ export default function DailyTasksScreen() {
   const mysticPanel = useMysticPanel();
   const screenInsets = useScreenInsets();
 
-  const applyDaily = useCallback((daily: Awaited<ReturnType<typeof getDailyTasks>>) => {
-    setNeedsExtension(!!daily.needs_extension);
-    setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
-    // Eski boot önbelleği (events alanı öncesi) dizi taşımayabilir.
-    setEvents(Array.isArray(daily.events) ? daily.events : []);
-    void writeCachedDaily(daily);
-  }, []);
+  const tasks = useMemo<DailyTask[]>(
+    () =>
+      (akis.data?.items ?? []).map((item) => ({
+        ...item.task,
+        plan_name: item.plan_name,
+      })),
+    [akis.data],
+  );
+  const events = useMemo<DailyEventItem[]>(() => akis.data?.events ?? [], [akis.data]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void readCachedDaily().then((cached) => {
-      if (cancelled || !cached) return;
-      cachedPaintRef.current = true;
-      applyDaily(cached);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [applyDaily]);
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) autoExtendRef.current = false;
+      setExtensionError(null);
+      await refreshGunlukAkis(getGunlukAkis().data ? 'silent' : 'full');
+      const { data: current, error: flowError } = getGunlukAkis();
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) {
-      autoExtendRef.current = false;
-      setRefreshing(true);
-    } else if (!cachedPaintRef.current) {
-      setLoading(true);
-    }
-    setError(null);
-    try {
-      let daily = await getDailyTasks();
-      applyDaily(daily);
-      // İlk cevap geldi — Gemini uzatması (90 sn) tam ekran spinner'da tutmasın.
-      setLoading(false);
-      if (daily.needs_extension && !autoExtendRef.current) {
+      // Gemini uzatması (90 sn) tam ekran spinner'da tutmasın: ilk cevap
+      // zaten ekranda; uzatma sessizce arkada döner. Akış hatalıysa (örn.
+      // çevrimdışı) uzatma denenmez — önbellekteki bayat bayrakla istek atmaz.
+      if (!flowError && current?.needs_extension && !autoExtendRef.current) {
         autoExtendRef.current = true;
         setExtending(true);
         try {
           await ensureTodayPlan();
-          daily = await getDailyTasks();
-          applyDaily(daily);
+          await refreshGunlukAkis('silent');
         } catch (value) {
           if (isPaywallError(value)) {
             router.push('/paywall' as Href);
           } else {
-            setError(
-              value instanceof ApiError
-                ? value.message
-                : t.daily.generateFailed,
+            // Bölümsel hata: uzatma başarısızsa ekran düşmez, ince banner.
+            setExtensionError(
+              value instanceof ApiError ? value.message : t.daily.generateFailed,
             );
           }
         } finally {
           setExtending(false);
         }
       }
+      // Zincir özeti + bildirim ipucu kendi başına izole: biri düşse bile
+      // ana akış etkilenmez (madde C — bölümsel hata).
       try {
         const state = await getState();
         setYesterdayMisses(state.yesterday_silent_misses ?? 0);
@@ -175,42 +169,43 @@ export default function DailyTasksScreen() {
       if (user?.id) {
         try {
           const push = await getPushStatus(user.id);
-          setPushHintVisible(push.supported && !push.enabled);
+          setShowPushHint(push.supported && !push.enabled);
         } catch {
-          setPushHintVisible(false);
+          setShowPushHint(false);
         }
       }
-    } catch (value) {
-      setError(value instanceof ApiError ? value.message : t.daily.loadFailed);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [applyDaily, router, syncStreak, user?.id, t]);
+    },
+    [router, syncStreak, user?.id, t],
+  );
 
   async function handleExtendPlan() {
     if (extending) return;
     setExtending(true);
-    setError(null);
+    setExtensionError(null);
     try {
       await ensureTodayPlan();
-      await load(true);
+      await refreshGunlukAkis('silent');
     } catch (value) {
       if (isPaywallError(value)) {
         router.push('/paywall' as Href);
         return;
       }
-      setError(
-        value instanceof ApiError
-          ? value.message
-          : t.daily.generateFailed,
+      setExtensionError(
+        value instanceof ApiError ? value.message : t.daily.generateFailed,
       );
     } finally {
       setExtending(false);
     }
   }
 
-  useWarmFocusReload(load, tasks.length > 0 || events.length > 0 || needsExtension);
+  useWarmFocusReload(load, akis.data !== null);
+
+  // Gece yarısı geçişi (madde B): gün kayınca store sıfırlanır + yeni gün
+  // çekilir; ardından load uzatma/zincir orkestrasyonunu yeni güne uygular.
+  useDayChange(() => {
+    rolloverGunlukAkisIfNeeded();
+    void load(true);
+  });
 
   const setOutcome = useCallback((taskId: string, outcome: Outcome) => {
     setOutcomes((current) => ({ ...current, [taskId]: outcome }));
@@ -221,23 +216,11 @@ export default function DailyTasksScreen() {
       const key = `event:${event.occurrence_id}`;
       setBusy(key);
       try {
-        const response = await completePlanEvent(event.occurrence_id);
-        // Sunucu `events` puan olaylarıdır (kategori/delta), günün listesi değil —
-        // listeyi ezme; yalnız bu etkinliği yerelde tamamlandı işaretle.
-        setEvents((current) =>
-          current.map((item) =>
-            item.occurrence_id === event.occurrence_id ? { ...item, status: 'done' } : item,
-          ),
-        );
+        // Optimistic: kart anında "Tamamlandı"ya döner; red gelirse store geri alır.
+        const response = await completeEventOptimistic(event.occurrence_id);
         if (typeof response.streak_len === 'number') syncStreak(response.streak_len);
-        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir.
-        // Kazanılan puan = pozitif delta toplamı (+50/kategori); okunamazsa 50.
-        const rows = Array.isArray(response.events) ? response.events : [];
-        const gained = rows.reduce(
-          (sum, row) => sum + (typeof row.delta === 'number' && row.delta > 0 ? row.delta : 0),
-          0,
-        );
-        setOutcome(key, { tone: 'success', message: t.events.completed(gained > 0 ? gained : 50) });
+        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
+        setOutcome(key, { tone: 'success', message: t.events.completed(50) });
         void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
       } catch (value) {
         const status = value instanceof ApiError ? value.status : 0;
@@ -252,12 +235,12 @@ export default function DailyTasksScreen() {
                   ? value.message
                   : t.common.errorGeneric,
         });
-        if (status === 409 || status === 400) void load(true);
+        if (status === 400) invalidateGunlukAkis();
       } finally {
         setBusy(null);
       }
     },
-    [load, setOutcome, syncStreak, t],
+    [setOutcome, syncStreak, t],
   );
 
   async function openCamera(task: Task) {
@@ -345,8 +328,8 @@ export default function DailyTasksScreen() {
     setOutcome(task.id, {
       tone: result.approved ? 'success' : 'danger',
       message: result.approved
-        ? t.daily.proofApproved(result.confidence, declaration)
-        : t.daily.proofRejected(result.reason, result.confidence, result.attempt_no),
+        ? `Halka tamamlandı · güven ${result.confidence}/100.${declaration}`
+        : `${result.reason} Güven ${result.confidence}/100 · deneme ${result.attempt_no}/3. Yeni bir kare deneyebilirsin.`,
     });
   }
 
@@ -396,9 +379,18 @@ export default function DailyTasksScreen() {
     }
   }
 
+  const openProofForTask = useCallback(
+    (taskId: string) => {
+      const task = tasks.find((item) => item.id === taskId);
+      if (task) void openCamera(task);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tasks, consentStatus, cameraPermission],
+  );
+
   const renderTask = useCallback<ListRenderItem<DailyTask>>(
     ({ item: task, index }) => {
-      const firstPendingId = tasks.find((t) => t.status === 'pending')?.id;
+      const firstPendingId = tasks.find((item) => item.status === 'pending')?.id;
       const emphasis: 'hero' | 'lifted' | 'muted' =
         task.status === 'done' ||
         task.status === 'missed_silent' ||
@@ -436,8 +428,46 @@ export default function DailyTasksScreen() {
     [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission, tasks, t],
   );
 
-  const doneCount = tasks.filter((t) => t.status === 'done').length;
-  const dayProgress = tasks.length === 0 ? 0 : doneCount / tasks.length;
+  const doneTasks = tasks.filter((task) => task.status === 'done').length;
+  const doneEvents = events.filter((event) => event.status === 'done').length;
+  const totalCount = tasks.length + events.length;
+  const doneCount = doneTasks + doneEvents;
+  const dayProgress = totalCount === 0 ? 0 : doneCount / totalCount;
+  const dayComplete = totalCount > 0 && doneCount === totalCount;
+
+  // Sıradaki adım (E.2): saati gelen/geçen etkinlik önce, yoksa en yakın
+  // gelecek etkinlik (geri sayımlı); etkinlik yoksa ilk bekleyen görev.
+  const nextStep = useMemo<NextStep | null>(() => {
+    if (dayComplete) return null;
+    const pending = events
+      .filter((event) => event.status === 'pending')
+      .map((event) => ({ event, mins: hhmmToMinutes(event.scheduled_time) ?? 0 }))
+      .sort((a, b) => a.mins - b.mins);
+    if (pending.length > 0) {
+      const passed = pending.filter((item) => item.mins <= nowMinutes);
+      const chosen = passed.length > 0 ? passed[passed.length - 1] : pending[0];
+      return {
+        kind: 'event',
+        event: chosen.event,
+        minutesUntil: chosen.mins - nowMinutes,
+      };
+    }
+    const firstTask = tasks.find((task) => task.status === 'pending');
+    if (firstTask) {
+      return {
+        kind: 'task',
+        id: firstTask.id,
+        title: firstTask.title,
+        durationMin: firstTask.duration_min,
+        planName: firstTask.plan_name,
+      };
+    }
+    return null;
+  }, [dayComplete, events, nowMinutes, tasks]);
+
+  const showSkeleton = !akis.data && (akis.loading || !akis.hydrated);
+  const hasActivePlan = akis.data?.has_active_plan ?? true;
+  const needsExtension = !!akis.data?.needs_extension;
 
   const listHeader = (
     <View style={styles.headerBlock}>
@@ -486,40 +516,101 @@ export default function DailyTasksScreen() {
           </View>
         }
       />
-      {!loading && tasks.length > 0 ? (
+      {!showSkeleton && totalCount > 0 ? (
         <View style={styles.progressBlock}>
+          <ProgressRing
+            progress={dayProgress}
+            complete={dayComplete}
+            accessibilityLabel={t.daily.progressLabel(doneCount, totalCount)}
+          />
           <View style={styles.progressMeta}>
             <ThemedText type="small" themeColor="textSecondary">
               {t.daily.dayProgress}
             </ThemedText>
             <ThemedText type="smallBold" themeColor="tint">
-              <CountUpText value={doneCount} />/{tasks.length}
+              <CountUpText value={doneCount} />/{totalCount}
             </ThemedText>
           </View>
-          <ProgressBar progress={dayProgress} />
         </View>
       ) : null}
-      {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
+      {/* Bölümsel hata (madde C): veri varken hata = ince banner; veri yokken
+          de ekran komple karta düşmez — başlık + kart + tekrar dene. */}
+      {akis.error && akis.data ? (
+        <View
+          style={[
+            styles.staleBanner,
+            { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+          ]}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.staleText}>
+            {akis.error.status === 0 ? t.daily.staleOffline : akis.error.message}
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.common.retry}
+            hitSlop={8}
+            onPress={() => void load(true)}
+            style={({ pressed }) => [
+              styles.staleRetry,
+              { borderColor: theme.tint, opacity: pressed ? 0.7 : 1 },
+            ]}>
+            <ThemedText type="smallBold" themeColor="tint">
+              {t.common.retry}
+            </ThemedText>
+          </Pressable>
+        </View>
+      ) : null}
+      {akis.error && !akis.data && !showSkeleton ? (
+        <ErrorBanner message={akis.error.message} onRetry={() => void load()} />
+      ) : null}
+      {extensionError ? (
+        <ErrorBanner
+          message={extensionError}
+          onRetry={() => void handleExtendPlan()}
+          retrying={extending}
+        />
+      ) : null}
       {yesterdayMisses > 0 ? (
         <SurfaceCard elevated style={{ marginBottom: Spacing.two }}>
           <ThemedText type="small">{t.daily.missYesterday(yesterdayMisses)}</ThemedText>
         </SurfaceCard>
+      ) : null}
+      {showPushHint ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/settings' as Href)}
+          style={{ marginBottom: Spacing.two }}>
+          <ThemedText type="small" themeColor="tint">
+            {t.daily.pushHint}
+          </ThemedText>
+        </Pressable>
       ) : null}
       {extending ? (
         <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
           {t.daily.extending}
         </ThemedText>
       ) : null}
-      {loading && tasks.length === 0 && events.length === 0 ? (
-        <View style={styles.skeletonStack}>
-          <DailyTaskSkeleton />
-          <DailyTaskSkeleton />
-        </View>
+      {showSkeleton ? <DailySkeleton /> : null}
+      {!showSkeleton && dayComplete ? (
+        <DayCompleteCard done={doneCount} total={totalCount} />
       ) : null}
-      {!loading && !error && tasks.length === 0 && events.length === 0 ? (
+      {!showSkeleton && nextStep ? (
+        <NextStepCard
+          step={nextStep}
+          busy={
+            nextStep.kind === 'event'
+              ? busy === `event:${nextStep.event.occurrence_id}`
+              : busy === `proof:${nextStep.id}`
+          }
+          onCompleteEvent={(event) => void completeEvent(event)}
+          onProofTask={openProofForTask}
+        />
+      ) : null}
+      {!akis.error && !showSkeleton && totalCount === 0 ? (
         <SurfaceCard elevated>
           <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
-          <ThemedText themeColor="textSecondary">{t.daily.emptyBody}</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            {hasActivePlan ? t.daily.emptyBody : t.plan.emptyBody}
+          </ThemedText>
           {needsExtension ? (
             <Pressable
               accessibilityRole="button"
@@ -537,24 +628,19 @@ export default function DailyTasksScreen() {
                 </ThemedText>
               )}
             </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/bonus' as Href)}
-            style={({ pressed }) => [
-              styles.emptyCta,
-              {
-                backgroundColor: needsExtension ? theme.surfaceMuted : theme.tint,
-                opacity: pressed ? 0.85 : 1,
-                marginTop: needsExtension ? Spacing.two : 0,
-              },
-            ]}>
-            <ThemedText
-              type="smallBold"
-              style={{ color: needsExtension ? theme.text : theme.onAccent }}>
-              {t.daily.emptyCta}
-            </ThemedText>
-          </Pressable>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/explore' as Href)}
+              style={({ pressed }) => [
+                styles.emptyCta,
+                { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                {t.daily.emptyAction}
+              </ThemedText>
+            </Pressable>
+          )}
         </SurfaceCard>
       ) : null}
     </View>
@@ -564,26 +650,24 @@ export default function DailyTasksScreen() {
     <ThemedView style={styles.flex}>
       <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
         <FlatList
-          data={tasks}
+          data={showSkeleton ? [] : tasks}
           keyExtractor={(task) => task.id}
           renderItem={renderTask}
           ListHeaderComponent={listHeader}
           ListFooterComponent={
-            events.length > 0 ? (
+            !showSkeleton && events.length > 0 ? (
               <View style={styles.eventsBlock}>
                 <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {t.events.sectionHint}
                 </ThemedText>
-                {events.map((event) => (
-                  <DailyEventCard
-                    key={event.occurrence_id}
-                    event={event}
-                    busy={busy === `event:${event.occurrence_id}`}
-                    outcome={outcomes[`event:${event.occurrence_id}`]}
-                    onComplete={() => void completeEvent(event)}
-                  />
-                ))}
+                <EventsTimeline
+                  events={events}
+                  nowMinutes={nowMinutes}
+                  busyKey={busy}
+                  outcomes={outcomes}
+                  onComplete={(event) => void completeEvent(event)}
+                />
               </View>
             ) : null
           }
@@ -592,7 +676,10 @@ export default function DailyTasksScreen() {
             { paddingBottom: screenInsets.bottom },
           ]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+            <RefreshControl
+              refreshing={akis.refreshing && akis.data !== null}
+              onRefresh={() => void load(true)}
+            />
           }
           keyboardShouldPersistTaps="handled"
           removeClippedSubviews={Platform.OS === 'android'}
@@ -665,7 +752,7 @@ export default function DailyTasksScreen() {
       <PlanTaskEditor
         target={editTarget}
         onClose={() => setEditTarget(null)}
-        onChanged={() => void load(true)}
+        onChanged={() => invalidateGunlukAkis()}
       />
 
       {/* faz8.13/2a: mistik panel — Bugün ile senkron bottom sheet. */}
@@ -751,7 +838,7 @@ const TaskCard = memo(function TaskCard({
                     );
                   }}
                   style={styles.attributionBadge}>
-                  <ThemedText type="smallBold" style={[styles.attributionIcon, { color: theme.onAccent }]}>
+                  <ThemedText type="smallBold" style={styles.attributionIcon}>
                     ⓘ
                   </ThemedText>
                 </Pressable>
@@ -899,16 +986,36 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: Spacing.three,
   },
-  skeletonStack: {
+  progressBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.three,
   },
-  progressBlock: {
-    gap: Spacing.two,
-  },
   progressMeta: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  staleBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Radii.medium,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    minHeight: 44,
+  },
+  staleText: { flex: 1 },
+  staleRetry: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: Spacing.two,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: Radii.pill,
   },
   emptyCta: {
     alignSelf: 'flex-start',
@@ -922,11 +1029,9 @@ const styles = StyleSheet.create({
   headerLinks: {
     flexDirection: 'row',
     gap: Spacing.one,
-    flexShrink: 0,
   },
   bonusLink: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 40,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
@@ -967,14 +1072,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.two,
     bottom: Spacing.two,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   attributionIcon: {
+    color: '#fff',
     fontSize: 14,
     lineHeight: 16,
   },
@@ -1022,8 +1128,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   cameraTextButton: {
-    minHeight: 44,
-    justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,

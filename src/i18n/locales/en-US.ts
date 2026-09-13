@@ -244,6 +244,18 @@ export const enUS: Messages = {
       `Link completed · confidence ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Confidence ${confidence}/100 · try ${attempt}/3. You can take another shot.`,
+    nextUpTitle: 'Next step',
+    nextUpNow: 'Can be done now',
+    nextUpIn: (minutes) => `in ${minutes} min`,
+    blockMorning: 'Morning',
+    blockNoon: 'Midday',
+    blockEvening: 'Evening',
+    nowLine: (time) => `Now · ${time}`,
+    dayCompleteTitle: 'Day complete',
+    dayCompleteBody: 'All rings closed — your chain is growing. See you tomorrow.',
+    staleOffline: 'Offline view — showing your last known plan.',
+    emptyAction: 'Add a small step for today',
+    progressLabel: (done, total) => `${done} of ${total} done`,
   },
   events: {
     sectionTitle: 'Events',

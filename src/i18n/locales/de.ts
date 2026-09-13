@@ -244,6 +244,18 @@ export const de: Messages = {
       `Glied geschlossen · Sicherheit ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Sicherheit ${confidence}/100 · Versuch ${attempt}/3. Du kannst ein neues Foto machen.`,
+    nextUpTitle: 'Nächster Schritt',
+    nextUpNow: 'Jetzt möglich',
+    nextUpIn: (minutes) => `in ${minutes} Min.`,
+    blockMorning: 'Morgen',
+    blockNoon: 'Mittag',
+    blockEvening: 'Abend',
+    nowLine: (time) => `Jetzt · ${time}`,
+    dayCompleteTitle: 'Tag geschafft',
+    dayCompleteBody: 'Alle Ringe geschlossen — deine Kette wächst. Bis morgen.',
+    staleOffline: 'Offline-Ansicht — der letzte bekannte Plan wird angezeigt.',
+    emptyAction: 'Kleinen Schritt für heute hinzufügen',
+    progressLabel: (done, total) => `${done} von ${total} erledigt`,
   },
   events: {
     sectionTitle: 'Termine',

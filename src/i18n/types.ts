@@ -240,6 +240,19 @@ export type Messages = {
     statusExcused: string;
     proofApproved: (confidence: number, declaration: string) => string;
     proofRejected: (reason: string, confidence: number, attempt: number) => string;
+    /** 03-Bugün: sıradaki adım kartı + zaman şeridi + halka + boş durum. */
+    nextUpTitle: string;
+    nextUpNow: string;
+    nextUpIn: (minutes: number) => string;
+    blockMorning: string;
+    blockNoon: string;
+    blockEvening: string;
+    nowLine: (time: string) => string;
+    dayCompleteTitle: string;
+    dayCompleteBody: string;
+    staleOffline: string;
+    emptyAction: string;
+    progressLabel: (done: number, total: number) => string;
   };
   /** Plan etkinlikleri + plan-içi asistan (2026-09-10). */
   events: {

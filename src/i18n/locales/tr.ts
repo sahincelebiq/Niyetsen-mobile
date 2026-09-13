@@ -244,6 +244,18 @@ export const tr: Messages = {
       `Halka tamamlandı · güven ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Güven ${confidence}/100 · deneme ${attempt}/3. Yeni bir kare deneyebilirsin.`,
+    nextUpTitle: 'Sıradaki adım',
+    nextUpNow: 'Şimdi yapılabilir',
+    nextUpIn: (minutes) => `${minutes} dk sonra`,
+    blockMorning: 'Sabah',
+    blockNoon: 'Öğle',
+    blockEvening: 'Akşam',
+    nowLine: (time) => `Şu an · ${time}`,
+    dayCompleteTitle: 'Gün tamamlandı',
+    dayCompleteBody: 'Tüm halkalar kapandı — zincirin büyüyor. Yarın görüşürüz.',
+    staleOffline: 'Çevrimdışı görünüm — son bilinen plan gösteriliyor.',
+    emptyAction: 'Bugüne küçük bir adım ekle',
+    progressLabel: (done, total) => `${done}/${total} tamamlandı`,
   },
   events: {
     sectionTitle: 'Etkinlikler',

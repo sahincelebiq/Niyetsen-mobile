@@ -244,6 +244,18 @@ export const ar: Messages = {
       `أُغلقت الحلقة · ثقة ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} ثقة ${confidence}/100 · محاولة ${attempt}/3. يمكنك التقاط لقطة جديدة.`,
+    nextUpTitle: 'الخطوة التالية',
+    nextUpNow: 'يمكن إنجازه الآن',
+    nextUpIn: (minutes) => `بعد ${minutes} دقيقة`,
+    blockMorning: 'الصباح',
+    blockNoon: 'الظهر',
+    blockEvening: 'المساء',
+    nowLine: (time) => `الآن · ${time}`,
+    dayCompleteTitle: 'اكتمل اليوم',
+    dayCompleteBody: 'أُغلقت كل الحلقات — سلسلتك تكبر. نراك غدًا.',
+    staleOffline: 'وضع عدم الاتصال — يُعرض آخر مخطط معروف.',
+    emptyAction: 'أضف خطوة صغيرة لليوم',
+    progressLabel: (done, total) => `أُنجز ${done} من ${total}`,
   },
   events: {
     sectionTitle: 'الفعاليات',
