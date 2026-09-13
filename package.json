@@ -65,15 +65,9 @@
     "test:consent": "node --experimental-strip-types --test src/lib/consent-access.test.ts",
     "test:auth": "node --experimental-strip-types --test src/features/auth/auth-errors.test.ts",
     "test:keyboard": "node --experimental-strip-types --test src/lib/keyboard-geometry.test.ts",
-<<<<<<< HEAD
-    "test:zaman": "node --experimental-strip-types --test src/lib/zaman.test.ts",
-    "test:errors": "node --experimental-strip-types --test src/lib/app-error.test.ts src/lib/pii-scrub.test.ts",
     "test:onboarding-draft": "node --experimental-strip-types --test src/lib/onboarding-draft.test.ts",
-    "test": "node --experimental-strip-types --test src/lib/consent-access.test.ts src/features/auth/auth-errors.test.ts src/lib/keyboard-geometry.test.ts src/lib/zaman.test.ts src/lib/app-error.test.ts src/lib/pii-scrub.test.ts src/lib/onboarding-draft.test.ts",
-=======
     "test:gamification": "node --experimental-strip-types --import ./scripts/node-test-loader.mjs --test src/constants/scoring.test.ts src/lib/streak.test.ts src/lib/domain-events.test.ts src/lib/completion-ledger.test.ts src/lib/query-cache.test.ts src/lib/report-metrics.test.ts",
-    "test": "node --experimental-strip-types --import ./scripts/node-test-loader.mjs --test \"src/**/*.test.ts\"",
->>>>>>> origin/cursor/puan-zincir-rapor-hatti-6b4e
+    "test": "node --experimental-strip-types --test src/lib/consent-access.test.ts src/features/auth/auth-errors.test.ts src/lib/keyboard-geometry.test.ts src/lib/zaman.test.ts src/lib/app-error.test.ts src/lib/pii-scrub.test.ts src/lib/onboarding-draft.test.ts",
     "verify-env": "node scripts/verify-env.mjs",
     "build:dev:ios": "eas build --profile development --platform ios",
     "build:dev:android": "eas build --profile development --platform android",
