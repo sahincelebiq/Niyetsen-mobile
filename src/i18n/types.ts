@@ -178,6 +178,76 @@ export type Messages = {
     aiConsentOff: string;
     planConsentOff: string;
     activeIntent: (name: string) => string;
+    attachMenu: string;
+    attachMenuHint: string;
+    attachRemove: string;
+    pathsOpen: string;
+    pathsOpenHint: string;
+    /** Web composer'daki kısa gönder etiketi. */
+    sendShort: string;
+    /** Bağlam paneli (sohbet geçmişi drawer'ı). */
+    history: {
+      title: string;
+      subtitle: string;
+      close: string;
+      searchPlaceholder: string;
+      pinnedSection: string;
+      chatsSection: string;
+      intentsSection: string;
+      groupToday: string;
+      groupWeek: string;
+      groupEarlier: string;
+      emptyTitle: string;
+      emptyBody: string;
+      loading: string;
+      loadFailed: string;
+      activateFailed: string;
+      intentFailed: string;
+      newChatFailed: string;
+      newIntentFailed: string;
+      renameFailed: string;
+      deleteFailed: string;
+      rename: string;
+      renameLabel: string;
+      pin: string;
+      unpin: string;
+      remove: string;
+      deleteTitle: string;
+      deleteBody: string;
+      activeBadge: string;
+      newChat: string;
+      newChatHint: string;
+      newIntent: string;
+      newChatFallback: string;
+      secondPlanTitle: string;
+      secondPlanBody: string;
+      goSubscription: string;
+      timeNow: string;
+      timeTodayAt: (time: string) => string;
+      timeYesterday: string;
+      timeDaysAgo: (days: number) => string;
+      planReady: string;
+      planPending: string;
+      noIntentTitle: string;
+      noIntentBody: string;
+      rowActions: (title: string) => string;
+    };
+    /** Composer `＋` ek eylemler mini sayfası. */
+    attachSheet: {
+      title: string;
+      photo: string;
+      photoHint: string;
+      file: string;
+      fileHint: string;
+      bonus: string;
+      bonusHint: string;
+    };
+    /** Composer yanındaki ✿ ile açılan Felsefe Yolları mini sayfası. */
+    pathsSheet: {
+      title: string;
+      subtitle: string;
+      turn: string;
+    };
   };
   daily: {
     title: string;
