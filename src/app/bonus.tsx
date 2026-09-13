@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { pointsForCompletion } from '@/constants/scoring';
 import {
   BottomTabInset,
   MaxContentWidth,
@@ -30,13 +31,40 @@ import {
   offerBonus,
   type BonusOffer,
 } from '@/lib/api';
+import { emitGorevTamamlandi } from '@/lib/gamification';
 import { useI18n } from '@/providers/locale-provider';
 
-const BONUS_POINTS = 10;
 const BONUS_WAIT_SEC = 45;
+
+/** Sunucunun teklifle gönderdiği puan otoritedir; yoksa kural tablosu (gösterim). */
+function bonusPoints(offer: Pick<BonusOffer, 'points'> | null): number {
+  return offer && offer.points > 0 ? offer.points : pointsForCompletion('bonus');
+}
 
 function completionKey(offerId: string): string {
   return `bonus-completion:${offerId}`;
+}
+
+/**
+ * gorevTamamlandi (kaynak: bonus) — puan özeti/rapor tazelenir; zincir ve plan
+ * ilerlemesi DEĞİŞMEZ (scoring.affectsStreak). Idempotency anahtarı sunucuya
+ * gönderilen completion_id ile aynıdır.
+ */
+async function publishBonusCompletion(
+  offer: BonusOffer,
+  completionId: string,
+  awarded: number,
+): Promise<void> {
+  await emitGorevTamamlandi({
+    olayId: `bonus:${completionId}`,
+    kaynak: 'bonus',
+    planId: null,
+    planAdimiId: null,
+    hedefId: offer.id,
+    kategoriler: [offer.category],
+    tamamlandiAt: new Date().toISOString(),
+    puan: awarded > 0 ? awarded : bonusPoints(offer),
+  });
 }
 
 export default function BonusScreen() {
@@ -123,11 +151,14 @@ export default function BonusScreen() {
       }
       setCompleted(true);
       setOffer({ ...offer, status: 'completed' });
+      await publishBonusCompletion(offer, completionId, result.awarded);
     } catch (value) {
-      const hadCompletionAttempt = (await AsyncStorage.getItem(key)) !== null;
-      if (value instanceof ApiError && value.status === 409 && hadCompletionAttempt) {
+      const priorCompletionId = await AsyncStorage.getItem(key);
+      if (value instanceof ApiError && value.status === 409 && priorCompletionId) {
         setCompleted(true);
         setOffer({ ...offer, status: 'completed' });
+        // Sunucu zaten saymış (retry); aynı olayId → defter ikinci kez uygulamaz.
+        await publishBonusCompletion(offer, priorCompletionId, bonusPoints(offer));
       } else {
         setError(value instanceof Error ? value.message : t.bonus.completeFailed);
       }
@@ -137,6 +168,7 @@ export default function BonusScreen() {
   }
 
   const alreadyDone = completed || offer?.status === 'completed';
+  const offerPoints = bonusPoints(offer);
 
   return (
     <ThemedView style={styles.flex}>
@@ -188,7 +220,7 @@ export default function BonusScreen() {
                   <ThemedText type="smallBold">{offer.category}</ThemedText>
                 </ThemedView>
                 <ThemedText type="smallBold" themeColor="accentWarm">
-                  {t.bonus.points(BONUS_POINTS)}
+                  {t.bonus.points(offerPoints)}
                 </ThemedText>
               </View>
               <ThemedText type="subtitle">{offer.title}</ThemedText>
@@ -197,7 +229,7 @@ export default function BonusScreen() {
               {alreadyDone ? (
                 <ThemedView type="backgroundSelected" style={styles.success}>
                   <ThemedText type="smallBold" themeColor="success">
-                    {t.bonus.doneTitle(BONUS_POINTS)}
+                    {t.bonus.doneTitle(offerPoints)}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.bonus.doneBody}

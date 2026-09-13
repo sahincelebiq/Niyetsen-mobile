@@ -204,7 +204,11 @@ export const tr: Messages = {
     proofFailed: 'Kanıt yüklenemedi.',
     proofBusy: 'Önceki fotoğraf hâlâ işleniyor. Birkaç saniye bekle, sonra yeni kare dene.',
     declarationAccepted: ' Beyanınla kabul edildi.',
-    excuseBody: 'Mazeret puanı sabit −25 olur ve sessiz kaçırma sayacı sıfırlanır.',
+    excuseBody: (penalty) =>
+      `Mazeret puanı sabit −${penalty} olur ve sessiz kaçırma sayacı sıfırlanır.`,
+    proofApproved: (points, confidence) =>
+      `Halka tamamlandı · +${points} puan · güven ${confidence}/100.`,
+    milestoneReached: (days) => `${days} günlük zincir — bu halka artık senin.`,
     deviceFailed: 'Cihaz işlemi tamamlanamadı.',
     mysticOpen: 'Mistik paneli aç',
     reportShort: 'Rapor',
@@ -227,7 +231,8 @@ export const tr: Messages = {
   },
   events: {
     sectionTitle: 'Etkinlikler',
-    sectionHint: 'Fotosuz — “Yaptım” ile işaretle, +50 puan. Kaçırılınca ceza yok.',
+    sectionHint: (points) =>
+      `Fotosuz — “Yaptım” ile işaretle, +${points} puan. Kaçırılınca ceza yok.`,
     markDone: 'Yaptım',
     done: 'Tamamlandı',
     completed: (points) => `Etkinlik tamamlandı — halkaya +${points} işlendi.`,
@@ -287,6 +292,10 @@ export const tr: Messages = {
     recapOpen: 'Niyetsen raporunu aç',
     recapHintFree: 'Panel açık; 7 günlük özet ücretsiz, 30 gün PRO',
     then: 'Sonra',
+    nextMilestone: (remaining, day) =>
+      remaining === 1
+        ? `${day} günlük halkaya 1 gün kaldı.`
+        : `${day} günlük halkaya ${remaining} gün kaldı.`,
   },
   plan: {
     title: 'Planım',
@@ -315,7 +324,7 @@ export const tr: Messages = {
     deleteConfirmAction: 'Sil',
     addTask: 'Görev ekle',
     addTaskTitle: 'Yeni görev',
-    addTaskHint: 'Bu güne kendi görevini ekle — tamamlayınca +50 yolu açılır.',
+    addTaskHint: (points) => `Bu güne kendi görevini ekle — tamamlayınca +${points} yolu açılır.`,
     addTaskAction: 'Ekle',
     notEditable: 'Bu görev artık düzenlenemez.',
     pastDayBlocked: 'Geçmiş güne görev eklenemez veya taşınamaz.',
@@ -648,6 +657,14 @@ export const tr: Messages = {
     weekday: ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'],
     prevCard: 'Önceki kart',
     nextCard: 'Sonraki kart',
+    periodPoints: 'Dönem puanı',
+    dailyRate: (rate) => `Günlük %${rate}`,
+    weeklyRate: (rate) => `Haftalık %${rate}`,
+    planAlignment: 'Plan uyumu',
+    planAlignmentScheduled: (scheduled, total) => `Etkinliğe dönüşen · ${scheduled} / ${total} adım`,
+    planAlignmentCompleted: (completed, total) => `Tamamlanan · ${completed} / ${total} adım`,
+    peakHours: (window, share) => `En çok ${window} arası tamamlıyorsun (%${share}).`,
+    patternsEmpty: 'İlk haftanı tamamla, deseni burada göstereyim.',
   },
   companion: {
     title: 'Yoldaşını seç',
@@ -707,7 +724,7 @@ export const tr: Messages = {
     aliasA11y: 'Lig rumuzu',
     joinCta: 'Rumuzla katıl',
     ranked: (n) => `Şu an ${n}. sıradasın — zincirin seni taşıyor.`,
-    unranked: 'Sıralaman ilk 50 dışında — her görev +50 puan.',
+    unranked: (points) => `Sıralaman ilk 50 dışında — her görev +${points} puan.`,
     leaveA11y: 'Ligden ayrıl',
     emptyTitle: 'Lig yeni kuruluyor 🌱',
     emptyBody: 'İlk katılanlardan ol — arkadaşlarını davet et, gelişim yolculuğunuzu birlikte sürdürün.',

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { ScoringRules } from '@/constants/scoring';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -342,7 +343,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
             <>
               <ThemedText type="subtitle">{t.plan.addTaskTitle}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {t.plan.addTaskHint}
+                {t.plan.addTaskHint(ScoringRules.planGorevi)}
               </ThemedText>
               {addDate ? (
                 <ThemedText type="smallBold" themeColor="tint">

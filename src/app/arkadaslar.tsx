@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
+import { ScoringRules } from '@/constants/scoring';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useTheme } from '@/hooks/use-theme';
@@ -167,7 +168,7 @@ export default function LeagueScreen() {
               <ThemedText type="small" themeColor="textSecondary">
                 {league.my_rank
                   ? t.league.ranked(league.my_rank)
-                  : t.league.unranked}
+                  : t.league.unranked(ScoringRules.planGorevi)}
               </ThemedText>
             </View>
             <Pressable

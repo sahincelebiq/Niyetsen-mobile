@@ -62,7 +62,14 @@ import {
   uploadTaskProof,
 } from '@/lib/api';
 import { DailyEventCard } from '@/components/plan-event-card';
+import {
+  awardedPointsFromMessage,
+  pointsForCompletion,
+  ScoringRules,
+} from '@/constants/scoring';
+import { emitGorevTamamlandi, recordServerState } from '@/lib/gamification';
 import { getPushStatus } from '@/lib/push-notifications';
+import { CacheKeys } from '@/lib/query-cache';
 import { useAuth } from '@/providers/auth-provider';
 import {
   addTaskToCalendar,
@@ -148,6 +155,7 @@ export default function DailyTasksScreen() {
         const state = await getState();
         setYesterdayMisses(state.yesterday_silent_misses ?? 0);
         syncStreak(state.streak_len);
+        recordServerState(state);
       } catch {
         setYesterdayMisses(0);
       }
@@ -189,7 +197,14 @@ export default function DailyTasksScreen() {
     }
   }
 
-  useWarmFocusReload(load, tasks.length > 0 || events.length > 0 || needsExtension);
+  // gorevTamamlandi → ['gun'] / ['plan'] bayatlar → bu ekran sessiz yenilenir
+  // (Planım'dan yapılan tamamlama da dahil; elle yenileme gerekmez).
+  useWarmFocusReload(
+    load,
+    tasks.length > 0 || events.length > 0 || needsExtension,
+    undefined,
+    [CacheKeys.gun(), CacheKeys.plan()],
+  );
 
   const setOutcome = useCallback((taskId: string, outcome: Outcome) => {
     setOutcomes((current) => ({ ...current, [taskId]: outcome }));
@@ -203,8 +218,26 @@ export default function DailyTasksScreen() {
         const response = await completePlanEvent(event.occurrence_id);
         setEvents(response.events);
         if (typeof response.streak_len === 'number') syncStreak(response.streak_len);
-        // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
-        setOutcome(key, { tone: 'success', message: t.events.completed(50) });
+        // Puan sunucudan ("+N" mesajı); yoksa kural tablosu. Metin kullanıcı dilinde.
+        const puan = awardedPointsFromMessage(response.message, pointsForCompletion('plan_etkinlik'));
+        const sonuc = await emitGorevTamamlandi({
+          olayId: `occurrence:${event.occurrence_id}`,
+          kaynak: 'plan_etkinlik',
+          planId: event.plan_id,
+          // 04 sözleşmesi: DailyEventItem `plan_adimi_id` taşımaya başlayınca buraya bağlanır.
+          planAdimiId: null,
+          hedefId: event.event_id,
+          kategoriler: event.categories,
+          tamamlandiAt: new Date().toISOString(),
+          puan,
+          zincir: response.streak_len ?? null,
+        });
+        setOutcome(key, {
+          tone: 'success',
+          message: sonuc.milestone
+            ? `${t.events.completed(puan)} ${t.daily.milestoneReached(sonuc.milestone)}`
+            : t.events.completed(puan),
+        });
         void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
       } catch (value) {
         const status = value instanceof ApiError ? value.status : 0;
@@ -284,9 +317,24 @@ export default function DailyTasksScreen() {
       });
       if (result.approved) {
         void trackEvent('task_completed', { task_id: task.id, via: 'proof' });
+        const puan = awardedPointsFromMessage(result.reason, pointsForCompletion('plan_gorev'));
+        const sonuc = await emitGorevTamamlandi({
+          olayId: `proof:${result.proof_id ?? task.id}`,
+          kaynak: 'plan_gorev',
+          planId: null,
+          planAdimiId: null,
+          hedefId: task.id,
+          kategoriler: task.categories,
+          tamamlandiAt: new Date().toISOString(),
+          puan,
+        });
+        showProofOutcome(task, result, puan, sonuc.milestone);
+        // Olay ['gun'] anahtarını bayatlattı → useWarmFocusReload zaten sessiz yeniledi.
+        if (!sonuc.applied) await load(true);
+      } else {
+        showProofOutcome(task, result, 0, null);
+        await load(true);
       }
-      showProofOutcome(task, result);
-      await load(true);
     } catch (value) {
       setCameraTask(null);
       let message =
@@ -307,12 +355,18 @@ export default function DailyTasksScreen() {
     }
   }
 
-  function showProofOutcome(task: Task, result: ProofResult) {
+  function showProofOutcome(
+    task: Task,
+    result: ProofResult,
+    puan: number,
+    milestone: number | null,
+  ) {
     const declaration = result.accepted_by_declaration ? t.daily.declarationAccepted : '';
+    const celebration = milestone ? ` ${t.daily.milestoneReached(milestone)}` : '';
     setOutcome(task.id, {
       tone: result.approved ? 'success' : 'danger',
       message: result.approved
-        ? `Halka tamamlandı · güven ${result.confidence}/100.${declaration}`
+        ? `${t.daily.proofApproved(puan, result.confidence)}${declaration}${celebration}`
         : `${result.reason} Güven ${result.confidence}/100 · deneme ${result.attempt_no}/3. Yeni bir kare deneyebilirsin.`,
     });
   }
@@ -334,7 +388,7 @@ export default function DailyTasksScreen() {
   }
 
   function confirmExcuse(task: Task) {
-    const message = t.daily.excuseBody;
+    const message = t.daily.excuseBody(Math.abs(ScoringRules.mazeret));
     if (Platform.OS === 'web') {
       if (globalThis.confirm?.(message)) void performExcuse(task);
       return;
@@ -555,7 +609,7 @@ export default function DailyTasksScreen() {
               <View style={styles.eventsBlock}>
                 <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {t.events.sectionHint}
+                  {t.events.sectionHint(ScoringRules.planEtkinlik)}
                 </ThemedText>
                 {events.map((event) => (
                   <DailyEventCard
@@ -684,8 +738,8 @@ const TaskCard = memo(function TaskCard({
   const pending = task.status === 'pending';
   const willpowerTask = supportsWillpowerReminder(task);
   const celebrate = outcome?.tone === 'success' || task.status === 'done';
-  const pointsMatch = outcome?.message.match(/\+(\d+)/);
-  const awardedPoints = pointsMatch ? Number(pointsMatch[1]) : 0;
+  const awardedPoints =
+    outcome?.tone === 'success' ? awardedPointsFromMessage(outcome.message, 0) : 0;
 
   return (
     <View style={styles.cardShell}>

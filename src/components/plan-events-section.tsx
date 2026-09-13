@@ -13,6 +13,7 @@ import { PlanEventRow } from '@/components/plan-event-card';
 import { PlanEventEditor } from '@/components/plan-event-editor';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
+import { ScoringRules } from '@/constants/scoring';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
@@ -102,7 +103,7 @@ export function PlanEventsSection({ planId, planName, reloadKey = 0, onChanged }
         <View style={styles.headerText}>
           <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            {t.events.sectionHint}
+            {t.events.sectionHint(ScoringRules.planEtkinlik)}
           </ThemedText>
         </View>
       </View>

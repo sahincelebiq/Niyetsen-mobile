@@ -12,10 +12,12 @@ import { useTheme } from '@/hooks/use-theme';
 
 type ProgressBarProps = {
   progress: number;
+  /** Dolgu rengi (tema token'ı); varsayılan `tint`. Rapor vurgu serisi `accentWarm`. */
+  color?: string;
 };
 
 /** Gün ilerlemesi — progressTrack üstüne tint dolgu, ≤300ms. */
-export function ProgressBar({ progress }: ProgressBarProps) {
+export function ProgressBar({ progress, color }: ProgressBarProps) {
   const theme = useTheme();
   const clamped = Math.max(0, Math.min(1, progress));
   const width = useSharedValue(clamped);
@@ -37,7 +39,7 @@ export function ProgressBar({ progress }: ProgressBarProps) {
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped * 100) }}
       style={[styles.track, { backgroundColor: theme.progressTrack }]}>
       <Animated.View
-        style={[styles.fill, { backgroundColor: theme.tint }, fillStyle]}
+        style={[styles.fill, { backgroundColor: color ?? theme.tint }, fillStyle]}
       />
     </View>
   );
