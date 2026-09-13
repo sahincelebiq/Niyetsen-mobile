@@ -13,7 +13,7 @@ import Animated, {
 
 import { StreakPill } from '@/components/streak-pill';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Motion, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLocale } from '@/providers/locale-provider';
 
@@ -28,9 +28,19 @@ type ChatHeaderProps = {
    * yalnız küçük bir sembol, ana akışta reklamı yapılmaz.
    */
   onSecretGesture?: () => void;
+  /** Aktif niyet adı — başlığın altında çip olarak görünür (varsa). */
+  activeIntentName?: string | null;
+  /** Kullanıcı geçmişe kaydırdı: başlık yapışkan ince bara küçülür. */
+  compact?: boolean;
+  /**
+   * Klavye açık: başlık incelir ama aktif niyet çipi görünür kalır —
+   * tab bar gizlendiğinde "sohbet modundasın" ipucu bu satırdır.
+   */
+  keyboardOpen?: boolean;
 };
 
 const HIT_SLOP_44 = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+const CHIP_ROW_HEIGHT = 34;
 
 /**
  * ☾ nabız (faz8.13 / 1c): "yeni filiz" göstergesiyle aynı ritimde yumuşak
@@ -73,6 +83,9 @@ export function ChatHeader({
   trialDaysRemaining,
   onOpenHistory,
   onSecretGesture,
+  activeIntentName,
+  compact = false,
+  keyboardOpen = false,
 }: ChatHeaderProps) {
   const theme = useTheme();
   const { t } = useLocale();
@@ -81,8 +94,44 @@ export function ChatHeader({
     trialDaysRemaining > 0 &&
     trialDaysRemaining <= 7;
 
+  // İnce bar: scroll'da tam küçülme; klavyede başlık incelir, niyet çipi kalır.
+  const thin = compact || keyboardOpen;
+  const chipVisible = !!activeIntentName && (!compact || keyboardOpen);
+
+  const thinProgress = useSharedValue(0);
+  const chipProgress = useSharedValue(chipVisible ? 1 : 0);
+
+  useEffect(() => {
+    thinProgress.value = withTiming(thin ? 1 : 0, {
+      duration: Motion.base,
+      easing: Easing.out(Easing.quad),
+      reduceMotion: ReduceMotion.System,
+    });
+  }, [thin, thinProgress]);
+
+  useEffect(() => {
+    chipProgress.value = withTiming(chipVisible ? 1 : 0, {
+      duration: Motion.base,
+      easing: Easing.out(Easing.quad),
+      reduceMotion: ReduceMotion.System,
+    });
+  }, [chipVisible, chipProgress]);
+
+  const titleAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - thinProgress.value * 0.16 }],
+  }));
+  const barAnim = useAnimatedStyle(() => ({
+    paddingBottom: Spacing.two - thinProgress.value * Spacing.one,
+  }));
+  const chipAnim = useAnimatedStyle(() => ({
+    opacity: chipProgress.value,
+    maxHeight: chipProgress.value * CHIP_ROW_HEIGHT,
+    marginTop: chipProgress.value * Spacing.one,
+    overflow: 'hidden',
+  }));
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, barAnim]}>
       <View style={styles.titleRow}>
         <View style={styles.leftCluster}>
           {onOpenHistory ? (
@@ -104,12 +153,11 @@ export function ChatHeader({
           accessibilityRole="header"
           delayLongPress={700}
           onLongPress={onSecretGesture}>
-          <ThemedText type="screenTitle" style={styles.titleText} numberOfLines={1}>
-            {t.chat.title}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.titleText}>
-            {t.chat.subtitle}
-          </ThemedText>
+          <Animated.View style={titleAnim}>
+            <ThemedText type="screenTitle" style={styles.titleText} numberOfLines={1}>
+              {t.chat.title}
+            </ThemedText>
+          </Animated.View>
         </Pressable>
         <View style={styles.rightCluster} pointerEvents="box-none">
           {onSecretGesture ? (
@@ -131,6 +179,24 @@ export function ChatHeader({
           <StreakPill streakDays={streakDays} compact />
         </View>
       </View>
+      {activeIntentName ? (
+        <Animated.View
+          style={[
+            styles.intentChip,
+            {
+              backgroundColor: theme.backgroundSelected,
+              borderColor: theme.border,
+            },
+            chipAnim,
+          ]}
+          accessibilityElementsHidden={!chipVisible}
+          importantForAccessibility={chipVisible ? 'auto' : 'no-hide-descendants'}>
+          <MaterialCommunityIcons name="sprout-outline" size={15} color={theme.tint} />
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {t.chat.activeIntent(activeIntentName)}
+          </ThemedText>
+        </Animated.View>
+      ) : null}
       {showTrial ? (
         <View style={styles.trialChip}>
           <ThemedText type="smallBold" themeColor="accentWarm">
@@ -138,7 +204,7 @@ export function ChatHeader({
           </ThemedText>
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -200,12 +266,22 @@ const styles = StyleSheet.create({
   titles: {
     flex: 1,
     minWidth: 0,
-    gap: Spacing.half,
     alignItems: 'center',
   },
   titleText: {
     textAlign: 'center',
     flexShrink: 1,
+  },
+  intentChip: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    maxWidth: '100%',
+    borderRadius: Radii.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
   },
   trialChip: {
     alignSelf: 'center',

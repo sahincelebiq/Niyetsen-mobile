@@ -1,11 +1,17 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { forwardRef } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, {
+  ReduceMotion,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset, Fonts, MaxContentWidth, Radii, Shadows, Spacing,
+  BottomTabInset, Fonts, MaxContentWidth, Motion, Radii, Shadows, Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLocale } from '@/providers/locale-provider';
@@ -24,15 +30,20 @@ export type ChatComposerProps = {
   /** true iken input yazılabilir kalır, yalnız gönderme kilitlenir (yanıt beklenirken). */
   sending?: boolean;
   pendingAttachment?: PendingAttachment | null;
-  onAttach?: () => void;
+  /** `＋` butonu: ek eylemler mini sayfasını açar (fotoğraf / dosya / bonus). */
+  onOpenActions?: () => void;
   onClearAttachment?: () => void;
   attaching?: boolean;
+  /** Composer yanındaki ✿ ikonu: Felsefe Yolları mini sayfasını açar. */
+  onOpenPaths?: () => void;
   /**
    * Overlay klavye açıkken tab payı düşer (kutu klavyenin üstüne oturur).
    * adjustResize'da false kalmalı — tab bar hâlâ görünür, pay silinirse yazı gizlenir.
    */
   keyboardOpen?: boolean;
 };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatComposer(
   {
@@ -42,9 +53,10 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
     disabled,
     sending = false,
     pendingAttachment,
-    onAttach,
+    onOpenActions,
     onClearAttachment,
     attaching = false,
+    onOpenPaths,
     keyboardOpen = false,
   },
   ref,
@@ -53,11 +65,20 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Overlay + lift varken tab bar klavyenin arkasındadır → küçük nefes yeter.
+  // Overlay + lift varken tab bar klavyenin arkasındadır → gerçek nefes payı yeter.
   // Resize / kapalı: tab bar görünür, BottomTabInset kalmazsa yazı kutusu sekmelerin altında kaybolur.
   const bottomPadding = keyboardOpen
-    ? Spacing.two
+    ? Spacing.three
     : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
+
+  // Gönder butonu durumu renkle konuşur: boşken soluk yüzey, yazınca mercan
+  // dolgu — Motion.fast ile yumuşak geçiş (reduce-motion'da sönümlenir).
+  const sendAnimStyle = useAnimatedStyle(() => ({
+    backgroundColor: withTiming(canSend ? theme.accentWarm : theme.surfaceMuted, {
+      duration: Motion.fast,
+      reduceMotion: ReduceMotion.System,
+    }),
+  }));
 
   return (
     <View ref={ref} collapsable={false} style={styles.dockMeasure}>
@@ -80,7 +101,11 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             <ThemedText type="small" numberOfLines={1} style={styles.attachmentName}>
               📎 {pendingAttachment.filename}
             </ThemedText>
-            <Pressable onPress={onClearAttachment} hitSlop={8}>
+            <Pressable
+              onPress={onClearAttachment}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.chat.attachRemove}>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 ✕
               </ThemedText>
@@ -92,11 +117,12 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             styles.inputShell,
             { backgroundColor: theme.backgroundElement, borderColor: theme.border },
           ]}>
-          {onAttach ? (
+          {onOpenActions ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t.chat.attachFile}
-              onPress={onAttach}
+              accessibilityLabel={t.chat.attachMenu}
+              accessibilityHint={t.chat.attachMenuHint}
+              onPress={onOpenActions}
               disabled={disabled || attaching}
               style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}>
               <ThemedText style={styles.attachGlyph}>{attaching ? '…' : '＋'}</ThemedText>
@@ -119,20 +145,41 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             submitBehavior="submit"
             onSubmitEditing={onSubmit}
           />
-          <Pressable
+          {onOpenPaths ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.chat.pathsOpen}
+              accessibilityHint={t.chat.pathsOpenHint}
+              onPress={onOpenPaths}
+              disabled={disabled}
+              style={({ pressed }) => [styles.pathsButton, pressed && styles.pressed]}>
+              <MaterialCommunityIcons
+                name="flower-tulip-outline"
+                size={22}
+                color={theme.tint}
+              />
+            </Pressable>
+          ) : null}
+          <AnimatedPressable
             accessibilityRole="button"
             accessibilityLabel={t.chat.sendMessage}
+            accessibilityState={{ disabled: !canSend }}
             onPress={onSubmit}
             disabled={!canSend}
             style={({ pressed }) => [
               styles.sendCircle,
-              { backgroundColor: theme.accentWarm },
-              !canSend && styles.sendDisabled,
+              sendAnimStyle,
+              canSend ? (Shadows.clay ?? {}) : null,
               pressed && canSend && styles.pressed,
-              Shadows.clay ?? {},
             ]}>
-            <ThemedText style={[styles.sendGlyph, { color: theme.onAccent }]}>↑</ThemedText>
-          </Pressable>
+            <ThemedText
+              style={[
+                styles.sendGlyph,
+                { color: canSend ? theme.onAccent : theme.textSecondary },
+              ]}>
+              ↑
+            </ThemedText>
+          </AnimatedPressable>
         </View>
         </View>
       </ThemedView>
@@ -160,7 +207,7 @@ const styles = StyleSheet.create({
   inputShell: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.half,
     borderRadius: Radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
     paddingLeft: Spacing.one,
@@ -179,6 +226,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 24,
     fontFamily: Fonts.sansBold,
+  },
+  pathsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   attachmentChip: {
     flexDirection: 'row',
@@ -199,7 +253,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     fontSize: 16,
     lineHeight: 22,
-    maxHeight: 120,
+    // 5 satır + dikey padding; sonrasında kendi içinde kayar.
+    maxHeight: 126,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
     includeFontPadding: false,
@@ -215,9 +270,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 22,
     fontFamily: Fonts.sansBold,
-  },
-  sendDisabled: {
-    opacity: 0.35,
   },
   pressed: {
     opacity: 0.85,

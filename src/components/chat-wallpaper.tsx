@@ -38,8 +38,9 @@ export const ChatWallpaper = memo(function ChatWallpaper() {
     return items;
   }, [width, height]);
 
+  // Desen geri çekildi: metin okunabilirliğini gölgelemesin (ss-08 geri bildirimi).
   const glyphColor =
-    scheme === 'dark' ? 'rgba(160, 190, 150, 0.11)' : 'rgba(61, 122, 78, 0.09)';
+    scheme === 'dark' ? 'rgba(160, 190, 150, 0.06)' : 'rgba(61, 122, 78, 0.05)';
 
   return (
     <View
