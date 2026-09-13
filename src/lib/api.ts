@@ -584,17 +584,33 @@ export function deletePlanTask(taskId: string): Promise<void> {
   });
 }
 
+/** Boş gün/plan yanıtı — H4: "görev yok" bir HATA DEĞİL, boş durumdur. */
+export function emptyDailyTasks(): DailyTasksResponse {
+  return {
+    items: [],
+    events: [],
+    needs_extension: false,
+    plan_day: null,
+    batch_generated_until: null,
+    active_plan_name: '',
+    has_active_plan: false,
+  };
+}
+
 export async function getDailyTasks(): Promise<DailyTasksResponse> {
-  const raw = await request<DailyTasksResponse | DailyTaskItem[]>('/tasks/daily');
+  let raw: DailyTasksResponse | DailyTaskItem[];
+  try {
+    raw = await request<DailyTasksResponse | DailyTaskItem[]>('/tasks/daily');
+  } catch (e) {
+    // Aktif plan yoksa backend 404 döner — ekran hata kartına değil boş duruma düşer.
+    if (e instanceof ApiError && e.status === 404) return emptyDailyTasks();
+    throw e;
+  }
   // Eski backend dizi döndürebilir — geri uyum.
   if (Array.isArray(raw)) {
     return {
+      ...emptyDailyTasks(),
       items: raw,
-      events: [],
-      needs_extension: false,
-      plan_day: null,
-      batch_generated_until: null,
-      active_plan_name: '',
       has_active_plan: raw.length > 0,
     };
   }
