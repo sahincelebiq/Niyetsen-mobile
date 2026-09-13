@@ -1,9 +1,10 @@
 /**
  * Niyetsen — Backend API İstemcisi
  * Tüm tipler app/models/schemas.py ile birebir eşleşir; alan adlarını değiştirme.
- * Kimlik: dev'de X-User-Id header'ı (backend AUTH_DISABLED=true iken). Kullanıcı
- * kimliği cihazda AsyncStorage'da saklanır — CLAUDE.md kuralı: localStorage YOK,
- * Expo'da AsyncStorage/SecureStore kullan.
+ * Kimlik: request() her çağrıda Supabase JWT Bearer gönderir (oturum yoksa
+ * istemci 401). Backend AUTH_DISABLED=true iken X-User-Id kabul eder; bu
+ * istemci o başlığı göndermez — Bearer yoksa istek atılmaz. Oturum
+ * SecureStore/AsyncStorage'da (localStorage YOK).
  */
 import { supabase } from '@/lib/supabase';
 import { getApiLocale } from '@/lib/api-locale';
@@ -179,6 +180,8 @@ export type ChatResponse = {
   tool_calls: ToolCall[];
   /** Tek dokunuşluk hızlı yanıtlar (boş olabilir). */
   suggestions?: string[];
+  /** faz8.13/1b: sohbet konusundan türeyen oturum başlığı (tek seferlik). */
+  thread_title?: string | null;
 };
 
 export type ChatSession = {
@@ -225,6 +228,7 @@ export type Task = {
   tiny_version: string;
   status: TaskStatus;
   date: string | null;
+  proof_id?: string | null;
 };
 
 export type PlanDay = { day: number; theme: string; tasks: Task[] };
@@ -246,6 +250,12 @@ export type PlanSummary = {
   slot_no: number;
   is_active: boolean;
   has_content: boolean;
+};
+
+/** schemas.PlanGenerateRequest — /plan/generate ve /plan/next gövdesi. */
+export type PlanGenerateRequest = {
+  collected?: CollectedIntent;
+  duration_days?: number;
 };
 
 export type DailyTaskItem = {
@@ -487,6 +497,23 @@ export function generatePlan(collected: CollectedIntent, durationDays = 7): Prom
   }, { timeoutMs: PlanTimeoutMs });
 }
 
+/**
+ * Var olan planın sonraki partisi (Gemini). Geçmiş gün uydurulmaz.
+ * collected gönderilmezse sunucu saklı niyeti kullanır. duration_days
+ * şemada vardır ama sunucu mevcut plan süresini kullanır.
+ * Bugünün günü yoksa /plan/ensure-today (ensureTodayPlan) doğru uçtur.
+ */
+export function generateNextPlanBatch(req?: PlanGenerateRequest): Promise<Plan> {
+  return request<Plan>(
+    '/plan/next',
+    {
+      method: 'POST',
+      body: JSON.stringify(req ?? {}),
+    },
+    { timeoutMs: PlanTimeoutMs },
+  );
+}
+
 /** Var olan planı okur; hiç plan yoksa null döner (404'ü hata saymaz). */
 export async function getCurrentPlan(): Promise<Plan | null> {
   try {
@@ -503,6 +530,15 @@ export async function getCurrentPlan(): Promise<Plan | null> {
  */
 export function getChatSession(): Promise<ChatSession> {
   return request<ChatSession>('/chat/session', undefined, { timeoutMs: ChatTimeoutMs });
+}
+
+/**
+ * Aktif oturumun ham mesaj listesi. Query yok; boşsa [].
+ * Açılış hydrate için /chat/session daha zengin (collected + plan bayrakları);
+ * ChatHistorySheet oturum listesini /chat/threads ile yükler.
+ */
+export function getChatHistory(): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>('/chat/history', undefined, { timeoutMs: ChatTimeoutMs });
 }
 
 /** Boş sohbet veya yeni niyet başlangıcında saat/isim bazlı karşılama metni. */
