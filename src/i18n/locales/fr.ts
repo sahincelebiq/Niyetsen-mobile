@@ -12,6 +12,7 @@ export const fr: Messages = {
     next: 'Suivant',
     done: 'Terminé',
     errorGeneric: 'Une erreur est survenue. Réessaie dans un instant.',
+    errorCode: (kod) => `Code d'erreur : ${kod}`,
     offlineBanner: 'Connexion impossible — mode hors ligne.',
     rtlRestartTitle: 'Redémarrage requis',
     rtlRestartBody:
@@ -431,6 +432,10 @@ export const fr: Messages = {
     premium: 'Premium',
     birthInvalid: 'Date au format jour.mois.année (ex. 10.04.1995).',
     pushStatusFailed: 'Statut des notifs illisible.',
+    pushUnsupported: 'Notifications distantes indisponibles dans ce build ; utilise le build du store.',
+    pushPermissionOff: 'Autorisation coupée dans les réglages de l’appareil.',
+    pushEnabled: 'Notifications activées.',
+    pushDisabled: 'Notifications coupées. Modifiable aussi dans les réglages système.',
     consentSaveFailed: 'Préférence non enregistrée.',
     notifPrefFailed: 'Préférence de notif non changée.',
     sectionOpen: 'Ouvrir la section',

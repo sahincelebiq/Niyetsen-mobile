@@ -12,6 +12,7 @@ export const ar: Messages = {
     next: 'التالي',
     done: 'تم',
     errorGeneric: 'حدث خطأ. حاول مرة أخرى بعد قليل.',
+    errorCode: (kod) => `رمز الخطأ: ${kod}`,
     offlineBanner: 'تعذّر الاتصال — أنت في وضع عدم الاتصال.',
     rtlRestartTitle: 'يلزم إعادة التشغيل',
     rtlRestartBody:
@@ -431,6 +432,10 @@ export const ar: Messages = {
     premium: 'بريميوم',
     birthInvalid: 'أدخل الميلاد يوم.شهر.سنة (مثال 10.04.1995).',
     pushStatusFailed: 'تعذّر قراءة حالة الإشعارات.',
+    pushUnsupported: 'الإشعارات عن بُعد غير مدعومة في هذه النسخة؛ استخدم نسخة المتجر.',
+    pushPermissionOff: 'إذن الإشعارات مغلق من إعدادات الجهاز.',
+    pushEnabled: 'تم تفعيل الإشعارات.',
+    pushDisabled: 'تم إيقاف الإشعارات. يمكنك تغيير إذن النظام من إعدادات الجهاز أيضاً.',
     consentSaveFailed: 'تعذّر حفظ التفضيل.',
     notifPrefFailed: 'تعذّر تغيير تفضيل الإشعار.',
     sectionOpen: 'افتح القسم',
