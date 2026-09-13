@@ -1,13 +1,20 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Calendar from 'expo-calendar';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { Task, ToolCall } from '@/lib/api';
+import { ensureNotificationChannels } from '@/lib/notification-channels';
+import { captureException } from '@/lib/sentry';
+import { uiCopy } from '@/lib/ui-copy';
 
 export type DeviceActionResult = {
   ok: boolean;
   message: string;
 };
+
+const TASK_CHANNEL_ID = 'gorev-zamani';
+const DAILY_LOCAL_ID_KEY = 'irade-daily-id';
 
 export function supportsWillpowerReminder(task: Task): boolean {
   return task.categories.some((category) => category === 'İrade' || category === 'Disiplin');
@@ -23,6 +30,14 @@ function taskStart(task: Task, hour: number, minute = 0): Date {
     return new Date(start.getTime() + 24 * 60 * 60 * 1000);
   }
   return start;
+}
+
+async function ensureTaskChannel(): Promise<void> {
+  try {
+    await ensureNotificationChannels(uiCopy().settings);
+  } catch (error) {
+    captureException(error, 'reminders:channels');
+  }
 }
 
 export async function scheduleTaskNotification(
@@ -45,14 +60,8 @@ export async function scheduleTaskNotification(
     };
   }
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('irade-gorevleri', {
-      name: 'İrade görevleri',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 300, 200, 300],
-      sound: 'default',
-    });
-  }
+  await ensureTaskChannel();
+  const copy = uiCopy().settings;
 
   let triggerDate = taskStart(task, hour, minute);
   if (triggerDate.getTime() <= Date.now()) {
@@ -60,17 +69,82 @@ export async function scheduleTaskNotification(
   }
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Bugünün halkası seni bekliyor',
-      body: task.title,
+      title: copy.dailyReminderTitle,
+      body: copy.dailyReminderBody(task.title),
       sound: 'default',
       data: { taskId: task.id, url: '/daily' },
     },
     trigger:
       Platform.OS === 'android'
-        ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate, channelId: 'irade-gorevleri' }
+        ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate, channelId: TASK_CHANNEL_ID }
         : { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate },
   });
   return { ok: true, message: 'İrade hatırlatıcısı kuruldu.' };
+}
+
+/**
+ * Görev 01-E: günlük yerel hatırlatıcı — push'tan tamamen bağımsız.
+ * Sunucudaki kayıtlı saat değiştiğinde eski zamanlama iptal edilip yenisi
+ * kurulur; DAILY tetikleyici cihaz saat dilimini kullanır.
+ */
+export async function rescheduleDailyLocalReminder(
+  hour: number,
+  minute = 0,
+): Promise<boolean> {
+  try {
+    if (Platform.OS === 'web') return false;
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted) return false;
+    await ensureTaskChannel();
+    const previous = await AsyncStorage.getItem(DAILY_LOCAL_ID_KEY).catch(() => null);
+    if (previous) {
+      await Notifications.cancelScheduledNotificationAsync(previous).catch(() => undefined);
+    }
+    const copy = uiCopy().settings;
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: copy.dailyReminderTitle,
+        body: copy.channelDailyDesc,
+        sound: 'default',
+        data: { url: '/daily', kind: 'daily-local' },
+      },
+      trigger:
+        Platform.OS === 'android'
+          ? {
+              type: Notifications.SchedulableTriggerInputTypes.DAILY,
+              hour,
+              minute,
+              channelId: TASK_CHANNEL_ID,
+            }
+          : { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute },
+    });
+    await AsyncStorage.setItem(DAILY_LOCAL_ID_KEY, id).catch(() => undefined);
+    return true;
+  } catch (error) {
+    captureException(error, 'reminders:daily');
+    return false;
+  }
+}
+
+/** Saat dilimi değişiminde günlük hatırlatıcıyı aynı saatle yeniden kurar. */
+export async function refreshDailyLocalOnTimezoneChange(
+  hour: number,
+  minute = 0,
+): Promise<boolean> {
+  return rescheduleDailyLocalReminder(hour, minute);
+}
+
+export async function cancelDailyLocalReminder(): Promise<void> {
+  try {
+    const previous = await AsyncStorage.getItem(DAILY_LOCAL_ID_KEY).catch(() => null);
+    if (previous) {
+      await Notifications.cancelScheduledNotificationAsync(previous).catch(() => undefined);
+    }
+  } catch (error) {
+    captureException(error, 'reminders:daily-cancel');
+  } finally {
+    await AsyncStorage.removeItem(DAILY_LOCAL_ID_KEY).catch(() => undefined);
+  }
 }
 
 export async function addTaskToCalendar(
@@ -133,12 +207,16 @@ export async function executeDeviceTool(
     if (!permission.granted) {
       return { ok: false, message: 'Bildirim izni verilmedi; alarm kurulmadı.' };
     }
+    await ensureTaskChannel();
     const time = String(call.args.time ?? '');
     const label = String(call.args.label ?? 'Niyetsen görevi');
     const date = nextTime(time);
     await Notifications.scheduleNotificationAsync({
       content: { title: 'Niyetsen', body: label, sound: 'default', data: { url: '/daily' } },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
+      trigger:
+        Platform.OS === 'android'
+          ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: TASK_CHANNEL_ID }
+          : { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
     });
     return { ok: true, message: `${time} için yerel hatırlatıcı kuruldu.` };
   }

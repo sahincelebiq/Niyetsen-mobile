@@ -15,8 +15,8 @@ export function initSentry(): void {
 }
 
 export function captureException(error: unknown, context?: string): void {
-  if (!SENTRY_DSN) return;
   if (__DEV__) {
     console.warn('[sentry]', context ?? 'error', error);
   }
+  if (!SENTRY_DSN) return;
 }
