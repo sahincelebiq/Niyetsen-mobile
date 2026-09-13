@@ -72,6 +72,8 @@ export default function PaywallScreen() {
   // (App Store 3.1.2 / Play ödeme politikası: gösterilen fiyat gerçek olmalı).
   const [monthlyPrice, setMonthlyPrice] = useState<string | null>(null);
   const [yearlyPrice, setYearlyPrice] = useState<string | null>(null);
+  const [monthlyIntroDays, setMonthlyIntroDays] = useState<number | null>(null);
+  const [yearlyIntroDays, setYearlyIntroDays] = useState<number | null>(null);
   const [priceState, setPriceState] = useState<'loading' | 'ready' | 'unavailable'>(
     storeUnavailableReason() ? 'unavailable' : 'loading',
   );
@@ -79,7 +81,11 @@ export default function PaywallScreen() {
   const applyPrices = useCallback(
     (prices: Awaited<ReturnType<typeof getStorePrices>>) => {
       if (prices.monthly) setMonthlyPrice(t.paywall.pricePerMonth(prices.monthly));
+      else setMonthlyPrice(null);
       if (prices.yearly) setYearlyPrice(t.paywall.pricePerYear(prices.yearly));
+      else setYearlyPrice(null);
+      setMonthlyIntroDays(prices.monthlyIntroDays);
+      setYearlyIntroDays(prices.yearlyIntroDays);
       setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
     },
     [t],
@@ -170,13 +176,10 @@ export default function PaywallScreen() {
   }
 
   const catalog = [
-    t.paywall.benefitChat,
     t.paywall.benefitPlan,
     t.paywall.benefitProof,
-    t.paywall.benefitPaths,
-    t.paywall.benefitFortune,
     t.paywall.benefitReport,
-    t.paywall.benefitCompanion,
+    t.paywall.benefitFalFree,
   ];
 
   const edge = surfaceEdge(scheme);
@@ -285,7 +288,11 @@ export default function PaywallScreen() {
                   recommended
                   title={t.paywall.yearlyRecommended}
                   price={yearlyPrice ?? t.paywall.priceLoading}
-                  hint={t.paywall.yearlyHint}
+                  hint={
+                    yearlyIntroDays
+                      ? t.paywall.introFree(yearlyIntroDays)
+                      : t.paywall.yearlyHint
+                  }
                   cta={t.paywall.yearlyCta}
                   busy={busy === 'yearly'}
                   disabled={busy !== null || !yearlyPrice}
@@ -306,7 +313,11 @@ export default function PaywallScreen() {
                 <PlanCard
                   title={t.paywall.monthlyLabel}
                   price={monthlyPrice ?? t.paywall.priceLoading}
-                  hint={t.paywall.monthlyHint}
+                  hint={
+                    monthlyIntroDays
+                      ? t.paywall.introFree(monthlyIntroDays)
+                      : t.paywall.monthlyHint
+                  }
                   cta={t.paywall.monthlyCta}
                   busy={busy === 'monthly'}
                   disabled={busy !== null || !monthlyPrice}

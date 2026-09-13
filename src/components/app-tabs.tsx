@@ -1,8 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { Badge, Icon, Label, NativeTabs, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { setPushHintVisible, usePushHintVisible } from '@/lib/push-hint';
+import { getPushStatus } from '@/lib/push-notifications';
+import { useAuth } from '@/providers/auth-provider';
 import { useI18n } from '@/providers/locale-provider';
 
 /**
@@ -13,6 +17,21 @@ export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = scheme === 'dark' ? Colors.dark : Colors.light;
   const { t, locale } = useI18n();
+  const pushHint = usePushHintVisible();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    void getPushStatus(user.id)
+      .then((status) => {
+        if (active) setPushHintVisible(status.supported && !status.enabled);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   return (
     <NativeTabs
@@ -50,6 +69,7 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="settings">
         <Label>{t.tabs.profile}</Label>
         <Icon src={<VectorIcon family={MaterialCommunityIcons} name="account-circle" />} />
+        {pushHint ? <Badge /> : null}
       </NativeTabs.Trigger>
     </NativeTabs>
   );

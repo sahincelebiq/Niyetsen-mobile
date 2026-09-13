@@ -387,6 +387,8 @@ export type Messages = {
     benefitCompanion: string;
     catalogFreeTitle: string;
     catalogProTitle: string;
+    benefitFalFree: string;
+    introFree: (days: number) => string;
     terms: string;
     privacy: string;
     perMonth: string;
@@ -471,6 +473,7 @@ export type Messages = {
     notifPrefFailed: string;
     sectionOpen: string;
     sectionClose: string;
+    pushOffHint: string;
   };
   zodiac: {
     Koç: string;
@@ -667,6 +670,10 @@ export type Messages = {
     leaveFailed: string;
     joinTitle: string;
     joinBody: string;
+    joinHint: string;
+    privacyLink: string;
+    privacyTitle: string;
+    scoreLabel: string;
     aliasPlaceholder: string;
     aliasA11y: string;
     joinCta: string;

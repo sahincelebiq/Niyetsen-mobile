@@ -29,7 +29,7 @@ export const Copy = {
   daily: {
     title: 'Bugün',
     subtitle: 'Küçük adımlar, kırılmayan zincir',
-    emptyTitle: 'Bugün için görev yok',
+    emptyTitle: 'Bugün için planlanan niyet yok.',
     emptyBody:
       'Planın geride kalmış olabilir. Bu haftanın görevlerini yükle — veya bonus dene.',
     emptyCta: 'Bonusa bak',

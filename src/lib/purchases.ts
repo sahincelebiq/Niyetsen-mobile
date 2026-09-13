@@ -19,6 +19,9 @@ export type PurchaseResult =
 export type StorePrices = {
   monthly: string | null;
   yearly: string | null;
+  /** Yalnız RC ücretsiz giriş dönemi varsa gün sayısı; yoksa uydurma 7 gün yok. */
+  monthlyIntroDays: number | null;
+  yearlyIntroDays: number | null;
 };
 
 const ENTITLEMENT_ID =
@@ -93,13 +96,35 @@ function purchaseErrorMessage(error: unknown): string {
   return 'Satın alma tamamlanamadı. Birazdan tekrar dener misin?';
 }
 
+function packagesFromOfferings(
+  offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>,
+): PurchasesPackage[] {
+  const current = offerings.current?.availablePackages ?? [];
+  if (current.length) return current;
+  return Object.values(offerings.all ?? {}).flatMap(
+    (offering) => offering.availablePackages ?? [],
+  );
+}
+
 async function loadPackages(): Promise<PurchasesPackage[]> {
   const first = await Purchases.getOfferings();
-  let packages = first.current?.availablePackages ?? [];
+  const packages = packagesFromOfferings(first);
   if (packages.length) return packages;
   await new Promise((resolve) => setTimeout(resolve, 500));
   const second = await Purchases.getOfferings();
-  return second.current?.availablePackages ?? [];
+  return packagesFromOfferings(second);
+}
+
+function introFreeDays(pkg?: PurchasesPackage): number | null {
+  const intro = pkg?.product.introPrice;
+  if (!intro || intro.price > 0) return null;
+  const units = intro.periodNumberOfUnits;
+  if (!units || units < 1) return null;
+  const unit = String(intro.periodUnit ?? '').toUpperCase();
+  if (unit.includes('DAY')) return units;
+  if (unit.includes('WEEK')) return units * 7;
+  if (unit.includes('MONTH')) return units * 30;
+  return null;
 }
 
 function pickPackage(
@@ -157,14 +182,14 @@ export async function logOutPurchases(): Promise<void> {
 
 export async function getStorePrices(): Promise<StorePrices> {
   if (!purchasesAvailable()) {
-    return { monthly: null, yearly: null };
+    return { monthly: null, yearly: null, monthlyIntroDays: null, yearlyIntroDays: null };
   }
   // Paywall, auth sağlayıcısı configure'u bitirmeden açılabiliyordu; beklemeden
   // çağırınca configured=false olup fiyatlar hep null dönüyordu → ekranda sabit
   // "150 TL" görünüyordu. Mağaza fiyatı ASLA uydurulmaz (App Store 3.1.2).
   await configurePurchases();
   if (!configured) {
-    return { monthly: null, yearly: null };
+    return { monthly: null, yearly: null, monthlyIntroDays: null, yearlyIntroDays: null };
   }
   try {
     const packages = await loadPackages();
@@ -173,9 +198,11 @@ export async function getStorePrices(): Promise<StorePrices> {
     return {
       monthly: monthly?.product.priceString ?? null,
       yearly: yearly?.product.priceString ?? null,
+      monthlyIntroDays: introFreeDays(monthly),
+      yearlyIntroDays: introFreeDays(yearly),
     };
   } catch {
-    return { monthly: null, yearly: null };
+    return { monthly: null, yearly: null, monthlyIntroDays: null, yearlyIntroDays: null };
   }
 }
 

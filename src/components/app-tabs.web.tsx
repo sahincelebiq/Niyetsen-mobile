@@ -11,14 +11,25 @@ import { Pressable, View, StyleSheet } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { BottomTabInset, MaxContentWidth, Shadows, Spacing } from '@/constants/theme';
+import { BottomTabInset, Colors, MaxContentWidth, Shadows, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
+import { usePushHintVisible } from '@/lib/push-hint';
 import { useI18n } from '@/providers/locale-provider';
 
 export default function AppTabs() {
   const { t, locale } = useI18n();
+  const keyboardVisible = useKeyboardVisible();
+  const pushHint = usePushHintVisible();
   return (
     <Tabs key={locale}>
-      <TabSlot style={{ height: '100%', paddingBottom: BottomTabInset }} />
+      <TabSlot
+        style={{
+          height: '100%',
+          paddingBottom: keyboardVisible ? 0 : BottomTabInset,
+        }}
+      />
+      {keyboardVisible ? null : (
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
@@ -34,15 +45,23 @@ export default function AppTabs() {
             <TabButton>{t.tabs.chain}</TabButton>
           </TabTrigger>
           <TabTrigger name="settings" href="/settings" asChild>
-            <TabButton>{t.tabs.profile}</TabButton>
+            <TabButton badge={pushHint}>{t.tabs.profile}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
+      )}
     </Tabs>
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export function TabButton({
+  children,
+  isFocused,
+  badge,
+  ...props
+}: TabTriggerSlotProps & { badge?: boolean }) {
+  const scheme = useColorScheme();
+  const accent = (scheme === 'dark' ? Colors.dark : Colors.light).accentWarm;
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView
@@ -51,6 +70,7 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
         <ThemedText type="smallBold" themeColor={isFocused ? 'accentWarm' : 'textSecondary'}>
           {children}
         </ThemedText>
+        {badge ? <View style={[styles.badgeDot, { backgroundColor: accent }]} /> : null}
       </ThemedView>
     </Pressable>
   );
@@ -96,5 +116,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.two,
     borderRadius: Spacing.three,
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

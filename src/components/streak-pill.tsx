@@ -33,7 +33,7 @@ export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
   const theme = useTheme();
   const { companionId, investedDays } = useCompanionAnimal();
   const visual = companionVisual(companionId, investedDays, streakDays, 14);
-  const label = streakDays > 0 ? `${streakDays} gün` : 'Yeni yoldaş';
+  const label = streakDays > 0 ? `${streakDays} gün` : compact ? null : 'Yeni yoldaş';
 
   return (
     <ThemedView
@@ -44,9 +44,11 @@ export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
         { borderColor: theme.border },
       ]}>
       <MaterialCommunityIcons name={visual.icon} size={14} color={theme.tint} />
-      <ThemedText type="smallBold" style={{ color: theme.text }}>
-        {label}
-      </ThemedText>
+      {label ? (
+        <ThemedText type="smallBold" style={{ color: theme.text }} numberOfLines={1}>
+          {label}
+        </ThemedText>
+      ) : null}
     </ThemedView>
   );
 }

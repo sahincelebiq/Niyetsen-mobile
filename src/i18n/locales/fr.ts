@@ -185,7 +185,7 @@ export const fr: Messages = {
   daily: {
     title: "Aujourd'hui",
     subtitle: 'Petits pas, chaîne intacte',
-    emptyTitle: "Pas de tâches pour aujourd'hui",
+    emptyTitle: "Aucune intention prévue pour aujourd'hui.",
     emptyBody:
       'Ton plan est peut-être en retard. Charge les tâches de la semaine — ou essaie un bonus.',
     emptyCta: 'Voir les bonus',
@@ -398,6 +398,8 @@ export const fr: Messages = {
     benefitCompanion: 'La compagne Filiz est gratuite ; les autres avatars sont PRO (tous visibles).',
     catalogFreeTitle: 'Ce qui reste gratuit',
     catalogProTitle: 'Illimité avec PRO',
+    benefitFalFree: 'Voyance et horoscope restent gratuits — le chat reste ouvert.',
+    introFree: (days) => `${days} jours offerts`,
     terms: 'Conditions d’utilisation',
     privacy: 'Politique de confidentialité',
     pricePerMonth: (price) => `${price} / mois`,
@@ -451,6 +453,7 @@ export const fr: Messages = {
     notifPrefFailed: 'Préférence de notif non changée.',
     sectionOpen: 'Ouvrir la section',
     sectionClose: 'Fermer la section',
+    pushOffHint: 'L’heure de rappel est enregistrée ; les notifications appareil sont off.',
   },
   legal: {
     back: 'Retour',
@@ -718,6 +721,10 @@ export const fr: Messages = {
     joinTitle: 'Rejoindre la ligue',
     joinBody:
       'La participation est facultative. Ton vrai nom reste INVISIBLE — seuls le surnom, les points et la chaîne apparaissent. Tu peux partir à tout moment ; l’entrée est effacée.',
+    joinHint: 'Surnom, points et chaîne sont visibles. Ton vrai nom reste caché.',
+    privacyLink: 'Confidentialité',
+    privacyTitle: 'Confidentialité de la ligue',
+    scoreLabel: 'Points',
     aliasPlaceholder: 'Surnom (ex. Aigle 34)',
     aliasA11y: 'Surnom de ligue',
     joinCta: 'Rejoindre avec un surnom',
