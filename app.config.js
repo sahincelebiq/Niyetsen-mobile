@@ -17,10 +17,33 @@ function resolveGoogleServicesFile() {
   return fs.existsSync(local) ? './google-services.json' : undefined;
 }
 
+function pluginName(entry) {
+  return Array.isArray(entry) ? entry[0] : entry;
+}
+
+/**
+ * `@sentry/react-native` config plugin sentry.gradle uygular; org/project/token
+ * yokken `sentry-cli` exit 1 → AAB düşer. Secret yoksa plugin'i hiç bağlama
+ * (RELEASE.md: "secret yoksa build geçer").
+ */
+function withOptionalSentryPlugin(plugins) {
+  const without = (plugins ?? []).filter(
+    (entry) => pluginName(entry) !== '@sentry/react-native',
+  );
+  const org = process.env.SENTRY_ORG?.trim();
+  const project = process.env.SENTRY_PROJECT?.trim();
+  const token = process.env.SENTRY_AUTH_TOKEN?.trim();
+  if (org && project && token) {
+    without.push(['@sentry/react-native', { organization: org, project }]);
+  }
+  return without;
+}
+
 module.exports = ({ config }) => {
   const googleServicesFile = resolveGoogleServicesFile();
   return {
     ...config,
+    plugins: withOptionalSentryPlugin(config.plugins),
     android: {
       ...config.android,
       ...(googleServicesFile ? { googleServicesFile } : {}),

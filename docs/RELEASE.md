@@ -60,7 +60,9 @@ npx tsc --noEmit && npx eslint . && npm test
 2. Source map yüklemesi: `app.json` içinde `@sentry/react-native` config
    plugini kayıtlıdır; EAS build sırasında `SENTRY_AUTH_TOKEN`,
    `SENTRY_ORG`, `SENTRY_PROJECT` secret'ları tanımlıysa haritalar yüklenir.
-   Secret yoksa build yine de geçer — raporlar daha az ayrıntılı olur.
+   Secret yoksa native plugin bağlanmaz ve `SENTRY_DISABLE_AUTO_UPLOAD=true`
+   (eas.json) Gradle `sentry-cli` yüklemesini atlar — AAB düşmez; raporlar
+   daha az ayrıntılı olur. Source map için üç secret + bu bayrağı kaldırmak gerekir.
 3. `release` = `niyetsen@<version>`, `dist` = native build numarası —
    ikisi de EAS numaralarıyla eşleşir (`src/lib/sentry.ts`).
 4. Doğrulama: gerçek cihazda kapalı test build'inden bilerek fırlatılan test
