@@ -1,6 +1,14 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { Motion } from '@/constants/theme';
 import { useKeyboardLift, type KeyboardLiftState } from '@/hooks/use-keyboard-height';
 
 type KeyboardAwareViewProps = {
@@ -19,6 +27,16 @@ type KeyboardAwareViewProps = {
  * adjustResize pencereyi zaten küçülttüyse 0 kalır. KeyboardAvoidingView YOK
  * (NativeTabs + edge-to-edge'de çift kaydırıyordu); Dimensions tahmini YOK
  * (Android'de klavyeyle küçülmüyor, yanlış "overlay" veriyordu).
+ *
+ * Lift uygulanırken zıplama olmasın diye padding reanimated ile Motion.base
+ * süresinde yumuşatılır (iOS klavye eğrisine yakın; Android resize'da lift
+ * zaten ~0 ölçülür, animasyon devreye girmez). ReduceMotion.System saygısı var.
+ *
+ * Ölçülen kap (dış View, yalnız flex:1) ile padding uygulanan kap (iç
+ * Animated.View; caller style'ı da ona düşer) ayrık: padding içerde kaldığı
+ * için dış kabın dibi yerinden oynamaz, her ölçüm bağımsız kalır
+ * ("uygulanan lift'i geri ekle" düzeltmesi ve yarışı yok). İç kap dışını
+ * birebir doldurur (flex:1), yani dış dibin ölçümü iç dibin ölçümüdür.
  */
 export function KeyboardAwareView({
   children,
@@ -28,6 +46,15 @@ export function KeyboardAwareView({
 }: KeyboardAwareViewProps) {
   const containerRef = useRef<View>(null);
   const { onLayout, ...keyboard } = useKeyboardLift(containerRef, { bottomInset });
+  const lift = useSharedValue(0);
+
+  useEffect(() => {
+    lift.value = withTiming(keyboard.lift, {
+      duration: Motion.base,
+      easing: Easing.out(Easing.quad),
+      reduceMotion: ReduceMotion.System,
+    });
+  }, [keyboard.lift, lift]);
 
   useEffect(() => {
     onKeyboardChange?.(keyboard);
@@ -35,13 +62,15 @@ export function KeyboardAwareView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyboard.lift, keyboard.open, keyboard.covering, keyboard.height]);
 
+  const animatedPadding = useAnimatedStyle(() => ({
+    paddingBottom: lift.value,
+  }));
+
   return (
-    <View
-      ref={containerRef}
-      collapsable={false}
-      onLayout={onLayout}
-      style={[styles.flex, keyboard.lift > 0 ? { paddingBottom: keyboard.lift } : null, style]}>
-      {children}
+    <View ref={containerRef} collapsable={false} onLayout={onLayout} style={styles.flex}>
+      <Animated.View style={[styles.flex, animatedPadding, style]}>
+        {children}
+      </Animated.View>
     </View>
   );
 }

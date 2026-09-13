@@ -1390,3 +1390,21 @@ export function activateChatThread(threadId: string): Promise<ChatMessage[]> {
     { method: 'POST' },
   );
 }
+
+/**
+ * Sohbet başlığını yeniden adlandırır (Bağlam paneli satır aksiyonu).
+ * renameProject ile aynı REST kalıbı: PATCH /chat/threads/{id}.
+ */
+export function renameChatThread(threadId: string, title: string): Promise<ChatThread> {
+  return request<ChatThread>(`/chat/threads/${encodeURIComponent(threadId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  });
+}
+
+/** Sohbeti kalıcı olarak siler (Bağlam paneli satır aksiyonu). */
+export function deleteChatThread(threadId: string): Promise<void> {
+  return request<void>(`/chat/threads/${encodeURIComponent(threadId)}`, {
+    method: 'DELETE',
+  });
+}

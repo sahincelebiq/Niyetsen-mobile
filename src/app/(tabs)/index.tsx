@@ -3,6 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,16 +16,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AssistantMessage } from '@/components/assistant-message';
+import { ChatAttachMenu } from '@/components/chat-attach-menu';
 import { ChatMessageBody } from '@/components/chat-message-body';
 import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
 import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
+import { ChatPathsSheet } from '@/components/chat-paths-sheet';
 import { ChatQuickReplies } from '@/components/chat-quick-replies';
 import { ChatWallpaper } from '@/components/chat-wallpaper';
 import { ErrorBanner } from '@/components/error-banner';
 import { ChatHeader } from '@/components/chat-header';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
-import { ChatHistorySheet } from '@/components/project-sheets';
+import { ChatHistorySheet } from '@/components/chat-history-sheet';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -52,7 +55,9 @@ import {
   sendChatMessage,
   uploadChatAttachment,
   ensureTodayPlan,
+  type PhilosophyPath,
 } from '@/lib/api';
+import { selectionHaptic } from '@/lib/haptics';
 import { mysticHref } from '@/lib/mystic-routes';
 import { consumePendingChatMessage } from '@/lib/pending-chat';
 import { trackEvent } from '@/lib/analytics';
@@ -100,7 +105,6 @@ export default function ChatScreen() {
   const router = useRouter();
   // Klavye telafisi KeyboardAwareView'de; burada yalnız durum (composer padding + scroll).
   const [keyboard, setKeyboard] = useState<KeyboardLiftState>(KEYBOARD_CLOSED);
-  const keyboardLift = keyboard.lift;
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -124,6 +128,11 @@ export default function ChatScreen() {
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attaching, setAttaching] = useState(false);
+  // Composer üstü mini sayfalar: ek eylemler (＋) ve Felsefe Yolları (✿).
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [pathsOpen, setPathsOpen] = useState(false);
+  // Geçmişe kaydırınca başlık ince yapışkan bara küçülür.
+  const [headerCompact, setHeaderCompact] = useState(false);
   // Hızlı yanıt çipleri: modelin sorduğu soruya tek dokunuşla cevap (FAZ 7.5)
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [queuedPathMessage, setQueuedPathMessage] = useState<string | null>(null);
@@ -142,7 +151,13 @@ export default function ChatScreen() {
 
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      nearBottomRef.current = event.nativeEvent.contentOffset.y < 120;
+      const offset = event.nativeEvent.contentOffset.y;
+      nearBottomRef.current = offset < 120;
+      // inverted listede offset büyümesi = kullanıcı geçmişe kaydırıyor.
+      setHeaderCompact((prev) => {
+        const next = offset > 48;
+        return prev === next ? prev : next;
+      });
     },
     [],
   );
@@ -275,7 +290,7 @@ export default function ChatScreen() {
     if (keyboard.open || keyboardLift > 0) {
       scrollToEnd(true);
     }
-  }, [keyboard.open, keyboardLift, scrollToEnd]);
+  }, [keyboard.open, keyboard.height, keyboardLift, scrollToEnd]);
 
   const doSend = useCallback(
     async (nextMessages: ChatMessage[]) => {
@@ -312,6 +327,7 @@ export default function ChatScreen() {
         setSuggestions(res.suggestions ?? []);
         setPendingAttachment(null);
         scrollToEnd();
+        selectionHaptic(); // yeni asistan mesajı: çok hafif tik
         void refreshStreak();
       } catch (e) {
         if (isPaywallError(e)) {
@@ -377,35 +393,75 @@ export default function ChatScreen() {
     [aiAllowed, doSend, messages, scrollToEnd, sending],
   );
 
-  const handleAttach = useCallback(async () => {
-    if (!aiAllowed || attaching) return;
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-        multiple: false,
-        type: [
-          'image/png',
-          'image/jpeg',
-          'application/pdf',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ],
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      setAttaching(true);
-      setError(null);
-      const ingested = await uploadChatAttachment(
-        asset.uri,
-        asset.name ?? 'ek',
-        asset.mimeType ?? 'application/octet-stream',
-      );
-      setPendingAttachment(ingested);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : t.chat.fileReadFailed);
-    } finally {
-      setAttaching(false);
-    }
-  }, [aiAllowed, attaching, t]);
+  const handleAttach = useCallback(
+    async (types: string[]) => {
+      if (!aiAllowed || attaching) return;
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          copyToCacheDirectory: true,
+          multiple: false,
+          type: types,
+        });
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0];
+        setAttaching(true);
+        setError(null);
+        const ingested = await uploadChatAttachment(
+          asset.uri,
+          asset.name ?? 'ek',
+          asset.mimeType ?? 'application/octet-stream',
+        );
+        setPendingAttachment(ingested);
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : t.chat.fileReadFailed);
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [aiAllowed, attaching, t],
+  );
+
+  const openAttachMenu = useCallback(() => {
+    Keyboard.dismiss();
+    setPathsOpen(false);
+    setAttachMenuOpen(true);
+  }, []);
+
+  const openPathsSheet = useCallback(() => {
+    Keyboard.dismiss();
+    setAttachMenuOpen(false);
+    setPathsOpen(true);
+  }, []);
+
+  const handlePickImage = useCallback(() => {
+    setAttachMenuOpen(false);
+    void handleAttach(['image/png', 'image/jpeg']);
+  }, [handleAttach]);
+
+  const handlePickFile = useCallback(() => {
+    setAttachMenuOpen(false);
+    void handleAttach([
+      'image/png',
+      'image/jpeg',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+  }, [handleAttach]);
+
+  const handleOpenBonus = useCallback(() => {
+    setAttachMenuOpen(false);
+    router.push('/bonus');
+  }, [router]);
+
+  // "Yola çevir": seçilen yol sohbete niyet önerisi olarak düşer — otomatik
+  // gönderim yok, kullanıcı composer'da görüp son sözü söyler.
+  const handleTurnPath = useCallback(
+    (path: PhilosophyPath) => {
+      setPathsOpen(false);
+      setInput(t.paths.startChat(path.name, path.tagline));
+    },
+    [t],
+  );
 
   const handleGeneratePlan = useCallback(async () => {
     if (!aiAllowed) {
@@ -513,12 +569,14 @@ export default function ChatScreen() {
             void trackEvent('mystic_secret_entry', { source: 'chat_header' });
             router.push(mysticHref.chat);
           }}
+          activeIntentName={
+            activePlanName && activePlanName !== t.chat.defaultPlanName
+              ? activePlanName
+              : null
+          }
+          compact={headerCompact}
+          keyboardOpen={keyboard.open}
         />
-        {activePlanName && activePlanName !== t.chat.defaultPlanName ? (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.planHint}>
-            {t.chat.activeIntent(activePlanName)}
-          </ThemedText>
-        ) : null}
         <KeyboardAwareView onKeyboardChange={setKeyboard}>
           <View style={styles.chatColumn}>
             <ChatWallpaper />
@@ -600,11 +658,28 @@ export default function ChatScreen() {
               disabled={!aiAllowed}
               sending={sending}
               pendingAttachment={pendingAttachment}
-              onAttach={() => void handleAttach()}
+              onOpenActions={openAttachMenu}
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
+              onOpenPaths={openPathsSheet}
               keyboardOpen={keyboard.open && keyboard.covering}
             />
+
+            {attachMenuOpen ? (
+              <ChatAttachMenu
+                onClose={() => setAttachMenuOpen(false)}
+                onPickImage={handlePickImage}
+                onPickFile={handlePickFile}
+                onOpenBonus={handleOpenBonus}
+                attaching={attaching}
+              />
+            ) : null}
+            {pathsOpen ? (
+              <ChatPathsSheet
+                onClose={() => setPathsOpen(false)}
+                onTurnPath={handleTurnPath}
+              />
+            ) : null}
           </View>
         </KeyboardAwareView>
         <ChatHistorySheet
@@ -647,7 +722,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    // inverted: flexGrow YOK — tek mesaj composer'a yapışır, boşluk üstte kalır.
+    // Az mesajda içerik dikeyde ortalanır (ss-08: devasa üst boşluk + dibe
+    // yapışık tek mesaj "yarım" hissi veriyordu). İçerik ekranı aşınca
+    // flexGrow etkisizleşir, scroll normal çalışır.
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
@@ -689,10 +768,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  planHint: {
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.one,
-    textAlign: 'center',
   },
 });

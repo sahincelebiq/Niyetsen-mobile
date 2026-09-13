@@ -74,9 +74,9 @@ export function useKeyboardHeight(): number {
 /**
  * NativeTabs + edge-to-edge için tek klavye telafisi.
  *
- * containerRef: paddingBottom'un UYGULANDIĞI kap (KeyboardAwareView). Kabın dibi
- * lift'ten etkilenmez → her ölçüm bağımsızdır, "uygulanan lift'i geri ekle"
- * düzeltmesi ve onun yarış hatası yok.
+ * containerRef: KeyboardAwareView'in dış kabı (yalnız flex:1; padding iç
+ * Animated.View'e uygulanır). Kabın dibi lift'ten etkilenmez → her ölçüm
+ * bağımsızdır, "uygulanan lift'i geri ekle" düzeltmesi ve yarış hatası yok.
  *
  * - Android adjustResize root'u küçülttüyse kap dibi ≈ klavye üstü → lift 0.
  * - iOS / resize olmayan pencere: kap dibi klavyenin altında → lift = örtüşme + gap.
