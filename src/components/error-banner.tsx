@@ -3,6 +3,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type ErrorBannerProps = {
   message: string;
@@ -17,9 +18,12 @@ export function ErrorBanner({
   message,
   onRetry,
   retrying,
-  retryLabel = 'Tekrar dene',
-  retryingLabel = 'Deneniyor…',
+  retryLabel,
+  retryingLabel,
 }: ErrorBannerProps) {
+  const { t } = useLocale();
+  const retryText = retryLabel ?? t.common.retry;
+  const retryingText = retryingLabel ?? t.common.retrying;
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
       <ThemedText type="small" themeColor="danger" style={styles.message}>
@@ -28,11 +32,12 @@ export function ErrorBanner({
       {onRetry && (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={retrying ? t.common.retrying : t.common.retry}
           onPress={onRetry}
           disabled={retrying}
           style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
           <ThemedText type="linkPrimary">
-            {retrying ? retryingLabel : retryLabel}
+            {retrying ? retryingText : retryText}
           </ThemedText>
         </Pressable>
       )}
@@ -52,9 +57,11 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     minHeight: 44,
-    justifyContent: 'center',
+    minWidth: 44,
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.6,

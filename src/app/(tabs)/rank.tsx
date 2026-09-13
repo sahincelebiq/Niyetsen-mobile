@@ -98,6 +98,22 @@ export default function RankScreen() {
 
         {error && <ErrorBanner message={error} onRetry={() => void load()} />}
         {loading && <ActivityIndicator color={theme.accentWarm} size="large" />}
+        {!loading && !error && !state ? (
+          <SurfaceCard elevated>
+            <ThemedText themeColor="textSecondary">{t.chain.emptyBody}</ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void load()}
+              style={({ pressed }) => [
+                styles.emptyRetry,
+                { borderColor: theme.tint, opacity: pressed ? 0.8 : 1 },
+              ]}>
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.common.retry}
+              </ThemedText>
+            </Pressable>
+          </SurfaceCard>
+        ) : null}
 
         {state && !loading && (
           <>
@@ -234,7 +250,7 @@ export default function RankScreen() {
             <SurfaceCard>
               <ThemedText type="smallBold">{t.chain.gameState}</ThemedText>
               <ThemedText themeColor="textSecondary">
-                {state.excuse_count} mazeret · {state.silent_miss_streak} ardışık sessiz kaçırma
+                {t.chain.gameStateDetail(state.excuse_count, state.silent_miss_streak)}
               </ThemedText>
             </SurfaceCard>
           </>
@@ -330,6 +346,16 @@ const styles = StyleSheet.create({
   pickHint: {
     alignSelf: 'flex-start',
     minHeight: 44,
+    justifyContent: 'center',
+  },
+  emptyRetry: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    marginTop: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   centerText: { textAlign: 'center' },

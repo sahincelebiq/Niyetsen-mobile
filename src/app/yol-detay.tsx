@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { ProBadge } from '@/components/pro-badge';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -97,7 +98,7 @@ export default function PathDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     void load();
@@ -189,14 +190,7 @@ export default function PathDetailScreen() {
             <ActivityIndicator color={theme.tint} style={{ marginTop: Spacing.four }} />
           ) : null}
 
-          {error ? (
-            <View style={styles.errorBlock}>
-              <ThemedText themeColor="danger">{error}</ThemedText>
-              <Pressable onPress={() => void load()} hitSlop={12}>
-                <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
-              </Pressable>
-            </View>
-          ) : null}
+          {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
 
           {detail ? (
             <>
@@ -285,7 +279,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.four,
   },
-  errorBlock: { gap: Spacing.two, alignItems: 'flex-start' },
   sourceNote: {
     textAlign: 'center',
     paddingTop: Spacing.two,

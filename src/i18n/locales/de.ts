@@ -7,6 +7,7 @@ export const de: Messages = {
     save: 'Speichern',
     cancel: 'Abbrechen',
     retry: 'Erneut versuchen',
+    retrying: 'Wird versucht…',
     loading: 'Lädt…',
     back: 'Zurück',
     next: 'Weiter',
@@ -34,6 +35,10 @@ export const de: Messages = {
     longPressEdit: 'Lange drücken zum Verschieben, Bearbeiten oder Löschen',
     closeSection: 'Abschnitt schließen',
     openSection: 'Abschnitt öffnen',
+    openOnWeb: 'Im Web öffnen ↗',
+    versionLabel: (version) => `Version ${version}`,
+    effectiveDate: (date) => `Gültig ab: ${date}`,
+    dataController: 'Verantwortlicher / Diensteanbieter',
   },
   tabs: {
     chat: 'Chat',
@@ -226,6 +231,10 @@ export const de: Messages = {
     statusDone: 'Erledigt',
     statusMissed: 'Verpasst',
     statusExcused: 'Entschuldigt',
+    proofApproved: (confidence, declaration) =>
+      `Glied geschlossen · Sicherheit ${confidence}/100.${declaration}`,
+    proofRejected: (reason, confidence, attempt) =>
+      `${reason} Sicherheit ${confidence}/100 · Versuch ${attempt}/3. Du kannst ein neues Foto machen.`,
   },
   events: {
     sectionTitle: 'Termine',
@@ -289,6 +298,9 @@ export const de: Messages = {
     recapOpen: 'Niyetsen-Bericht öffnen',
     recapHintFree: 'Panel ist offen; 7-Tage-Zusammenfassung frei, 30 Tage PRO',
     then: 'Danach',
+    gameStateDetail: (excuses, silent) =>
+      `${excuses} Entschuldigungen · ${silent} stille Aussetzer hintereinander`,
+    emptyBody: 'Ketteninfo fehlt noch. Gleich erneut versuchen — deine Spuren sammeln sich hier.',
   },
   plan: {
     title: 'Mein Plan',
@@ -388,6 +400,8 @@ export const de: Messages = {
     catalogProTitle: 'Unbegrenzt mit PRO',
     terms: 'Nutzungsbedingungen',
     privacy: 'Datenschutz',
+    pricePerMonth: (price) => `${price} / Monat`,
+    pricePerYear: (price) => `${price} / Jahr`,
   },
   settings: {
     friends: 'Freunde & Liga',

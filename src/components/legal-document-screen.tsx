@@ -83,7 +83,7 @@ export function LegalDocumentScreen({
           </View>
 
           <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
+            <ThemedText type="screenTitle">
               {document.title}
             </ThemedText>
             <ThemedText themeColor="textSecondary">{document.summary}</ThemedText>
@@ -124,7 +124,7 @@ export function LegalDocumentScreen({
           <View style={[styles.linkGrid, { borderTopColor: theme.border }]}>
             {LEGAL_LINKS.map((item) => (
               <Link key={item.id} href={item.href as Href} asChild>
-                <Pressable style={({ pressed }) => pressed && styles.pressed}>
+                <Pressable style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
                   <ThemedText
                     type="smallBold"
                     themeColor={item.id === documentId ? 'textSecondary' : 'tint'}>
@@ -162,14 +162,17 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   backButton: {
-    minHeight: 42,
+    minHeight: 44,
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
   },
+  webHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   header: { gap: Spacing.two },
-  title: { fontSize: 32, lineHeight: 38 },
   identityCard: {
     borderWidth: 1,
     borderRadius: Radii.medium,
@@ -180,6 +183,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, lineHeight: 24 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   bulletText: { flex: 1 },
+  legalLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   linkGrid: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.four,

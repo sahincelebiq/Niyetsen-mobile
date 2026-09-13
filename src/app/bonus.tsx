@@ -154,7 +154,7 @@ export default function BonusScreen() {
           </Pressable>
 
           <View style={styles.header}>
-            <ThemedText type="title">{t.bonus.title}</ThemedText>
+            <ThemedText type="screenTitle">{t.bonus.title}</ThemedText>
             <ThemedText themeColor="textSecondary">
               {t.bonus.subtitle}
             </ThemedText>

@@ -7,6 +7,7 @@ export const ar: Messages = {
     save: 'حفظ',
     cancel: 'إلغاء',
     retry: 'إعادة المحاولة',
+    retrying: 'جارٍ المحاولة…',
     loading: 'جارٍ التحميل…',
     back: 'رجوع',
     next: 'التالي',
@@ -34,6 +35,10 @@ export const ar: Messages = {
     longPressEdit: 'اضغط مطولًا للنقل أو التعديل أو الحذف',
     closeSection: 'أغلق القسم',
     openSection: 'افتح القسم',
+    openOnWeb: 'افتح على الويب ↗',
+    versionLabel: (version) => `الإصدار ${version}`,
+    effectiveDate: (date) => `ساري من: ${date}`,
+    dataController: 'المسؤول عن البيانات / مقدّم الخدمة',
   },
   tabs: {
     chat: 'محادثة',
@@ -226,6 +231,10 @@ export const ar: Messages = {
     statusDone: 'تم',
     statusMissed: 'فاتت',
     statusExcused: 'بعذر',
+    proofApproved: (confidence, declaration) =>
+      `أُغلقت الحلقة · ثقة ${confidence}/100.${declaration}`,
+    proofRejected: (reason, confidence, attempt) =>
+      `${reason} ثقة ${confidence}/100 · محاولة ${attempt}/3. يمكنك التقاط لقطة جديدة.`,
   },
   events: {
     sectionTitle: 'الفعاليات',
@@ -289,6 +298,9 @@ export const ar: Messages = {
     recapOpen: 'افتح تقرير نيّة سن',
     recapHintFree: 'اللوحة مفتوحة؛ ملخص 7 أيام مجاني، 30 يومًا PRO',
     then: 'بعدها',
+    gameStateDetail: (excuses, silent) =>
+      `${excuses} اعتذار · ${silent} فوات صامت متتالٍ`,
+    emptyBody: 'معلومات السلسلة لم تصل بعد. أعد المحاولة — آثارك تتجمع هنا.',
   },
   plan: {
     title: 'خطتي',
@@ -388,6 +400,8 @@ export const ar: Messages = {
     catalogProTitle: 'بلا حد مع PRO',
     terms: 'شروط الاستخدام',
     privacy: 'سياسة الخصوصية',
+    pricePerMonth: (price) => `${price} / شهر`,
+    pricePerYear: (price) => `${price} / سنة`,
   },
   settings: {
     friends: 'الأصدقاء والدوري',

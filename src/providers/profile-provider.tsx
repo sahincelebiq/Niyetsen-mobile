@@ -11,6 +11,7 @@ import {
 
 import { getProfile, UserProfile } from '@/lib/api';
 import { readCachedProfile, writeCachedProfile } from '@/lib/boot-cache';
+import { useI18n } from '@/providers/locale-provider';
 
 type ProfileContextValue = {
   profile: UserProfile | null;
@@ -24,6 +25,7 @@ type ProfileContextValue = {
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: PropsWithChildren) {
+  const { t } = useI18n();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,13 +51,13 @@ export function ProfileProvider({ children }: PropsWithChildren) {
         setOffline(true);
         setError(null);
       } else {
-        setError(value instanceof Error ? value.message : 'Profil yüklenemedi.');
+        setError(value instanceof Error ? value.message : t.common.errorGeneric);
         setOffline(true);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
