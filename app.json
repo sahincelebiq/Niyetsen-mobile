@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "com.niyetsenai",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#DA9B7C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -75,7 +76,15 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#3D7A4E",
+          "sounds": [],
+          "androidMode": "default"
+        }
+      ],
       [
         "expo-calendar",
         {
