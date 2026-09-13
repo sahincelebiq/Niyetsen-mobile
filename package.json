@@ -73,7 +73,8 @@
     "build:preview:android": "eas build --profile preview --platform android",
     "build:production:ios": "eas build --profile production --platform ios",
     "build:production:android": "eas build --profile production --platform android",
-    "build:play-internal:android": "eas build --profile play-internal --platform android"
+    "build:play-internal:android": "eas build --profile play-internal --platform android",
+    "build:testflight:ios": "eas build --profile ios-testflight --platform ios"
   },
   "private": true
 }
