@@ -290,7 +290,9 @@ export const de: Messages = {
     proofFailed: 'Nachweis konnte nicht hochgeladen werden.',
     proofBusy: 'Das vorige Foto wird noch verarbeitet. Kurz warten, dann neu versuchen.',
     declarationAccepted: ' Mit deiner Erklärung angenommen.',
-    excuseBody: 'Eine Entschuldigung ist fest −25 und setzt den Still-Zähler zurück.',
+    excuseBody: (penalty) => `Eine Entschuldigung ist fest −${penalty} und setzt den Still-Zähler zurück.`,
+    proofApproved: (points, confidence) => `Glied geschlossen · +${points} Punkte · Vertrauen ${confidence}/100.`,
+    milestoneReached: (days) => `${days}-Tage-Kette — dieses Glied gehört jetzt dir.`,
     deviceFailed: 'Geräteaktion nicht abgeschlossen.',
     mysticOpen: 'Mystik-Panel öffnen',
     reportShort: 'Bericht',
@@ -310,8 +312,6 @@ export const de: Messages = {
     statusDone: 'Erledigt',
     statusMissed: 'Verpasst',
     statusExcused: 'Entschuldigt',
-    proofApproved: (confidence, declaration) =>
-      `Glied geschlossen · Sicherheit ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Sicherheit ${confidence}/100 · Versuch ${attempt}/3. Du kannst ein neues Foto machen.`,
     nextUpTitle: 'Nächster Schritt',
@@ -329,7 +329,7 @@ export const de: Messages = {
   },
   events: {
     sectionTitle: 'Termine',
-    sectionHint: 'Ohne Foto — „Erledigt“ tippen, +50 Punkte. Kein Abzug beim Verpassen.',
+    sectionHint: (points) => `Ohne Foto — „Erledigt“ tippen, +${points} Punkte. Kein Abzug beim Verpassen.`,
     markDone: 'Erledigt',
     done: 'Abgeschlossen',
     completed: (points) => `Termin erledigt — +${points} in deine Kette eingetragen.`,
@@ -392,6 +392,8 @@ export const de: Messages = {
     gameStateDetail: (excuses, silent) =>
       `${excuses} Entschuldigungen · ${silent} stille Aussetzer hintereinander`,
     emptyBody: 'Ketteninfo fehlt noch. Gleich erneut versuchen — deine Spuren sammeln sich hier.',
+    nextMilestone: (remaining, day) =>
+      remaining === 1 ? `Noch 1 Tag bis zum ${day}-Tage-Glied.` : `Noch ${remaining} Tage bis zum ${day}-Tage-Glied.`,
   },
   plan: {
     title: 'Mein Plan',
@@ -420,7 +422,7 @@ export const de: Messages = {
     deleteConfirmAction: 'Löschen',
     addTask: 'Aufgabe hinzufügen',
     addTaskTitle: 'Neue Aufgabe',
-    addTaskHint: 'Füge eine eigene Aufgabe für diesen Tag hinzu.',
+    addTaskHint: (points) => `Füge eine eigene Aufgabe für diesen Tag hinzu — erledigt bringt sie +${points}.`,
     addTaskAction: 'Hinzufügen',
     notEditable: 'Diese Aufgabe kann nicht mehr bearbeitet werden.',
     pastDayBlocked: 'Aufgaben können nicht in die Vergangenheit verschoben werden.',
@@ -782,6 +784,14 @@ export const de: Messages = {
     weekday: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
     prevCard: 'Vorherige Karte',
     nextCard: 'Nächste Karte',
+    periodPoints: 'Punkte im Zeitraum',
+    dailyRate: (rate) => `Täglich ${rate} %`,
+    weeklyRate: (rate) => `Wöchentlich ${rate} %`,
+    planAlignment: 'Plan-Treue',
+    planAlignmentScheduled: (scheduled, total) => `Zu Terminen geworden · ${scheduled} / ${total} Schritte`,
+    planAlignmentCompleted: (completed, total) => `Erledigt · ${completed} / ${total} Schritte`,
+    peakHours: (window, share) => `Am meisten schaffst du zwischen ${window} (${share} %).`,
+    patternsEmpty: 'Schließe deine erste Woche ab, dann zeige ich dir hier dein Muster.',
   },
   companion: {
     title: 'Gefährtin wählen',
@@ -845,7 +855,7 @@ export const de: Messages = {
     aliasA11y: 'Liga-Spitzname',
     joinCta: 'Mit Spitzname beitreten',
     ranked: (n) => `Du bist Platz ${n} — deine Kette trägt dich.`,
-    unranked: 'Du bist außerhalb der Top 50 — jede Aufgabe +50 Punkte.',
+    unranked: (points) => `Du bist außerhalb der Top 50 — jede Aufgabe +${points} Punkte.`,
     leaveA11y: 'Liga verlassen',
     emptyTitle: 'Die Liga startet gerade 🌱',
     emptyBody: 'Sei unter den Ersten — lade Freunde ein und wachst zusammen.',

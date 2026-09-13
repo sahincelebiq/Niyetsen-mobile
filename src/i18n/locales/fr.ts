@@ -289,7 +289,9 @@ export const fr: Messages = {
     proofFailed: 'Impossible d’envoyer la preuve.',
     proofBusy: 'La photo précédente est encore en cours. Attends un peu, puis réessaie.',
     declarationAccepted: ' Accepté avec ta déclaration.',
-    excuseBody: 'Une excuse est un −25 fixe et remet le compteur silencieux à zéro.',
+    excuseBody: (penalty) => `Une excuse est un −${penalty} fixe et remet le compteur silencieux à zéro.`,
+    proofApproved: (points, confidence) => `Maillon fermé · +${points} points · confiance ${confidence}/100.`,
+    milestoneReached: (days) => `Chaîne de ${days} jours — ce maillon est à toi.`,
     deviceFailed: 'L’action appareil n’a pas abouti.',
     mysticOpen: 'Ouvrir le panneau mystique',
     reportShort: 'Rapport',
@@ -309,8 +311,6 @@ export const fr: Messages = {
     statusDone: 'Terminé',
     statusMissed: 'Manqué',
     statusExcused: 'Excusé',
-    proofApproved: (confidence, declaration) =>
-      `Maillon fermé · confiance ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Confiance ${confidence}/100 · essai ${attempt}/3. Tu peux reprendre une photo.`,
     nextUpTitle: 'Prochaine étape',
@@ -328,7 +328,7 @@ export const fr: Messages = {
   },
   events: {
     sectionTitle: 'Événements',
-    sectionHint: 'Sans photo — touche « Fait » pour +50 points. Aucune pénalité si tu le manques.',
+    sectionHint: (points) => `Sans photo — touche « Fait » pour +${points} points. Aucune pénalité si tu le manques.`,
     markDone: 'Fait',
     done: 'Terminé',
     completed: (points) => `Événement terminé — +${points} ajoutés à ta chaîne.`,
@@ -391,6 +391,8 @@ export const fr: Messages = {
     gameStateDetail: (excuses, silent) =>
       `${excuses} excuses · ${silent} absences silencieuses d’affilée`,
     emptyBody: 'La chaîne n’est pas encore arrivée. Réessaie — tes traces s’accumulent ici.',
+    nextMilestone: (remaining, day) =>
+      remaining === 1 ? `1 jour avant le maillon de ${day} jours.` : `${remaining} jours avant le maillon de ${day} jours.`,
   },
   plan: {
     title: 'Mon plan',
@@ -419,7 +421,7 @@ export const fr: Messages = {
     deleteConfirmAction: 'Supprimer',
     addTask: 'Ajouter une tâche',
     addTaskTitle: 'Nouvelle tâche',
-    addTaskHint: 'Ajoute ta propre tâche pour ce jour.',
+    addTaskHint: (points) => `Ajoute ta propre tâche pour ce jour — la terminer ouvre la voie des +${points}.`,
     addTaskAction: 'Ajouter',
     notEditable: 'Cette tâche ne peut plus être modifiée.',
     pastDayBlocked: 'Impossible d’ajouter ou déplacer vers un jour passé.',
@@ -781,6 +783,14 @@ export const fr: Messages = {
     weekday: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
     prevCard: 'Carte précédente',
     nextCard: 'Carte suivante',
+    periodPoints: 'Points de la période',
+    dailyRate: (rate) => `Quotidien ${rate} %`,
+    weeklyRate: (rate) => `Hebdo ${rate} %`,
+    planAlignment: 'Fidélité au plan',
+    planAlignmentScheduled: (scheduled, total) => `Devenus des événements · ${scheduled} / ${total} étapes`,
+    planAlignmentCompleted: (completed, total) => `Terminées · ${completed} / ${total} étapes`,
+    peakHours: (window, share) => `Tu termines surtout entre ${window} (${share} %).`,
+    patternsEmpty: 'Termine ta première semaine et je te montrerai ton rythme ici.',
   },
   companion: {
     title: 'Choisir ta compagne',
@@ -844,7 +854,7 @@ export const fr: Messages = {
     aliasA11y: 'Surnom de ligue',
     joinCta: 'Rejoindre avec un surnom',
     ranked: (n) => `Tu es n°${n} — ta chaîne te porte.`,
-    unranked: 'Hors du top 50 — chaque tâche +50 points.',
+    unranked: (points) => `Hors du top 50 — chaque tâche +${points} points.`,
     leaveA11y: 'Quitter la ligue',
     emptyTitle: 'La ligue commence 🌱',
     emptyBody: 'Sois parmi les premiers — invite tes amis et grandissez ensemble.',

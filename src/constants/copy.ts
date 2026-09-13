@@ -1,4 +1,5 @@
 /** Kullanıcıya görünen metinler — Niyetsen tonu: utandırmayan, potansiyel odaklı. */
+import { ScoringRules } from '@/constants/scoring';
 
 export const Copy = {
   brand: {
@@ -77,7 +78,7 @@ export const Copy = {
     deleteConfirmAction: 'Sil',
     addTask: 'Görev ekle',
     addTaskTitle: 'Yeni görev',
-    addTaskHint: 'Bu güne kendi görevini ekle — tamamlayınca +50 yolu açılır.',
+    addTaskHint: `Bu güne kendi görevini ekle — tamamlayınca +${ScoringRules.planGorevi} yolu açılır.`,
     addTaskAction: 'Ekle',
     notEditable: 'Bu görev artık düzenlenemez.',
     pastDayBlocked: 'Geçmiş güne görev eklenemez veya taşınamaz.',

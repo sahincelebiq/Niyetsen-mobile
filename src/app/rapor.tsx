@@ -49,15 +49,24 @@ import {
   type RecapDashboard,
   type StateResponse,
 } from '@/lib/api';
+import { recordServerState } from '@/lib/gamification';
+import { CacheKeys, subscribeInvalidation } from '@/lib/query-cache';
+import {
+  completionRates,
+  emptyDashboard,
+  formatHourWindow,
+  hasPatternData,
+  peakHourWindow,
+  periodPoints,
+  planAlignment,
+  resolveDashboard,
+  streakGlyphDays,
+} from '@/lib/report-metrics';
+import { readReportSnapshot, writeReportSnapshot } from '@/lib/report-snapshot';
 
 const STORY_MS = 5200;
 type RecapPeriod = '7d' | '30d';
 type RecapMode = 'story' | 'panel';
-
-function streakDaysFromHeadline(headline: string): number {
-  const match = headline.match(/(\d+)/);
-  return match ? Number(match[1]) : 0;
-}
 
 function journeyEndDay(headline: string): number {
   const match = headline.match(/Gün\s*(\d+)\s*$/i) || headline.match(/→\s*Gün\s*(\d+)/i);
@@ -76,57 +85,6 @@ function multiPlanCount(subtitle: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function emptyDashboard(): RecapDashboard {
-  const categoryCounts: Record<string, number> = {};
-  for (const category of CATEGORIES) categoryCounts[category] = 0;
-  return {
-    total_tasks: 0,
-    completed_tasks: 0,
-    proofed_tasks: 0,
-    completion_rate: 0,
-    category_counts: categoryCounts,
-    points: {},
-    total_points: 0,
-    streak_len: 0,
-    best_streak: 0,
-    days_in: 1,
-    plans_count: 1,
-    weekly_completed: [0, 0, 0, 0, 0, 0, 0, 0],
-    mirror_line: null,
-  };
-}
-
-function dashboardFromSources(
-  recap: Recap | null,
-  state: StateResponse | null,
-): RecapDashboard | null {
-  if (recap?.dashboard) return recap.dashboard;
-  if (!recap && !state) return null;
-  const points: Record<string, number> = { ...(state?.points ?? {}) };
-  const categoryCounts: Record<string, number> = {};
-  for (const category of CATEGORIES) {
-    categoryCounts[category] = 0;
-  }
-  if (recap?.top_category) {
-    categoryCounts[recap.top_category] = recap.completed_tasks;
-  }
-  return {
-    total_tasks: recap?.completed_tasks ?? 0,
-    completed_tasks: recap?.completed_tasks ?? 0,
-    proofed_tasks: 0,
-    completion_rate: recap?.completed_tasks ? 100 : 0,
-    category_counts: categoryCounts,
-    points,
-    total_points: recap?.total_points ?? CATEGORIES.reduce((sum, cat) => sum + (points[cat] ?? 0), 0),
-    streak_len: state?.streak_len ?? 0,
-    best_streak: state?.best_streak ?? 0,
-    days_in: recap?.days_in ?? 1,
-    plans_count: 1,
-    weekly_completed: [0, 0, 0, 0, 0, 0, 0, recap?.completed_tasks ?? 0],
-    mirror_line: recap?.dashboard?.mirror_line ?? null,
-  };
-}
-
 export default function RecapScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -136,6 +94,8 @@ export default function RecapScreen() {
   const [mode, setMode] = useState<RecapMode>('panel');
   const [recap, setRecap] = useState<Recap | null>(null);
   const [state, setState] = useState<StateResponse | null>(null);
+  // Son başarılı sunucu paneli (AsyncStorage) — açılışta anında, ağ arkada.
+  const [snapshot, setSnapshot] = useState<RecapDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -155,6 +115,10 @@ export default function RecapScreen() {
       const next = await getRecap(nextPeriod);
       setRecap(next);
       setIndex(0);
+      if (next.dashboard) {
+        setSnapshot(next.dashboard);
+        void writeReportSnapshot(nextPeriod, next.dashboard);
+      }
     } catch (value) {
       if (isPaywallError(value)) {
         setRecap(null);
@@ -168,7 +132,10 @@ export default function RecapScreen() {
 
   useEffect(() => {
     void getState()
-      .then(setState)
+      .then((next) => {
+        setState(next);
+        recordServerState(next);
+      })
       .catch(() => {
         setState(null);
       })
@@ -176,8 +143,22 @@ export default function RecapScreen() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setSnapshot(null);
+    void readReportSnapshot(period).then((cached) => {
+      if (!cancelled && cached) setSnapshot(cached);
+    });
     void load(period);
+    return () => {
+      cancelled = true;
+    };
   }, [load, period]);
+
+  // gorevTamamlandi → ['rapor'] bayatlar → panel sessiz yenilenir (elle yenileme yok).
+  useEffect(
+    () => subscribeInvalidation([CacheKeys.rapor(period)], () => void load(period)),
+    [load, period],
+  );
 
   const selectPeriod = (next: RecapPeriod) => {
     if (next === period) return;
@@ -209,8 +190,9 @@ export default function RecapScreen() {
   const cards = recap?.cards ?? [];
   const card = cards[index];
   const isClosing = card?.kind === 'closing';
-  const dashboard = dashboardFromSources(recap, state)
-    ?? (stateReady ? emptyDashboard() : null);
+  // Hesap yok: sunucu paneli > anlık görüntü > eski backend geçişi > boş durum.
+  const dashboard = resolveDashboard(recap, snapshot, state, CATEGORIES)
+    ?? (stateReady && !recapLoading ? emptyDashboard(CATEGORIES) : null);
   const detailedLocked = period === '30d' && !hasPaidAccess;
   // Boş 7g iz ≠ PRO kilidi — hikâye CTA gizlenir; paywall kartı açılmaz.
   const storyLocked = detailedLocked;
@@ -496,7 +478,7 @@ export default function RecapScreen() {
             ref={shotRef}
             options={{ format: 'png', quality: 1, result: 'tmpfile' }}
             style={[styles.shot, { backgroundColor: theme.background }]}>
-            <StoryCardBody card={card} />
+            <StoryCardBody card={card} streakDays={streakGlyphDays(dashboard)} />
           </ViewShot>
         </Animated.View>
       ) : null}
@@ -562,6 +544,12 @@ function DashboardPanel({
   const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
   const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
   const emptyTrail = dashboard.completed_tasks === 0;
+  // Hazır metrikler (sunucu toplar; yoksa kart gizlenir — istemci türetmez).
+  const rates = completionRates(dashboard);
+  const periodTotal = periodPoints(dashboard);
+  const alignment = planAlignment(dashboard);
+  const peak = peakHourWindow(dashboard.hour_done);
+  const patternsReady = hasPatternData(dashboard);
   const enter = (delay: number) =>
     reduceMotion
       ? undefined
@@ -594,6 +582,16 @@ function DashboardPanel({
             {t.recap.completion(dashboard.completion_rate)}
             {dashboard.proofed_tasks > 0 ? t.recap.proofs(dashboard.proofed_tasks) : ''}
           </ThemedText>
+          {rates.daily != null || rates.weekly != null ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {[
+                rates.daily != null ? t.recap.dailyRate(rates.daily) : null,
+                rates.weekly != null ? t.recap.weeklyRate(rates.weekly) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </ThemedText>
+          ) : null}
           {emptyTrail ? (
             <ThemedText type="small" themeColor="textSecondary">
               {t.recap.emptyTrail}
@@ -619,7 +617,38 @@ function DashboardPanel({
         <KpiTile label={t.recap.streakNow} value={`${dashboard.streak_len}`} suffix={t.recap.daysUnit} />
         <KpiTile label={t.recap.streakBest} value={`${dashboard.best_streak}`} suffix={t.recap.daysUnit} />
         <KpiTile label={t.recap.totalPoints} value={`${dashboard.total_points}`} />
+        {periodTotal != null ? (
+          <KpiTile label={t.recap.periodPoints} value={`+${periodTotal}`} accent />
+        ) : null}
       </Animated.View>
+
+      {alignment ? (
+        <Animated.View entering={enter(Motion.stagger * 2.5)}>
+          <SurfaceCard>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+              {t.recap.planAlignment}
+            </ThemedText>
+            <View style={styles.alignmentRow}>
+              <ThemedText type="small">
+                {t.recap.planAlignmentScheduled(alignment.scheduled, alignment.total)}
+              </ThemedText>
+              <ThemedText type="smallBold" themeColor="tint">
+                %{alignment.scheduledRate}
+              </ThemedText>
+            </View>
+            <ProgressBar progress={alignment.scheduledRate / 100} />
+            <View style={styles.alignmentRow}>
+              <ThemedText type="small">
+                {t.recap.planAlignmentCompleted(alignment.completed, alignment.total)}
+              </ThemedText>
+              <ThemedText type="smallBold" themeColor="accentWarm">
+                %{alignment.completedRate}
+              </ThemedText>
+            </View>
+            <ProgressBar progress={alignment.completedRate / 100} color={theme.accentWarm} />
+          </SurfaceCard>
+        </Animated.View>
+      ) : null}
 
       <Animated.View entering={enter(Motion.stagger * 3)}>
         <SurfaceCard>
@@ -655,28 +684,44 @@ function DashboardPanel({
         </SurfaceCard>
       </Animated.View>
 
-      {dashboard.insights?.length || dashboard.weekday_done?.some((n) => n > 0) ? (
-        <Animated.View entering={enter(Motion.stagger * 3.5)}>
-          <SurfaceCard>
-            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
-              {t.recap.patterns}
+      <Animated.View entering={enter(Motion.stagger * 3.5)}>
+        <SurfaceCard>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelCardTitle}>
+            {t.recap.patterns}
+          </ThemedText>
+          {patternsReady ? (
+            <>
+              {dashboard.weekday_done?.some((n) => n > 0) ? (
+                <WeekdayBars done={dashboard.weekday_done} />
+              ) : null}
+              {peak ? (
+                <View style={styles.insightRow}>
+                  <ThemedText type="small" themeColor="accentWarm">
+                    ◆
+                  </ThemedText>
+                  <ThemedText type="small" style={styles.insightText}>
+                    {t.recap.peakHours(formatHourWindow(peak), peak.share)}
+                  </ThemedText>
+                </View>
+              ) : null}
+              {(dashboard.insights ?? []).map((line, i) => (
+                <View key={i} style={styles.insightRow}>
+                  <ThemedText type="small" themeColor="tint">
+                    ◆
+                  </ThemedText>
+                  <ThemedText type="small" style={styles.insightText}>
+                    {line}
+                  </ThemedText>
+                </View>
+              ))}
+            </>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.recap.patternsEmpty}
             </ThemedText>
-            {dashboard.weekday_done?.some((n) => n > 0) ? (
-              <WeekdayBars done={dashboard.weekday_done} missed={dashboard.weekday_missed} />
-            ) : null}
-            {(dashboard.insights ?? []).map((line, i) => (
-              <View key={i} style={styles.insightRow}>
-                <ThemedText type="small" themeColor="tint">
-                  ◆
-                </ThemedText>
-                <ThemedText type="small" style={styles.insightText}>
-                  {line}
-                </ThemedText>
-              </View>
-            ))}
-          </SurfaceCard>
-        </Animated.View>
-      ) : null}
+          )}
+        </SurfaceCard>
+      </Animated.View>
 
       <Animated.View entering={enter(Motion.stagger * 4)}>
         <SurfaceCard>
@@ -746,19 +791,13 @@ function DashboardPanel({
   );
 }
 
-function WeekdayBars({
-  done,
-  missed,
-}: {
-  done?: number[];
-  missed?: number[];
-}) {
+/** Yalnız kazanımlar: gün başına tamamlama; kaçırma sayısı raporda GÖSTERİLMEZ. En yoğun gün `accentWarm`. */
+function WeekdayBars({ done }: { done?: number[] }) {
   const theme = useTheme();
   const { t } = useLocale();
   const labels = t.recap.weekday;
   const doneSafe = done && done.length === 7 ? done : [0, 0, 0, 0, 0, 0, 0];
-  const missedSafe = missed && missed.length === 7 ? missed : [0, 0, 0, 0, 0, 0, 0];
-  const maxVal = Math.max(...doneSafe, ...missedSafe, 1);
+  const maxVal = Math.max(...doneSafe, 1);
   return (
     <View style={styles.weekdayRow}>
       {labels.map((label, i) => (
@@ -768,7 +807,7 @@ function WeekdayBars({
               style={[
                 styles.weekdayFill,
                 {
-                  backgroundColor: theme.tint,
+                  backgroundColor: doneSafe[i] === maxVal ? theme.accentWarm : theme.tint,
                   height: `${Math.max((doneSafe[i] / maxVal) * 100, doneSafe[i] > 0 ? 8 : 0)}%`,
                 },
               ]}
@@ -777,11 +816,8 @@ function WeekdayBars({
           <ThemedText type="small" themeColor="textSecondary" style={styles.weekdayLabel}>
             {label}
           </ThemedText>
-          <ThemedText
-            type="small"
-            themeColor={missedSafe[i] > 0 ? 'accentWarm' : 'textSecondary'}
-            style={styles.weekdayMiss}>
-            {missedSafe[i] > 0 ? `−${missedSafe[i]}` : ' '}
+          <ThemedText type="small" themeColor="textSecondary" style={styles.weekdayMiss}>
+            {doneSafe[i] > 0 ? `${doneSafe[i]}` : ' '}
           </ThemedText>
         </View>
       ))}
@@ -793,10 +829,13 @@ function KpiTile({
   label,
   value,
   suffix,
+  accent = false,
 }: {
   label: string;
   value: string;
   suffix?: string;
+  /** Dönem puanı gibi vurgu metrikleri `accentWarm` ile. */
+  accent?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -806,7 +845,7 @@ function KpiTile({
         { backgroundColor: theme.backgroundElement, borderColor: theme.border },
       ]}>
       <View style={styles.kpiValueRow}>
-        <ThemedText type="subtitle" style={{ color: theme.tint }}>
+        <ThemedText type="subtitle" style={{ color: accent ? theme.accentWarm : theme.tint }}>
           {value}
         </ThemedText>
         {suffix ? (
@@ -822,9 +861,8 @@ function KpiTile({
   );
 }
 
-function StoryCardBody({ card }: { card: RecapCard }) {
+function StoryCardBody({ card, streakDays }: { card: RecapCard; streakDays: number }) {
   const theme = useTheme();
-  const streakDays = streakDaysFromHeadline(card.headline);
   const journeyDay = card.kind === 'journey' ? journeyEndDay(card.headline) : 1;
   const periodCount = card.kind === 'trait' ? traitPeriodCount(card.subtitle) : null;
   const planCount = card.kind === 'intro' ? multiPlanCount(card.subtitle) : null;
@@ -1016,6 +1054,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   insightText: { flex: 1 },
+  alignmentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',

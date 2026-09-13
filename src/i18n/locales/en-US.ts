@@ -288,7 +288,9 @@ export const enUS: Messages = {
     proofFailed: 'Could not upload the proof.',
     proofBusy: 'The previous photo is still processing. Wait a few seconds, then try a new shot.',
     declarationAccepted: ' Accepted with your statement.',
-    excuseBody: 'An excuse is a flat −25 and resets the silent-miss counter.',
+    excuseBody: (penalty) => `An excuse is a flat −${penalty} and resets the silent-miss counter.`,
+    proofApproved: (points, confidence) => `Link completed · +${points} points · confidence ${confidence}/100.`,
+    milestoneReached: (days) => `${days}-day chain — this link is yours now.`,
     deviceFailed: 'The device action could not be completed.',
     mysticOpen: 'Open mystic panel',
     reportShort: 'Report',
@@ -308,8 +310,6 @@ export const enUS: Messages = {
     statusDone: 'Done',
     statusMissed: 'Missed',
     statusExcused: 'Excused',
-    proofApproved: (confidence, declaration) =>
-      `Link completed · confidence ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} Confidence ${confidence}/100 · try ${attempt}/3. You can take another shot.`,
     nextUpTitle: 'Next step',
@@ -327,7 +327,7 @@ export const enUS: Messages = {
   },
   events: {
     sectionTitle: 'Events',
-    sectionHint: 'No photo needed — tap “Done” for +50 points. No penalty if you miss one.',
+    sectionHint: (points) => `No photo needed — tap “Done” for +${points} points. No penalty if you miss one.`,
     markDone: 'Done',
     done: 'Completed',
     completed: (points) => `Event completed — +${points} added to your chain.`,
@@ -390,6 +390,8 @@ export const enUS: Messages = {
     gameStateDetail: (excuses, silent) =>
       `${excuses} excuses · ${silent} silent misses in a row`,
     emptyBody: 'Streak info has not arrived yet. Try again shortly — your marks gather here.',
+    nextMilestone: (remaining, day) =>
+      remaining === 1 ? `1 day to the ${day}-day link.` : `${remaining} days to the ${day}-day link.`,
   },
   plan: {
     title: 'My Plan',
@@ -418,7 +420,7 @@ export const enUS: Messages = {
     deleteConfirmAction: 'Delete',
     addTask: 'Add task',
     addTaskTitle: 'New task',
-    addTaskHint: 'Add your own task for this day — completing it opens the +50 path.',
+    addTaskHint: (points) => `Add your own task for this day — completing it opens the +${points} path.`,
     addTaskAction: 'Add',
     notEditable: 'This task can no longer be edited.',
     pastDayBlocked: 'Cannot add or move tasks to a past day.',
@@ -780,6 +782,14 @@ export const enUS: Messages = {
     weekday: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     prevCard: 'Previous card',
     nextCard: 'Next card',
+    periodPoints: 'Points this period',
+    dailyRate: (rate) => `Daily ${rate}%`,
+    weeklyRate: (rate) => `Weekly ${rate}%`,
+    planAlignment: 'Plan alignment',
+    planAlignmentScheduled: (scheduled, total) => `Turned into events · ${scheduled} / ${total} steps`,
+    planAlignmentCompleted: (completed, total) => `Completed · ${completed} / ${total} steps`,
+    peakHours: (window, share) => `You complete most between ${window} (${share}%).`,
+    patternsEmpty: 'Finish your first week and I will show your pattern here.',
   },
   companion: {
     title: 'Choose your companion',
@@ -843,7 +853,7 @@ export const enUS: Messages = {
     aliasA11y: 'League nickname',
     joinCta: 'Join with nickname',
     ranked: (n) => `You are #${n} — your streak is carrying you.`,
-    unranked: 'You are outside the top 50 — each task is +50 points.',
+    unranked: (points) => `You are outside the top 50 — each task is +${points} points.`,
     leaveA11y: 'Leave the league',
     emptyTitle: 'The league is just starting 🌱',
     emptyBody: 'Be among the first — invite friends and keep growing together.',

@@ -288,7 +288,9 @@ export const ar: Messages = {
     proofFailed: 'تعذّر رفع الإثبات.',
     proofBusy: 'الصورة السابقة ما زالت تُعالَج. انتظر ثواني ثم جرّب لقطة جديدة.',
     declarationAccepted: ' قُبل بتصريحك.',
-    excuseBody: 'الاعتذار −25 ثابت ويعيد عدّاد الفوات الصامت.',
+    excuseBody: (penalty) => `الاعتذار −${penalty} ثابت ويعيد عدّاد الفوات الصامت.`,
+    proofApproved: (points, confidence) => `اكتملت الحلقة · +${points} نقطة · الثقة ${confidence}/100.`,
+    milestoneReached: (days) => `سلسلة ${days} يومًا — هذه الحلقة لك الآن.`,
     deviceFailed: 'تعذّر إكمال إجراء الجهاز.',
     mysticOpen: 'افتح اللوحة الصوفية',
     reportShort: 'تقرير',
@@ -308,8 +310,6 @@ export const ar: Messages = {
     statusDone: 'تم',
     statusMissed: 'فاتت',
     statusExcused: 'بعذر',
-    proofApproved: (confidence, declaration) =>
-      `أُغلقت الحلقة · ثقة ${confidence}/100.${declaration}`,
     proofRejected: (reason, confidence, attempt) =>
       `${reason} ثقة ${confidence}/100 · محاولة ${attempt}/3. يمكنك التقاط لقطة جديدة.`,
     nextUpTitle: 'الخطوة التالية',
@@ -327,7 +327,7 @@ export const ar: Messages = {
   },
   events: {
     sectionTitle: 'الفعاليات',
-    sectionHint: 'بدون صورة — اضغط «أنجزت» لتحصل على +50 نقطة. لا عقوبة إن فوّتها.',
+    sectionHint: (points) => `بدون صورة — اضغط «أنجزت» لتحصل على +${points} نقطة. لا عقوبة إن فوّتها.`,
     markDone: 'أنجزت',
     done: 'مكتملة',
     completed: (points) => `اكتملت الفعالية — أُضيفت +${points} إلى سلسلتك.`,
@@ -390,6 +390,8 @@ export const ar: Messages = {
     gameStateDetail: (excuses, silent) =>
       `${excuses} اعتذار · ${silent} فوات صامت متتالٍ`,
     emptyBody: 'معلومات السلسلة لم تصل بعد. أعد المحاولة — آثارك تتجمع هنا.',
+    nextMilestone: (remaining, day) =>
+      remaining === 1 ? `يوم واحد حتى حلقة ${day} يومًا.` : `${remaining} أيام حتى حلقة ${day} يومًا.`,
   },
   plan: {
     title: 'خطتي',
@@ -418,7 +420,7 @@ export const ar: Messages = {
     deleteConfirmAction: 'حذف',
     addTask: 'إضافة مهمة',
     addTaskTitle: 'مهمة جديدة',
-    addTaskHint: 'أضف مهمتك لهذا اليوم.',
+    addTaskHint: (points) => `أضف مهمتك لهذا اليوم — إنجازها يفتح طريق +${points}.`,
     addTaskAction: 'إضافة',
     notEditable: 'لم يعد بالإمكان تعديل هذه المهمة.',
     pastDayBlocked: 'لا يمكن الإضافة أو النقل إلى يوم سابق.',
@@ -779,6 +781,14 @@ export const ar: Messages = {
     weekday: ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'],
     prevCard: 'البطاقة السابقة',
     nextCard: 'البطاقة التالية',
+    periodPoints: 'نقاط الفترة',
+    dailyRate: (rate) => `يوميًا ${rate}%`,
+    weeklyRate: (rate) => `أسبوعيًا ${rate}%`,
+    planAlignment: 'الالتزام بالخطة',
+    planAlignmentScheduled: (scheduled, total) => `تحوّلت إلى فعاليات · ${scheduled} / ${total} خطوة`,
+    planAlignmentCompleted: (completed, total) => `أُنجزت · ${completed} / ${total} خطوة`,
+    peakHours: (window, share) => `تُنجز أكثر بين ${window} (${share}%).`,
+    patternsEmpty: 'أكمل أسبوعك الأول وسأعرض لك نمطك هنا.',
   },
   companion: {
     title: 'اختر رفيقك',
@@ -842,7 +852,7 @@ export const ar: Messages = {
     aliasA11y: 'كنية الدوري',
     joinCta: 'انضم بالكنية',
     ranked: (n) => `أنت في المرتبة ${n} — سلسلتك تحملك.`,
-    unranked: 'خارج أفضل 50 — كل مهمة +50 نقطة.',
+    unranked: (points) => `خارج أفضل 50 — كل مهمة +${points} نقطة.`,
     leaveA11y: 'غادر الدوري',
     emptyTitle: 'الدوري يبدأ الآن 🌱',
     emptyBody: 'كن من الأوائل — ادعُ أصدقاءك وانموا معًا.',

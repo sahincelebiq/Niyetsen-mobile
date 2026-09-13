@@ -58,8 +58,10 @@ import {
   type PhilosophyPath,
 } from '@/lib/api';
 import { selectionHaptic } from '@/lib/haptics';
+import { recordServerState } from '@/lib/gamification';
 import { mysticHref } from '@/lib/mystic-routes';
 import { consumePendingChatMessage } from '@/lib/pending-chat';
+import { CacheKeys, subscribeInvalidation } from '@/lib/query-cache';
 import { trackEvent } from '@/lib/analytics';
 import { executeDeviceTool } from '@/lib/task-reminders';
 import { useSubscription } from '@/providers/subscription-provider';
@@ -206,10 +208,17 @@ export default function ChatScreen() {
       const state = await getState();
       setStreakDays(state.streak_len);
       syncStreak(state.streak_len);
+      recordServerState(state);
     } catch {
       // Zincir bilgisi yüklenemezse sohbet akışı devam eder.
     }
   }, [syncStreak]);
+
+  // gorevTamamlandi → ['zincir'] bayatlar → başlıktaki zincir sayısı sessiz güncellenir.
+  useEffect(
+    () => subscribeInvalidation([CacheKeys.zincir()], () => void refreshStreak()),
+    [refreshStreak],
+  );
 
   useEffect(() => {
     let cancelled = false;

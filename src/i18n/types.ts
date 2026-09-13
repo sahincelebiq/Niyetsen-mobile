@@ -289,7 +289,12 @@ export type Messages = {
     proofFailed: string;
     proofBusy: string;
     declarationAccepted: string;
-    excuseBody: string;
+    /** Puan sabiti `ScoringRules.mazeret`'ten gelir (mutlak değer). */
+    excuseBody: (penalty: number) => string;
+    /** Kanıt onayı: puan `awardedPointsFromMessage` / tablo; güven 0-100. */
+    proofApproved: (points: number, confidence: number) => string;
+    /** Kilometre taşı (7/30/90/180) tam gününde bir kez — kutlama, utandırma yok. */
+    milestoneReached: (days: number) => string;
     deviceFailed: string;
     mysticOpen: string;
     reportShort: string;
@@ -309,7 +314,6 @@ export type Messages = {
     statusDone: string;
     statusMissed: string;
     statusExcused: string;
-    proofApproved: (confidence: number, declaration: string) => string;
     proofRejected: (reason: string, confidence: number, attempt: number) => string;
     /** 03-Bugün: sıradaki adım kartı + zaman şeridi + halka + boş durum. */
     nextUpTitle: string;
@@ -328,7 +332,8 @@ export type Messages = {
   /** Plan etkinlikleri + plan-içi asistan (2026-09-10). */
   events: {
     sectionTitle: string;
-    sectionHint: string;
+    /** Puan `ScoringRules.planEtkinlik`'ten gelir. */
+    sectionHint: (points: number) => string;
     markDone: string;
     done: string;
     completed: (points: number) => string;
@@ -390,6 +395,8 @@ export type Messages = {
     then: string;
     gameStateDetail: (excuses: number, silent: number) => string;
     emptyBody: string;
+    /** "30 güne 3 gün" — bir sonraki kilometre taşı (scoring.nextMilestone). */
+    nextMilestone: (remaining: number, day: number) => string;
   };
   plan: {
     title: string;
@@ -416,7 +423,8 @@ export type Messages = {
     deleteConfirmAction: string;
     addTask: string;
     addTaskTitle: string;
-    addTaskHint: string;
+    /** Puan `ScoringRules.planGorevi`'nden gelir. */
+    addTaskHint: (points: number) => string;
     addTaskAction: string;
     notEditable: string;
     pastDayBlocked: string;
@@ -759,6 +767,16 @@ export type Messages = {
     weekday: [string, string, string, string, string, string, string];
     prevCard: string;
     nextCard: string;
+    /** 05 — hazır metrikler (sunucu toplar, ekran okur). */
+    periodPoints: string;
+    dailyRate: (rate: number) => string;
+    weeklyRate: (rate: number) => string;
+    planAlignment: string;
+    planAlignmentScheduled: (scheduled: number, total: number) => string;
+    planAlignmentCompleted: (completed: number, total: number) => string;
+    peakHours: (window: string, share: number) => string;
+    /** Boş durum: ilk hafta dolmadan desen yok. */
+    patternsEmpty: string;
   };
   companion: {
     title: string;
@@ -794,7 +812,8 @@ export type Messages = {
     aliasA11y: string;
     joinCta: string;
     ranked: (n: number) => string;
-    unranked: string;
+    /** Puan `ScoringRules.planGorevi`'nden gelir. */
+    unranked: (points: number) => string;
     leaveA11y: string;
     emptyTitle: string;
     emptyBody: string;

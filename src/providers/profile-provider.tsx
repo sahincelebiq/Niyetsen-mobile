@@ -14,6 +14,7 @@ import { siniflaHata, type UygulamaHatasi } from '@/lib/app-error';
 import { bildirHata } from '@/lib/error-report';
 import { readCachedProfile, writeCachedProfile } from '@/lib/boot-cache';
 import { useI18n } from '@/providers/locale-provider';
+import { ensureGamificationReady, setGamificationTimeZone } from '@/lib/gamification';
 
 type ProfileContextValue = {
   profile: UserProfile | null;
@@ -37,6 +38,12 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   const [offline, setOffline] = useState(false);
   const profileRef = useRef<UserProfile | null>(null);
   profileRef.current = profile;
+
+  // Zincir gün sınırı profil saat dilimiyle çizilir; olay defteri erken ısınır.
+  useEffect(() => {
+    setGamificationTimeZone(profile?.timezone);
+    void ensureGamificationReady();
+  }, [profile?.timezone]);
 
   const refresh = useCallback(async (opts?: { background?: boolean }) => {
     const background = opts?.background ?? Boolean(profileRef.current);

@@ -21,6 +21,7 @@ import { CountUpText } from '@/components/count-up-text';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { nextMilestone, ScoringRules } from '@/constants/scoring';
 import {
   Fonts,
   Radii,
@@ -38,6 +39,8 @@ import {
   getState,
   type StateResponse,
 } from '@/lib/api';
+import { recordServerState } from '@/lib/gamification';
+import { CacheKeys } from '@/lib/query-cache';
 
 function isSproutMilestone(days: number): boolean {
   return days === 3 || days === 7 || days === 30 || (days > 30 && days % 30 === 0);
@@ -63,6 +66,7 @@ export default function RankScreen() {
     try {
       const nextState = await getState();
       setState(nextState);
+      recordServerState(nextState);
     } catch (value) {
       setError(value instanceof ApiError ? value.message : t.chain.loadFailed);
     } finally {
@@ -71,7 +75,8 @@ export default function RankScreen() {
     }
   }, [t]);
 
-  useWarmFocusReload(load, state != null);
+  // gorevTamamlandi → ['zincir'] / ['puan','ozet'] bayatlar → hero + puanlar sessiz yenilenir.
+  useWarmFocusReload(load, state != null, undefined, [CacheKeys.zincir(), CacheKeys.puanOzet()]);
 
   useEffect(() => {
     if (state) syncStreak(state.streak_len);
@@ -81,6 +86,7 @@ export default function RankScreen() {
     !!state &&
     (isSproutMilestone(state.streak_len) ||
       (state.streak_len > 0 && state.streak_len === state.best_streak));
+  const upcoming = state ? nextMilestone(state.streak_len) : null;
 
   return (
     <ThemedView style={styles.flex}>
@@ -200,7 +206,7 @@ export default function RankScreen() {
                 </ThemedText>
               </Pressable>
               <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
-                {t.chain.heroHint}
+                {upcoming ? t.chain.nextMilestone(upcoming.remaining, upcoming.day) : t.chain.heroHint}
               </ThemedText>
             </View>
 
@@ -230,7 +236,9 @@ export default function RankScreen() {
                     <ThemedText>{category}</ThemedText>
                     <CategoryBadge label={state.ranks[category]} />
                   </View>
-                  <ProgressBar progress={Math.min(state.points[category] / 1000, 1)} />
+                  <ProgressBar
+                    progress={Math.min(state.points[category] / ScoringRules.kategoriTavani, 1)}
+                  />
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.chain.points(state.points[category])}
                   </ThemedText>
