@@ -30,7 +30,11 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   addNotificationResponseListener,
   openLastNotificationResponse,
+  refreshPushTokenIfNeeded,
 } from '@/lib/push-notifications';
+import { ensureNotificationChannels } from '@/lib/notification-channels';
+import { rescheduleDailyLocalReminder } from '@/lib/task-reminders';
+import { uiCopy } from '@/lib/ui-copy';
 import { trackEvent } from '@/lib/analytics';
 import { pingHealth, updateProfile } from '@/lib/api';
 import { initSentry } from '@/lib/sentry';
@@ -286,6 +290,8 @@ function ProfileGate() {
 
 function NotificationRouter() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { profile } = useProfile();
 
   useEffect(() => {
     initSentry();
@@ -300,6 +306,33 @@ function NotificationRouter() {
       subscription?.remove();
     };
   }, [router]);
+
+  // Görev 01-D/E: açılışta kanalları kur, token tazele, sunucudaki
+  // kayıtlı saatten yerel günlük hatırlatıcıyı geri kur (yeniden kurulum
+  // sonrası bile aynı saat çalışır).
+  const bootKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId || !profile) return;
+    const key = `${userId}:${profile.notif_hour ?? 8}:${profile.notif_minute ?? 0}`;
+    if (bootKeyRef.current === key) return;
+    bootKeyRef.current = key;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      void (async () => {
+        try {
+          await ensureNotificationChannels(uiCopy().settings);
+        } catch {
+          // Kanal kurulumu açılışı düşürmez.
+        }
+        void refreshPushTokenIfNeeded(userId);
+        void rescheduleDailyLocalReminder(
+          profile.notif_hour ?? 8,
+          profile.notif_minute ?? 0,
+        );
+      })();
+    });
+    return () => handle.cancel();
+  }, [user?.id, profile]);
 
   return null;
 }

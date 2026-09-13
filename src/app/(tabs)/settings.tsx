@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Platform,
@@ -9,13 +10,14 @@ import {
   StyleSheet,
   Switch,
   TextInput,
+  Vibration,
   View,
 } from 'react-native';
 
 import { BirthDateField } from '@/components/birth-date-field';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
-import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
+import { TimeOfDayField, formatTimeOfDay, type TimeOfDayValue } from '@/components/time-of-day-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
@@ -40,12 +42,9 @@ import {
   isAtLeastYearsOld,
 } from '@/lib/birth-date';
 import { presentCustomerCenter } from '@/lib/customer-center';
-import {
-  disablePushNotifications,
-  enablePushNotifications,
-  getPushStatus,
-  type PushStatus,
-} from '@/lib/push-notifications';
+import { useNotificationPermission } from '@/hooks/use-notification-permission';
+import { rescheduleDailyLocalReminder } from '@/lib/task-reminders';
+import { getPushStatus } from '@/lib/push-notifications';
 import { hasStoreEntitlement, restorePurchases } from '@/lib/purchases';
 import { setPushHintVisible } from '@/lib/push-hint';
 import { useAuth } from '@/providers/auth-provider';
@@ -73,9 +72,15 @@ export default function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [consentBusy, setConsentBusy] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
-  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushError, setPushError] = useState<string | null>(null);
+  // Görev 01-B: bildirim durumu tek kancada (5 durumlu makine).
+  const {
+    status: pushStatus,
+    busy: pushBusy,
+    error: pushError,
+    setEnabled: changePushPreference,
+    refresh: refreshPush,
+    openSettings: openSystemSettings,
+  } = useNotificationPermission(auth.user?.id ?? null);
 
   useEffect(() => {
     setName(profile?.name ?? '');
@@ -90,23 +95,8 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (!auth.user?.id) return;
-    let active = true;
-    getPushStatus(auth.user.id)
-      .then((status) => {
-        if (active) {
-          setPushStatus(status);
-          setPushHintVisible(status.supported && !status.enabled);
-        }
-      })
-      .catch((value) => {
-        if (active) {
-          setPushError(value instanceof Error ? value.message : t.settings.pushStatusFailed);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [auth.user?.id, t.settings.pushStatusFailed]);
+    void refreshPush();
+  }, [auth.user?.id, refreshPush]);
 
   const previewZodiac = useMemo(() => {
     const iso = birthDateIsoFromDisplay(birthDate);
@@ -142,7 +132,18 @@ export default function SettingsScreen() {
         gender,
       });
       await refresh();
-      setMessage(t.common.done);
+      // Görev 01-E/F: saat değiştiyse yerel zamanlamayı yenile; cihaz
+      // bildirimi kapalıysa bunu tek cümlede dürüstçe söyle.
+      void rescheduleDailyLocalReminder(notifTime.hour, notifTime.minute);
+      const pushState = auth.user?.id ? await getPushStatus(auth.user.id).catch(() => null) : null;
+      const deviceOff = pushState !== null && pushState.supported && !pushState.enabled;
+      setMessage(deviceOff ? t.settings.pushSavedNoDevice : t.settings.pushSaved);
+      try {
+        const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled().catch(() => false);
+        if (!reduceMotion) Vibration.vibrate(10);
+      } catch {
+        // Titreşim yoksa sessizce geç — mesaj satırı zaten gösterildi.
+      }
     } catch (value) {
       setError(value instanceof Error ? value.message : t.common.errorGeneric);
     } finally {
@@ -250,24 +251,6 @@ export default function SettingsScreen() {
       setConsentError(value instanceof Error ? value.message : t.settings.consentSaveFailed);
     } finally {
       setConsentBusy(false);
-    }
-  }
-
-  async function changePushPreference(enabled: boolean) {
-    if (!auth.user?.id || pushBusy) return;
-    setPushBusy(true);
-    setPushError(null);
-    try {
-      const nextStatus = enabled
-        ? await enablePushNotifications(auth.user.id)
-        : await disablePushNotifications(auth.user.id);
-      setPushStatus(nextStatus);
-      setPushHintVisible(nextStatus.supported && !nextStatus.enabled);
-    } catch (value) {
-      setPushError(value instanceof Error ? value.message : t.settings.notifPrefFailed);
-      setPushStatus(await getPushStatus(auth.user.id));
-    } finally {
-      setPushBusy(false);
     }
   }
 
@@ -426,39 +409,86 @@ export default function SettingsScreen() {
             </View>
           </View>
           {busy === 'locale' ? <ActivityIndicator color={theme.tint} /> : null}
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleCopy}>
-              <ThemedText type="smallBold">{t.profile.notifications}</ThemedText>
+          {pushStatus?.state === 'unsupported' ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {pushStatus.message}
+            </ThemedText>
+          ) : (
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleCopy}>
+                <ThemedText type="smallBold">{t.profile.notifications}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.profile.notificationsHint}
+                </ThemedText>
+              </View>
+              <Switch
+                accessibilityLabel={t.profile.notifications}
+                value={pushStatus?.enabled ?? false}
+                disabled={pushBusy || pushStatus?.state === 'granted_no_token'}
+                onValueChange={(value) => void changePushPreference(value)}
+                trackColor={{ false: theme.border, true: theme.tint }}
+                thumbColor={theme.background}
+              />
+            </View>
+          )}
+          {pushBusy || pushStatus?.state === 'granted_no_token' ? (
+            <View style={styles.statusRow}>
+              <ActivityIndicator color={theme.tint} />
               <ThemedText type="small" themeColor="textSecondary">
-                {t.profile.notificationsHint}
+                {t.settings.pushConnecting}
               </ThemedText>
             </View>
-            <Switch
-              accessibilityLabel={t.profile.notifications}
-              value={pushStatus?.enabled ?? false}
-              disabled={pushBusy || pushStatus?.supported === false}
-              onValueChange={(value) => void changePushPreference(value)}
-              trackColor={{ false: theme.border, true: theme.tint }}
-              thumbColor={theme.background}
-            />
-          </View>
-          {!pushStatus && !pushError && <ActivityIndicator color={theme.tint} />}
-          {pushStatus && !pushStatus.enabled && pushStatus.supported ? (
-            <ThemedText type="small" themeColor="accentWarm">
-              {t.settings.pushOffHint}
-            </ThemedText>
           ) : null}
-          {pushStatus?.enabled ? (
+          {!pushStatus && !pushError ? (
+            <ActivityIndicator color={theme.tint} />
+          ) : null}
+          {pushStatus?.state === 'ready' ? (
             <ThemedText type="small" themeColor="textSecondary">
-              {t.profile.notificationsWhen}
+              {t.settings.pushReadyAt(formatTimeOfDay(notifTime))}
             </ThemedText>
           ) : null}
-          {pushStatus?.message ? (
+          {pushStatus?.state === 'denied' ? (
+            <View style={styles.deniedBlock}>
+              <ThemedText type="smallBold">{t.settings.pushDenied}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.settings.pushDeniedHint}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t.settings.openSettings}
+                onPress={() => void openSystemSettings()}
+                style={({ pressed }) => [
+                  styles.settingsButton,
+                  {
+                    borderColor: theme.tint,
+                    backgroundColor: theme.backgroundSelected,
+                    opacity: pressed ? 0.75 : 1,
+                  },
+                ]}>
+                <ThemedText type="smallBold" themeColor="tint">
+                  {t.settings.openSettings}
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
+          {pushStatus?.state === 'undetermined' && pushStatus?.message ? (
             <ThemedText type="small" themeColor="textSecondary">
               {pushStatus.message}
             </ThemedText>
           ) : null}
-          {pushError ? <ThemedText themeColor="danger">{pushError}</ThemedText> : null}
+          {pushError ? (
+            <ThemedText type="small" themeColor="danger">
+              {pushError}
+            </ThemedText>
+          ) : null}
+          {pushStatus?.state === 'ready' || pushStatus?.state === 'denied' ? (
+            <View style={styles.channelList}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.settings.channelDaily} · {t.settings.channelTasks} ·{' '}
+                {t.settings.channelStreak} · {t.settings.channelBonus}
+              </ThemedText>
+            </View>
+          ) : null}
           <View style={styles.toggleRow}>
             <View style={styles.toggleCopy}>
               <ThemedText type="smallBold">{t.profile.willpowerMode}</ThemedText>
@@ -930,6 +960,26 @@ const styles = StyleSheet.create({
   toggleCopy: {
     flex: 1,
     gap: 2,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 44,
+  },
+  deniedBlock: {
+    gap: Spacing.one,
+  },
+  settingsButton: {
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  channelList: {
+    paddingTop: Spacing.one,
   },
   input: {
     minHeight: 44,

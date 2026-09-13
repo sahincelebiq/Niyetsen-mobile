@@ -46,3 +46,9 @@ credentials.json
 credentials/
 *.bak.jks
 @sahincelebiq__niyetsen.bak.jks
+
+# Firebase Android yapılandırması (görev 01-A): gerçek dosya
+# Firebase Console'dan indirilir, ASLA commit'lenmez. EAS tarafına
+# `eas credentials` ile yüklenir; yerelde `./google-services.json`
+# adıyla durur (app.json `android.googleServicesFile` oraya bakar).
+/google-services.json

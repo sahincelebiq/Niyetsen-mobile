@@ -482,6 +482,27 @@ export type Messages = {
     sectionOpen: string;
     sectionClose: string;
     pushOffHint: string;
+    pushUnsupported: string;
+    pushTapToEnable: string;
+    pushDenied: string;
+    pushDeniedHint: string;
+    openSettings: string;
+    pushConnecting: string;
+    pushReadyAt: (time: string) => string;
+    pushSaved: string;
+    pushSavedNoDevice: string;
+    pushFixAction: string;
+    channelDaily: string;
+    channelDailyDesc: string;
+    channelTasks: string;
+    channelTasksDesc: string;
+    channelStreak: string;
+    channelStreakDesc: string;
+    channelBonus: string;
+    channelBonusDesc: string;
+    localDailyRestored: string;
+    dailyReminderTitle: string;
+    dailyReminderBody: (taskTitle: string) => string;
   };
   zodiac: {
     Koç: string;
