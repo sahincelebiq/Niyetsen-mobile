@@ -434,6 +434,8 @@ export type StateResponse = {
   excuse_count: number;
   silent_miss_streak: number;
   yesterday_silent_misses?: number;
+  /** 05 — zincirin son kredilendiği yerel gün (YYYY-MM-DD); eski backend göndermez. */
+  last_active_day?: string | null;
 };
 
 export type PushPlatform = 'ios' | 'android';
@@ -630,7 +632,7 @@ export type CompleteEventResponse = {
   streak_len?: number;
 };
 
-/** Fotosuz Yaptım: +50/kategori; ikinci basış 409, gelecek gün 400. */
+/** Fotosuz Yaptım: `ScoringRules.planEtkinlik`/kategori; ikinci basış 409, gelecek gün 400. */
 export function completePlanEvent(occurrenceId: string): Promise<CompleteEventResponse> {
   return request<CompleteEventResponse>(
     `/plan/events/${encodeURIComponent(occurrenceId)}/complete`,
@@ -897,6 +899,19 @@ export type RecapDashboard = {
   bonus_offered?: number;
   bonus_completed?: number;
   insights?: string[];
+  /**
+   * 05 (puan·zincir·rapor) — önceden toplanmış ek metrikler; eski backend
+   * göndermez → istemci türetmez, kartı gizler (report-metrics.ts).
+   */
+  /** Plan uyumu (04 `plan_adimi_id`): adım → etkinliğe dönüşen → tamamlanan. */
+  plan_steps_total?: number;
+  plan_steps_scheduled?: number;
+  plan_steps_completed?: number;
+  /** Dönem içinde kazanılan puan (total_points tüm zamanlar). */
+  period_points?: number;
+  /** 0-100; günlük / haftalık tamamlama oranı. */
+  daily_completion_rate?: number;
+  weekly_completion_rate?: number;
 };
 
 export type Recap = {
