@@ -907,9 +907,11 @@ const styles = StyleSheet.create({
   headerLinks: {
     flexDirection: 'row',
     gap: Spacing.one,
+    flexShrink: 0,
   },
   bonusLink: {
     minHeight: 44,
+    minWidth: 44,
     borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
     alignItems: 'center',
