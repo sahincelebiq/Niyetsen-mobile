@@ -22,7 +22,6 @@
     "android": {
       "package": "com.niyetsenai",
       "versionCode": 14,
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#DA9B7C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

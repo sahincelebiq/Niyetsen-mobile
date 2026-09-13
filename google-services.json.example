@@ -1,5 +1,5 @@
 {
-  "_note": "ÖRNEK ŞABLON — gerçek dosyayı Firebase Console → Proje ayarları → Android uygulaması (com.niyetsenai) → google-services.json indir → bu klasöre google-services.json adıyla koy (commit'leme, .gitignore'da). Ardından `eas credentials` ile yükle. Ayrıntılar PR açıklamasında.",
+  "_note": "ÖRNEK ŞABLON — Firebase Console → Proje ayarları → Android (com.niyetsenai) → google-services.json indir. Yerelde bu klasöre koy (commit etme). EAS Build için: eas env:create --name GOOGLE_SERVICES_JSON --type file --environment production --visibility secret",
   "project_info": {
     "project_number": "BURAYA",
     "project_id": "BURAYA",
