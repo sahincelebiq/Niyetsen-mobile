@@ -1,6 +1,6 @@
 /**
  * RevenueCat Customer Center — abonelik yönetimi (iptal/geri yükle/destek).
- * Native-only; Expo Go'da çalışmaz → graceful mesaj.
+ * Native-only; development/EAS build gerekir → yoksa graceful mesaj.
  */
 import { Platform } from 'react-native';
 import RevenueCatUI from 'react-native-purchases-ui';
@@ -24,7 +24,7 @@ export async function presentCustomerCenter(options?: {
     return {
       ok: false,
       message:
-        'Abonelik merkezi Expo Go’da açılmaz. Development / EAS build ile dene.',
+        'Abonelik merkezi bu sürümde açılmaz. Development / EAS build ile dene.',
     };
   }
 
@@ -39,11 +39,8 @@ export async function presentCustomerCenter(options?: {
       },
     });
     return { ok: true };
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Abonelik merkezi açılamadı. Birazdan tekrar dene.';
-    return { ok: false, message };
+  } catch {
+    // Ham SDK metni sızdırılmaz (ss-01) — jenerik metin.
+    return { ok: false, message: 'Abonelik merkezi açılamadı. Birazdan tekrar dene.' };
   }
 }

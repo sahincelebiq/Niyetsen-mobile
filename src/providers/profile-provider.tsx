@@ -10,12 +10,16 @@ import {
 } from 'react';
 
 import { getProfile, UserProfile } from '@/lib/api';
+import { siniflaHata, type UygulamaHatasi } from '@/lib/app-error';
+import { bildirHata } from '@/lib/error-report';
 import { readCachedProfile, writeCachedProfile } from '@/lib/boot-cache';
 
 type ProfileContextValue = {
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  /** Sınıflanmış hata — varsa ekranda `hataMesaji(hata, t)` gösterilir. */
+  hata: UygulamaHatasi | null;
   /** Sunucuya ulaşılamadı; önbellek / çevrimdışı görünüm. */
   offline: boolean;
   refresh: () => Promise<void>;
@@ -27,6 +31,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hata, setHata] = useState<UygulamaHatasi | null>(null);
   const [offline, setOffline] = useState(false);
   const profileRef = useRef<UserProfile | null>(null);
   profileRef.current = profile;
@@ -37,6 +42,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
       setLoading(true);
     }
     setError(null);
+    setHata(null);
     try {
       const next = await getProfile();
       setProfile(next);
@@ -48,8 +54,13 @@ export function ProfileProvider({ children }: PropsWithChildren) {
         setProfile(cached);
         setOffline(true);
         setError(null);
+        setHata(null);
       } else {
-        setError(value instanceof Error ? value.message : 'Profil yüklenemedi.');
+        // Ham mesaj EKRANA gitmez — tüketici `hata` üzerinden i18n gösterir.
+        const sinifli = siniflaHata(value, 'PROFIL_YUK_001');
+        bildirHata(sinifli, 'profile.refresh');
+        setHata(sinifli);
+        setError(`${sinifli.name}:${sinifli.hataKodu}`);
         setOffline(true);
       }
     } finally {
@@ -74,8 +85,8 @@ export function ProfileProvider({ children }: PropsWithChildren) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ profile, loading, error, offline, refresh: () => refresh() }),
-    [error, loading, offline, profile, refresh],
+    () => ({ profile, loading, error, hata, offline, refresh: () => refresh() }),
+    [error, hata, loading, offline, profile, refresh],
   );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }

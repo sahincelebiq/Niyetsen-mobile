@@ -44,9 +44,13 @@ import {
   disablePushNotifications,
   enablePushNotifications,
   getPushStatus,
+  PushHatasi,
+  pushHataMesaji,
   type PushStatus,
 } from '@/lib/push-notifications';
 import { hasStoreEntitlement, restorePurchases } from '@/lib/purchases';
+import { hataMesaji, siniflaHata } from '@/lib/app-error';
+import { trackEvent } from '@/lib/analytics';
 import { useAuth } from '@/providers/auth-provider';
 import { useAppearance } from '@/providers/appearance-provider';
 import { useI18n } from '@/providers/locale-provider';
@@ -90,19 +94,24 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!auth.user?.id) return;
     let active = true;
-    getPushStatus(auth.user.id)
+    getPushStatus(auth.user.id, t)
       .then((status) => {
         if (active) setPushStatus(status);
       })
       .catch((value) => {
         if (active) {
-          setPushError(value instanceof Error ? value.message : t.settings.pushStatusFailed);
+          // ss-01: ham platform/FCM metni EKRANA basılmaz; kod → i18n.
+          setPushError(
+            value instanceof PushHatasi
+              ? pushHataMesaji(value.kod, t)
+              : t.settings.pushStatusFailed,
+          );
         }
       });
     return () => {
       active = false;
     };
-  }, [auth.user?.id, t.settings.pushStatusFailed]);
+  }, [auth.user?.id, t]);
 
   const previewZodiac = useMemo(() => {
     const iso = birthDateIsoFromDisplay(birthDate);
@@ -255,12 +264,21 @@ export default function SettingsScreen() {
     setPushError(null);
     try {
       const nextStatus = enabled
-        ? await enablePushNotifications(auth.user.id)
-        : await disablePushNotifications(auth.user.id);
+        ? await enablePushNotifications(auth.user.id, t)
+        : await disablePushNotifications(auth.user.id, t);
       setPushStatus(nextStatus);
+      void trackEvent('bildirim_izni_sonucu', { enabled });
     } catch (value) {
-      setPushError(value instanceof Error ? value.message : t.settings.notifPrefFailed);
-      setPushStatus(await getPushStatus(auth.user.id));
+      const hata = value instanceof PushHatasi
+        ? pushHataMesaji(value.kod, t)
+        : hataMesaji(siniflaHata(value, 'PROFIL_PUSH_001'), t);
+      setPushError(hata);
+      void trackEvent('bildirim_izni_sonucu', { enabled, failed: true });
+      try {
+        setPushStatus(await getPushStatus(auth.user.id, t));
+      } catch {
+        // Durum okunamazsa switch eski halinde kalır.
+      }
     } finally {
       setPushBusy(false);
     }

@@ -11,6 +11,7 @@ import {
   unregisterPushToken,
   type PushPlatform,
 } from '@/lib/api';
+import type { Messages } from '@/i18n/types';
 
 const ANDROID_CHANNEL_ID = 'niyetsen-gorevleri';
 const ALLOWED_NOTIFICATION_URLS = new Set([
@@ -52,6 +53,38 @@ function tokenKey(userId: string): string {
   return `push-token:${userId}`;
 }
 
+/**
+ * ss-01 dersi: ham platform/FCM metni ASLA fırlatılmaz. Hata kodludur,
+ * kullanıcı metni çağrı noktasında i18n'den üretilir (`pushHataMesaji`).
+ */
+export type PushHataKodu =
+  | 'desteklenmiyor'
+  | 'proje-kimligi-yok'
+  | 'izin-verilmedi'
+  | 'platform-desteklenmiyor';
+
+export class PushHatasi extends Error {
+  readonly kod: PushHataKodu;
+  constructor(kod: PushHataKodu) {
+    super(`push:${kod}`);
+    this.name = 'PushHatasi';
+    this.kod = kod;
+  }
+}
+
+/** Kodlu hatayı o anki dile çevirir — ekrana basılan tek metin budur. */
+export function pushHataMesaji(kod: PushHataKodu, t: Messages): string {
+  switch (kod) {
+    case 'desteklenmiyor':
+      return t.settings.pushUnsupported;
+    case 'izin-verilmedi':
+      return t.settings.pushPermissionOff;
+    case 'proje-kimligi-yok':
+    case 'platform-desteklenmiyor':
+      return t.settings.pushStatusFailed;
+  }
+}
+
 function getProjectId(): string | null {
   const easProjectId = Constants.easConfig?.projectId;
   const extraProjectId = Constants.expoConfig?.extra?.eas?.projectId;
@@ -59,17 +92,11 @@ function getProjectId(): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-function unsupportedMessage(): string | null {
-  if (Platform.OS === 'web') {
-    return 'Push bildirimleri web sürümünde desteklenmiyor.';
-  }
-  if (!Device.isDevice) {
-    return 'Push bildirimleri simülatörde çalışmaz; fiziksel cihaz gerekir.';
-  }
-  if (Constants.appOwnership === 'expo') {
-    return 'Uzaktan push Expo Go’da desteklenmiyor; development build kullan.';
-  }
-  return null;
+function desteklenmiyorMu(): boolean {
+  if (Platform.OS === 'web') return true;
+  if (!Device.isDevice) return true;
+  if (Constants.appOwnership === 'expo') return true;
+  return false;
 }
 
 async function ensureAndroidChannel(): Promise<void> {
@@ -83,14 +110,13 @@ async function ensureAndroidChannel(): Promise<void> {
   });
 }
 
-export async function getPushStatus(userId: string): Promise<PushStatus> {
-  const unsupported = unsupportedMessage();
-  if (unsupported) {
+export async function getPushStatus(userId: string, t: Messages): Promise<PushStatus> {
+  if (desteklenmiyorMu()) {
     return {
       enabled: false,
       supported: false,
       permission: 'unsupported',
-      message: unsupported,
+      message: t.settings.pushUnsupported,
     };
   }
 
@@ -105,35 +131,30 @@ export async function getPushStatus(userId: string): Promise<PushStatus> {
     permission: status,
     message:
       enabledValue === 'true' && status !== Notifications.PermissionStatus.GRANTED
-        ? 'Bildirim izni cihaz ayarlarından kapatılmış.'
+        ? t.settings.pushPermissionOff
         : null,
   };
 }
 
-export async function enablePushNotifications(userId: string): Promise<PushStatus> {
-  const unsupported = unsupportedMessage();
-  if (unsupported) throw new Error(unsupported);
+export async function enablePushNotifications(userId: string, t: Messages): Promise<PushStatus> {
+  if (desteklenmiyorMu()) throw new PushHatasi('desteklenmiyor');
 
   const projectId = getProjectId();
   if (!projectId) {
-    throw new Error(
-      'EAS projectId bulunamadı. Push için app.json extra.eas.projectId veya EAS proje bağlantısı gerekli.',
-    );
+    throw new PushHatasi('proje-kimligi-yok');
   }
 
   await ensureAndroidChannel();
   const permission = await Notifications.requestPermissionsAsync();
   if (permission.status !== Notifications.PermissionStatus.GRANTED) {
     await AsyncStorage.setItem(preferenceKey(userId), 'false');
-    throw new Error(
-      'Bildirim izni verilmedi. Uygulama bildirim olmadan çalışmaya devam edecek.',
-    );
+    throw new PushHatasi('izin-verilmedi');
   }
 
   const response = await Notifications.getExpoPushTokenAsync({ projectId });
   const platform = Platform.OS as PushPlatform;
   if (platform !== 'ios' && platform !== 'android') {
-    throw new Error('Bu platform push bildirimlerini desteklemiyor.');
+    throw new PushHatasi('platform-desteklenmiyor');
   }
   await registerPushToken(response.data, platform);
   await AsyncStorage.multiSet([
@@ -145,11 +166,11 @@ export async function enablePushNotifications(userId: string): Promise<PushStatu
     enabled: true,
     supported: true,
     permission: permission.status,
-    message: 'Bildirimler açıldı.',
+    message: t.settings.pushEnabled,
   };
 }
 
-export async function disablePushNotifications(userId: string): Promise<PushStatus> {
+export async function disablePushNotifications(userId: string, t: Messages): Promise<PushStatus> {
   const token = await AsyncStorage.getItem(tokenKey(userId));
   if (token) await unregisterPushToken(token);
   await AsyncStorage.multiRemove([preferenceKey(userId), tokenKey(userId)]);
@@ -160,9 +181,9 @@ export async function disablePushNotifications(userId: string): Promise<PushStat
       : (await Notifications.getPermissionsAsync()).status;
   return {
     enabled: false,
-    supported: unsupportedMessage() === null,
+    supported: !desteklenmiyorMu(),
     permission,
-    message: 'Bildirimler kapatıldı. Sistem iznini cihaz ayarlarından da değiştirebilirsin.',
+    message: t.settings.pushDisabled,
   };
 }
 

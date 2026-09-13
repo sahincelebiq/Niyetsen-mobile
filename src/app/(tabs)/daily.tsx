@@ -48,6 +48,8 @@ import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
+import { hataMesaji, siniflaHata } from '@/lib/app-error';
+import { bildirHata } from '@/lib/error-report';
 import {
   ApiError,
   completePlanEvent,
@@ -130,15 +132,13 @@ export default function DailyTasksScreen() {
           setNeedsExtension(!!daily.needs_extension);
           setTasks(daily.items.map((item) => ({ ...item.task, plan_name: item.plan_name })));
           setEvents(daily.events);
-        } catch (value) {
-          if (isPaywallError(value)) {
+        } catch (deger) {
+          if (isPaywallError(deger)) {
             router.push('/paywall' as Href);
           } else {
-            setError(
-              value instanceof ApiError
-                ? value.message
-                : t.daily.generateFailed,
-            );
+            const hata = siniflaHata(deger, 'BUGUN_GENISLET_002');
+            bildirHata(hata, 'daily.ensure-today');
+            setError(hataMesaji(hata, t));
           }
         } finally {
           setExtending(false);
@@ -153,14 +153,16 @@ export default function DailyTasksScreen() {
       }
       if (user?.id) {
         try {
-          const push = await getPushStatus(user.id);
+          const push = await getPushStatus(user.id, t);
           setShowPushHint(push.supported && !push.enabled);
         } catch {
           setShowPushHint(false);
         }
       }
-    } catch (value) {
-      setError(value instanceof ApiError ? value.message : t.daily.loadFailed);
+    } catch (deger) {
+      const hata = siniflaHata(deger, 'BUGUN_YUKLEME_001');
+      bildirHata(hata, 'daily.load');
+      setError(hataMesaji(hata, t));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -174,16 +176,14 @@ export default function DailyTasksScreen() {
     try {
       await ensureTodayPlan();
       await load(true);
-    } catch (value) {
-      if (isPaywallError(value)) {
+    } catch (deger) {
+      if (isPaywallError(deger)) {
         router.push('/paywall' as Href);
         return;
       }
-      setError(
-        value instanceof ApiError
-          ? value.message
-          : t.daily.generateFailed,
-      );
+      const hata = siniflaHata(deger, 'BUGUN_GENISLET_003');
+      bildirHata(hata, 'daily.extend');
+      setError(hataMesaji(hata, t));
     } finally {
       setExtending(false);
     }
@@ -206,8 +206,9 @@ export default function DailyTasksScreen() {
         // Sunucu mesajı Türkçe sabit; kullanıcı dilinde yerel metin gösterilir (+50 kilitli).
         setOutcome(key, { tone: 'success', message: t.events.completed(50) });
         void trackEvent('plan_event_completed', { plan_id: event.plan_id, recurrence: event.recurrence });
-      } catch (value) {
-        const status = value instanceof ApiError ? value.status : 0;
+        void trackEvent('gorev_tamamlandi', { plan_id: event.plan_id, via: 'event' });
+      } catch (deger) {
+        const status = deger instanceof ApiError ? deger.status : 0;
         setOutcome(key, {
           tone: status === 409 ? 'success' : 'danger',
           message:
@@ -215,10 +216,11 @@ export default function DailyTasksScreen() {
               ? t.events.alreadyDone
               : status === 400
                 ? t.events.notYet
-                : value instanceof ApiError
-                  ? value.message
-                  : t.common.errorGeneric,
+                : hataMesaji(siniflaHata(deger, 'GUN_ETKINLIK_004'), t),
         });
+        if (!(deger instanceof ApiError) || (status !== 409 && status !== 400)) {
+          bildirHata(siniflaHata(deger, 'GUN_ETKINLIK_004'), 'daily.complete-event');
+        }
         if (status === 409 || status === 400) void load(true);
       } finally {
         setBusy(null);
@@ -284,19 +286,19 @@ export default function DailyTasksScreen() {
       });
       if (result.approved) {
         void trackEvent('task_completed', { task_id: task.id, via: 'proof' });
+        void trackEvent('gorev_tamamlandi', { task_id: task.id, via: 'proof' });
       }
       showProofOutcome(task, result);
       await load(true);
-    } catch (value) {
+    } catch (deger) {
       setCameraTask(null);
-      let message =
-        value instanceof ApiError
-          ? value.message
-          : value instanceof Error
-            ? value.message
-            : t.daily.proofFailed;
-      if (value instanceof ApiError && value.status === 409) {
+      let message: string;
+      if (deger instanceof ApiError && deger.status === 409) {
         message = t.daily.proofBusy;
+      } else {
+        const hata = siniflaHata(deger, 'KANIT_YUKLE_005');
+        bildirHata(hata, 'daily.proof');
+        message = hataMesaji(hata, t);
       }
       setOutcome(task.id, {
         tone: 'danger',
@@ -323,10 +325,12 @@ export default function DailyTasksScreen() {
       const response = await excuseTask(task.id);
       setOutcome(task.id, { tone: 'success', message: response.message });
       await load(true);
-    } catch (value) {
+    } catch (deger) {
+      const hata = siniflaHata(deger, 'MAZERET_006');
+      bildirHata(hata, 'daily.excuse');
       setOutcome(task.id, {
         tone: 'danger',
-        message: value instanceof Error ? value.message : t.common.errorGeneric,
+        message: hataMesaji(hata, t),
       });
     } finally {
       setBusy(null);

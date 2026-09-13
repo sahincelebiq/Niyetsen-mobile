@@ -1,6 +1,6 @@
 /**
  * RevenueCat IAP — Supabase user id = app_user_id (webhook ile backend senkron).
- * Expo Go'da Preview API Mode; gerçek satın alma için EAS/dev build gerekir.
+ * Gerçek satın alma için EAS/dev build gerekir (önizleme modunda işlem yok).
  */
 import { Platform } from 'react-native';
 import Purchases, {
@@ -87,9 +87,8 @@ function purchaseErrorMessage(error: unknown): string {
   if (text.includes('not allowed') || text.includes('purchasenotallowed')) {
     return 'Bu Google hesabında satın alma kapalı. Lisans testi e-postasını kullan.';
   }
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
+  // ss-01 kuralı: bilinmeyen ham hata metni (İngilizce SDK metni, URL, kod)
+  // EKRANA basılmaz — jenerik, yerelleşmiş metne düşülür.
   return 'Satın alma tamamlanamadı. Birazdan tekrar dener misin?';
 }
 
@@ -204,7 +203,7 @@ export async function purchasePlan(plan: PurchasePlan): Promise<PurchaseResult> 
     return {
       ok: false,
       message: __DEV__
-        ? 'Mağaza satın alması Expo Go’da çalışmaz. TestFlight veya EAS build ile dene.'
+        ? 'Mağaza satın alması bu sürümde çalışmaz. TestFlight veya EAS build ile dene.'
         : 'Mağaza şu an ulaşılamıyor. Birazdan tekrar dener misin?',
     };
   }
@@ -277,10 +276,8 @@ export async function restorePurchases(): Promise<PurchaseResult> {
     if (isPurchasesError(error) && error.userCancelled) {
       return { ok: false, message: 'Geri yükleme iptal edildi.' };
     }
-    const message = error instanceof Error
-      ? error.message
-      : 'Geri yükleme başarısız oldu.';
-    return { ok: false, message };
+    // Ham SDK metni sızdırılmaz (ss-01).
+    return { ok: false, message: 'Geri yükleme başarısız oldu. Birazdan tekrar dene.' };
   }
 }
 
