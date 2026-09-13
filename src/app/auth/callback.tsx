@@ -4,8 +4,10 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { toAuthFlowError } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { completeAuthFromUrl, NATIVE_AUTH_REDIRECT } from '@/lib/auth-redirect';
+import { useAuth } from '@/providers/auth-provider';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -15,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 export default function AuthCallbackScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { reportAuthCallbackError } = useAuth();
   const params = useLocalSearchParams<{
     code?: string | string[];
     access_token?: string | string[];
@@ -56,8 +59,10 @@ export default function AuthCallbackScreen() {
             await new Promise((resolve) => setTimeout(resolve, 150));
           }
         }
-      } catch {
-        // Onay/sıfırlama linki bozuksa giriş ekranına düşer.
+      } catch (value) {
+        // Onay/sıfırlama linki bozuksa giriş ekranında yerelleştirilmiş hata göster.
+        const mapped = toAuthFlowError(value);
+        reportAuthCallbackError(mapped.kod);
       } finally {
         if (!cancelled) router.replace('/');
       }
@@ -65,7 +70,7 @@ export default function AuthCallbackScreen() {
     return () => {
       cancelled = true;
     };
-  }, [params.code, params.type, router]);
+  }, [params.access_token, params.code, params.refresh_token, params.token_hash, params.type, reportAuthCallbackError, router]);
 
   return (
     <ThemedView style={styles.center}>

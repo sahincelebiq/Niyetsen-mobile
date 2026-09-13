@@ -11,6 +11,7 @@ import {
 
 import { getProfile, UserProfile } from '@/lib/api';
 import { readCachedProfile, writeCachedProfile } from '@/lib/boot-cache';
+import { uiCopy } from '@/lib/ui-copy';
 
 type ProfileContextValue = {
   profile: UserProfile | null;
@@ -42,14 +43,14 @@ export function ProfileProvider({ children }: PropsWithChildren) {
       setProfile(next);
       setOffline(false);
       void writeCachedProfile(next);
-    } catch (value) {
+    } catch {
       const cached = profileRef.current ?? (await readCachedProfile());
       if (cached) {
         setProfile(cached);
         setOffline(true);
         setError(null);
       } else {
-        setError(value instanceof Error ? value.message : 'Profil yüklenemedi.');
+        setError(uiCopy().common.unreachable);
         setOffline(true);
       }
     } finally {

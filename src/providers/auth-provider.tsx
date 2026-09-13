@@ -16,6 +16,7 @@ import { InteractionManager, Platform } from 'react-native';
 
 import {
   AuthFlowError,
+  type AuthFlowKod,
   logAuthEvent,
   toAuthFlowError,
 } from '@/features/auth/auth-errors';
@@ -26,7 +27,12 @@ import {
 } from '@/lib/auth-redirect';
 import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
+import { clearBootCache } from '@/lib/boot-cache';
+import { clearConsentOkCache } from '@/lib/consent-cache';
+import { clearOnboardingDraft } from '@/lib/onboarding-draft';
+import { clearPendingChatMessage } from '@/lib/pending-chat';
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
+import { disablePushNotifications } from '@/lib/push-notifications';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -42,6 +48,9 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   recovery: boolean;
+  callbackErrorCode: AuthFlowKod | null;
+  reportAuthCallbackError: (code: AuthFlowKod) => void;
+  clearAuthCallbackError: () => void;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
@@ -126,7 +135,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [oauthHold, setOauthHold] = useState(false);
   const [recovery, setRecovery] = useState(false);
+  const [callbackErrorCode, setCallbackErrorCode] = useState<AuthFlowKod | null>(null);
   const recoveryHoldRef = useRef(false);
+
+  const reportAuthCallbackError = useCallback((code: AuthFlowKod) => {
+    if (code === 'iptal') return;
+    setCallbackErrorCode(code);
+  }, []);
+
+  const clearAuthCallbackError = useCallback(() => {
+    setCallbackErrorCode(null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -139,6 +158,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } catch (error) {
         const mapped = toAuthFlowError(error);
         logAuthEvent(mapped.kod, 'authCallback', mapped.teknikDetay);
+        reportAuthCallbackError(mapped.kod);
       }
     };
 
@@ -210,7 +230,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       data.subscription.unsubscribe();
       linking.remove();
     };
-  }, []);
+  }, [reportAuthCallbackError]);
 
   // Custom Tab dönüşünde depo yazısı gecikirse giriş ekranı bir kez
   // görünür; kısa süre sonra oturumu tekrar oku — kapat-aç gerekmesin.
@@ -325,7 +345,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async (email: string, token: string, purpose: 'recovery' | 'signup') => {
       const normalized = normalizeEmail(email);
       const code = token.replace(/\s/g, '');
-      const order: Array<'recovery' | 'email' | 'signup'> =
+      const order: ('recovery' | 'email' | 'signup')[] =
         purpose === 'signup' ? ['signup', 'email'] : ['recovery', 'email'];
       if (purpose === 'recovery') recoveryHoldRef.current = true;
       let lastError: unknown;
@@ -384,7 +404,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         ],
       });
       if (!credential.identityToken) {
-        throw new Error('Apple kimlik belirteci alınamadı.');
+        const mapped = new AuthFlowError({
+          kod: 'bilinmeyen',
+          teknikDetay: 'apple_identity_token_missing',
+        });
+        logAuthEvent(mapped.kod, 'signInWithApple', mapped.teknikDetay);
+        throw mapped;
       }
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
@@ -397,17 +422,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     } catch (error) {
       setOauthHold(false);
-      throw error;
+      const mapped = toAuthFlowError(error);
+      if (mapped.kod !== 'iptal') {
+        logAuthEvent(mapped.kod, 'signInWithApple', mapped.teknikDetay);
+      }
+      throw mapped;
     }
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = session?.user?.id;
     await logOutPurchases();
+    if (userId) {
+      await Promise.allSettled([
+        disablePushNotifications(userId),
+        clearOnboardingDraft(userId),
+      ]);
+    }
+    await Promise.allSettled([
+      clearBootCache(),
+      clearConsentOkCache(),
+    ]);
+    clearPendingChatMessage();
+    setOauthHold(false);
+    setCallbackErrorCode(null);
     recoveryHoldRef.current = false;
     setRecovery(false);
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  }, []);
+    if (error) {
+      const mapped = toAuthFlowError(error);
+      logAuthEvent(mapped.kod, 'signOut', mapped.teknikDetay);
+      throw mapped;
+    }
+  }, [session?.user?.id]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -415,6 +462,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: session?.user ?? null,
       loading: loading || oauthHold,
       recovery,
+      callbackErrorCode,
+      reportAuthCallbackError,
+      clearAuthCallbackError,
       signInWithEmail,
       signUpWithEmail,
       resetPassword,
@@ -429,6 +479,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       loading,
       oauthHold,
       recovery,
+      callbackErrorCode,
+      reportAuthCallbackError,
+      clearAuthCallbackError,
       resetPassword,
       sendEmailOtp,
       session,

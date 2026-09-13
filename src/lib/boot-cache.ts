@@ -38,3 +38,11 @@ export async function readCachedSubscription(): Promise<SubscriptionInfo | null>
 export async function writeCachedSubscription(info: SubscriptionInfo): Promise<void> {
   await writeJson(SUBSCRIPTION_KEY, info);
 }
+
+export async function clearBootCache(): Promise<void> {
+  try {
+    await AsyncStorage.multiRemove([PROFILE_KEY, SUBSCRIPTION_KEY]);
+  } catch {
+    // Önbellek temizliği başarısız olsa da oturum akışı sürmeli.
+  }
+}

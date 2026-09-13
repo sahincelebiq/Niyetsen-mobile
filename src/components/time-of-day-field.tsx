@@ -15,6 +15,8 @@ export type TimeOfDayValue = {
 
 type TimeOfDayFieldProps = {
   label: string;
+  hint: string;
+  doneLabel: string;
   value: TimeOfDayValue;
   onChange: (value: TimeOfDayValue) => void;
 };
@@ -33,7 +35,7 @@ export function parseTimeOfDay(raw: string, fallback: TimeOfDayValue): TimeOfDay
   return { hour, minute };
 }
 
-export function TimeOfDayField({ label, value, onChange }: TimeOfDayFieldProps) {
+export function TimeOfDayField({ label, hint, doneLabel, value, onChange }: TimeOfDayFieldProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const display = useMemo(() => formatTimeOfDay(value), [value]);
@@ -43,7 +45,7 @@ export function TimeOfDayField({ label, value, onChange }: TimeOfDayFieldProps) 
       <ThemedText type="smallBold">{label}</ThemedText>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label} seç`}
+        accessibilityLabel={label}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           styles.trigger,
@@ -54,7 +56,6 @@ export function TimeOfDayField({ label, value, onChange }: TimeOfDayFieldProps) 
           },
         ]}>
         <ThemedText style={{ fontFamily: Fonts.sansMedium }}>{display}</ThemedText>
-        <ThemedText themeColor="textSecondary">Değiştir</ThemedText>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -62,9 +63,9 @@ export function TimeOfDayField({ label, value, onChange }: TimeOfDayFieldProps) 
           <Pressable
             style={[styles.sheet, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
             onPress={(event) => event.stopPropagation()}>
-            <ThemedText type="subtitle">Saat seç</ThemedText>
+            <ThemedText type="subtitle">{label}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              06:00 – 00:00 arası. Gece yarısından sonra kurduğunda bir sonraki güne yazılır.
+              {hint}
             </ThemedText>
             <View style={styles.pickerRow}>
               <ScrollView style={styles.column} showsVerticalScrollIndicator={false}>
@@ -112,7 +113,7 @@ export function TimeOfDayField({ label, value, onChange }: TimeOfDayFieldProps) 
                 { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
               ]}>
               <ThemedText style={{ color: theme.onAccent }} type="smallBold">
-                Tamam
+                {doneLabel}
               </ThemedText>
             </Pressable>
           </Pressable>

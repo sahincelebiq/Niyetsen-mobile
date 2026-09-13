@@ -23,16 +23,17 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { updateConsent, updateProfile, GENDER_OPTIONS, type GenderOption } from '@/lib/api';
-import { enablePushNotifications } from '@/lib/push-notifications';
+import { ApiError, updateConsent, updateProfile, GENDER_OPTIONS, type GenderOption } from '@/lib/api';
 import { useAuth } from '@/providers/auth-provider';
 import {
+  birthDateDisplayFromIso,
   birthDateIsoFromDisplay,
   isAtLeastYearsOld,
   isValidBirthDateDisplay,
 } from '@/lib/birth-date';
 import { LEGAL_MIN_AGE } from '@/constants/legal';
 import { trackEvent } from '@/lib/analytics';
+import { clearOnboardingDraft, readOnboardingDraft, writeOnboardingDraft } from '@/lib/onboarding-draft';
 import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
@@ -51,6 +52,8 @@ export function OnboardingScreen() {
   const [consents, setConsents] = useState<ConsentChoicesValue>(EMPTY_CONSENT_CHOICES);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const steps = useMemo(() => {
     const all: { id: OnboardingStepId; title: string }[] = [
@@ -67,13 +70,75 @@ export function OnboardingScreen() {
   const current = steps[step] ?? steps[0];
 
   useEffect(() => {
+    let cancelled = false;
+    const userId = user?.id;
+    if (!userId) {
+      setDraftLoaded(false);
+      setDraftReady(false);
+      return;
+    }
+    void (async () => {
+      const draft = await readOnboardingDraft(userId);
+      if (cancelled) return;
+      if (draft) {
+        setStep(draft.step);
+        setName(draft.name);
+        setGender(draft.gender);
+        setBirthDate(draft.birthDate);
+        setNotifTime(draft.notifTime);
+        setConsents(draft.consents);
+        setDraftLoaded(true);
+      } else {
+        setDraftLoaded(false);
+      }
+      setDraftReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!draftReady || draftLoaded) return;
     if (profile?.gender) setGender(profile.gender);
     if (profile?.name) setName(profile.name);
-  }, [profile?.gender, profile?.name]);
+    if (profile?.birth_date) setBirthDate(birthDateDisplayFromIso(profile.birth_date));
+    if (typeof profile?.notif_hour === 'number') {
+      setNotifTime({
+        hour: profile.notif_hour,
+        minute: profile.notif_minute ?? 0,
+      });
+    }
+  }, [
+    draftLoaded,
+    draftReady,
+    profile?.birth_date,
+    profile?.gender,
+    profile?.name,
+    profile?.notif_hour,
+    profile?.notif_minute,
+  ]);
 
   useEffect(() => {
     setStep((value) => Math.min(value, Math.max(steps.length - 1, 0)));
   }, [steps.length]);
+
+  useEffect(() => {
+    if (!user?.id || !draftReady) return;
+    const maxStep = Math.max(steps.length - 1, 0);
+    const draftStep = Math.min(step, maxStep);
+    void writeOnboardingDraft(user.id, {
+      step: draftStep,
+      name,
+      gender,
+      birthDate,
+      notifTime,
+      consents: {
+        ...consents,
+        age18: Boolean(consents.age18),
+      },
+    });
+  }, [birthDate, consents, draftReady, gender, name, notifTime, step, steps.length, user?.id]);
 
   function validateCurrent() {
     if (current.id === 'name' && !name.trim()) return t.onboarding.nameRequired;
@@ -99,13 +164,6 @@ export function OnboardingScreen() {
       return;
     }
     setError(null);
-    if (current.id === 'notif' && user?.id) {
-      try {
-        await enablePushNotifications(user.id);
-      } catch {
-        // Expo Go / izin reddi onboarding'i durdurmaz; Profil'den tekrar açılır.
-      }
-    }
     if (step < steps.length - 1) {
       setStep((value) => value + 1);
       return;
@@ -140,10 +198,17 @@ export function OnboardingScreen() {
         proof_photo_processing: { accepted: consents.proofPhoto },
         marketing_communications: { accepted: consents.marketing },
       });
+      if (user?.id) {
+        await clearOnboardingDraft(user.id);
+      }
       await refresh();
       void trackEvent('onboarding_complete');
     } catch (value) {
-      setError(value instanceof Error ? value.message : t.onboarding.profileSaveFailed);
+      if (value instanceof ApiError && value.status === 429) {
+        setError(t.common.rateLimited);
+      } else {
+        setError(t.onboarding.profileSaveFailed);
+      }
     } finally {
       setBusy(false);
     }
@@ -258,6 +323,8 @@ export function OnboardingScreen() {
                   </ThemedText>
                   <TimeOfDayField
                     label={t.onboarding.notifHourLabel}
+                    hint={t.onboarding.notifHint}
+                    doneLabel={t.common.done}
                     value={notifTime}
                     onChange={setNotifTime}
                   />

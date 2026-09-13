@@ -17,6 +17,7 @@ import Animated, {
 import { Fonts, Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 const DURATION = 720;
 const SPLASH_SEEN_KEY = 'niyetsen.boot.splash.v2';
@@ -27,6 +28,7 @@ const SPLASH_SEEN_KEY = 'niyetsen.boot.splash.v2';
  */
 export function AnimatedSplashOverlay() {
   const theme = useTheme();
+  const { t } = useLocale();
   const [visible, setVisible] = useState(true);
   const leftX = useSharedValue(-34);
   const rightX = useSharedValue(34);
@@ -136,7 +138,7 @@ export function AnimatedSplashOverlay() {
       <Animated.View style={[styles.titleWrap, titleStyle]}>
         <ThemedText style={[styles.brandTitle, { color: theme.text }]}>Niyetsen</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          niyetini yaşa
+          {t.brand.tagline}
         </ThemedText>
       </Animated.View>
     </Animated.View>

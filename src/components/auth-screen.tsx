@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image } from 'expo-image';
 import {
   AccessibilityInfo,
@@ -51,9 +51,10 @@ function emailLooksValid(value: string): boolean {
 export function AuthScreen() {
   const theme = useTheme();
   const auth = useAuth();
+  const { recovery, callbackErrorCode, clearAuthCallbackError } = auth;
   const { t, regionId, setRegion } = useLocale();
   const router = useRouter();
-  const [screen, setScreen] = useState<Screen>(auth.recovery ? 'password' : 'sign-in');
+  const [screen, setScreen] = useState<Screen>(recovery ? 'password' : 'sign-in');
   const [intent, setIntent] = useState<Intent>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,10 +67,18 @@ export function AuthScreen() {
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    if (auth.recovery) setScreen('password');
-  }, [auth.recovery]);
+    if (recovery) setScreen('password');
+  }, [recovery]);
+
+  useEffect(() => {
+    if (!callbackErrorCode) return;
+    setError(authMesaji(callbackErrorCode, t));
+    setMessage(null);
+    clearAuthCallbackError();
+  }, [callbackErrorCode, clearAuthCallbackError, t]);
 
   useEffect(() => {
     if (cooldownUntil <= now) return;
@@ -112,7 +121,12 @@ export function AuthScreen() {
       }
     } catch (value) {
       if (value instanceof AuthFlowError) {
-        if (value.kod === 'iptal') return;
+        if (value.kod === 'iptal') {
+          if (label === 'google') {
+            setError(t.auth.googleIncomplete);
+          }
+          return;
+        }
         setError(authMesaji(value.kod, t));
         if (value.kod === 'gecersiz_kimlik') setPreferGoogle(true);
         if (
@@ -164,6 +178,7 @@ export function AuthScreen() {
   }
 
   function submitEmailOnly() {
+    if (busy) return;
     if (!emailLooksValid(normalizedEmail())) {
       setError(t.auth.invalidEmail);
       return;
@@ -184,6 +199,7 @@ export function AuthScreen() {
   }
 
   function submitSignIn() {
+    if (busy) return;
     if (!emailLooksValid(normalizedEmail()) || password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
@@ -211,6 +227,7 @@ export function AuthScreen() {
   }
 
   function submitPassword() {
+    if (busy) return;
     if (password.length < 6) {
       setError(t.auth.invalidCredentials);
       return;
@@ -236,6 +253,7 @@ export function AuthScreen() {
   }
 
   function submitOtp() {
+    if (busy) return;
     if (!normalizedEmail() || otp.replace(/\s/g, '').length < 6) {
       setError(t.auth.invalidOtp);
       return;
@@ -340,6 +358,7 @@ export function AuthScreen() {
                     textContentType="oneTimeCode"
                     inputMode="numeric"
                     keyboardType="number-pad"
+                    returnKeyType="done"
                     maxLength={OTP_MAX_LEN}
                     placeholder={t.auth.otpPlaceholder}
                     placeholderTextColor={theme.textSecondary}
@@ -365,6 +384,8 @@ export function AuthScreen() {
                     inputMode="email"
                     keyboardType="email-address"
                     textContentType="emailAddress"
+                    returnKeyType={screen === 'sign-in' ? 'next' : 'done'}
+                    blurOnSubmit={screen !== 'sign-in'}
                     placeholder={t.auth.email}
                     placeholderTextColor={theme.textSecondary}
                     accessibilityLabel={t.auth.email}
@@ -373,7 +394,11 @@ export function AuthScreen() {
                       setEmail(value);
                       setPreferGoogle(false);
                     }}
-                    onSubmitEditing={screen === 'email' ? submitEmailOnly : undefined}
+                    onSubmitEditing={
+                      screen === 'email'
+                        ? submitEmailOnly
+                        : () => passwordInputRef.current?.focus()
+                    }
                     style={[styles.input, inputChrome]}
                   />
                 </View>
@@ -384,6 +409,7 @@ export function AuthScreen() {
                   <ThemedText type="smallBold">{t.auth.password}</ThemedText>
                   <View style={styles.passwordWrap}>
                     <TextInput
+                      ref={passwordInputRef}
                       autoFocus={screen === 'password'}
                       autoCapitalize="none"
                       autoComplete={
@@ -394,6 +420,7 @@ export function AuthScreen() {
                       textContentType={
                         screen === 'sign-in' && !auth.recovery ? 'password' : 'newPassword'
                       }
+                      returnKeyType={screen === 'sign-in' ? 'go' : 'done'}
                       placeholder={t.auth.password}
                       placeholderTextColor={theme.textSecondary}
                       accessibilityLabel={t.auth.password}
@@ -687,7 +714,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     alignSelf: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
     gap: Spacing.four,

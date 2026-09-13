@@ -99,6 +99,8 @@ export function authMesaji(kod: AuthFlowKod, t: Messages): string {
       return t.auth.networkError;
     case 'baglanti_suresi_doldu':
       return t.auth.recoveryExpired;
+    case 'bilinmeyen':
+      return t.auth.sessionFailed;
     case 'iptal':
       return '';
     default:
