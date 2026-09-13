@@ -148,6 +148,7 @@ export async function completeAuthFromUrl(url: string): Promise<AuthUrlResult> {
   return { handled: false, recovery };
 }
 
+/** auth/callback, reset-password ve sifre-sifirla (TR yedek yolu) dahil. */
 export function looksLikeAuthCallback(url: string): boolean {
   if (!url) return false;
   return (

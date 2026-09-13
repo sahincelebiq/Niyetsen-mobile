@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { logAuthEvent, toAuthFlowError } from '@/features/auth/auth-errors';
 import { useTheme } from '@/hooks/use-theme';
 import { completeAuthFromUrl, NATIVE_AUTH_REDIRECT } from '@/lib/auth-redirect';
 import { supabase } from '@/lib/supabase';
@@ -56,8 +57,9 @@ export default function AuthCallbackScreen() {
             await new Promise((resolve) => setTimeout(resolve, 150));
           }
         }
-      } catch {
-        // Onay/sıfırlama linki bozuksa giriş ekranına düşer.
+      } catch (error) {
+        const flow = toAuthFlowError(error);
+        logAuthEvent(flow.kod, 'callback', flow.teknikDetay);
       } finally {
         if (!cancelled) router.replace('/');
       }
