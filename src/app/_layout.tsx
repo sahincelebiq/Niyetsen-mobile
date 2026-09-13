@@ -22,8 +22,10 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthScreen } from '@/components/auth-screen';
 import { ConnectivityBanner } from '@/components/connectivity-banner';
 import { ConsentGate } from '@/components/consent-gate';
+import { HataSiniri } from '@/components/error-boundary';
 import { OnboardingScreen } from '@/components/onboarding-screen';
 import { SubscriptionGate } from '@/components/subscription-gate';
+import { ToastProvider } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTheme } from '@/hooks/use-theme';
@@ -37,7 +39,8 @@ import { rescheduleDailyLocalReminder } from '@/lib/task-reminders';
 import { uiCopy } from '@/lib/ui-copy';
 import { trackEvent } from '@/lib/analytics';
 import { pingHealth, updateProfile } from '@/lib/api';
-import { initSentry } from '@/lib/sentry';
+import { hataMesaji } from '@/lib/app-error';
+import { initSentry, setSentryUser } from '@/lib/sentry';
 import { Motion } from '@/constants/theme';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
@@ -75,7 +78,11 @@ export default function TabLayout() {
     <GestureHandlerRootView style={styles.root}>
       <AppearanceProvider>
         <LocaleProvider>
-          <RootNavigation pathname={pathname} />
+          <ToastProvider>
+            <HataSiniri hataKodu="KOK_001" ekran="kok">
+              <RootNavigation pathname={pathname} />
+            </HataSiniri>
+          </ToastProvider>
         </LocaleProvider>
       </AppearanceProvider>
     </GestureHandlerRootView>
@@ -124,6 +131,11 @@ function AuthenticatedApp() {
     }
   }, [loading]);
 
+  // Sentry kimliği: yalnız id (PII yok). Oturum değişiminde güncellenir.
+  useEffect(() => {
+    setSentryUser(session?.user?.id ?? null);
+  }, [session?.user?.id]);
+
   if (loading) {
     return (
       <ThemedView style={styles.loading}>
@@ -141,7 +153,7 @@ function AuthenticatedApp() {
 }
 
 function ProfileGate() {
-  const { profile, loading, error, offline, refresh } = useProfile();
+  const { profile, loading, error, hata, offline, refresh } = useProfile();
   const { signOut } = useAuth();
   const theme = useTheme();
   const { t, locale, timezone, setLocale, hasStoredPreference, ready: localeReady } = useI18n();
@@ -215,7 +227,14 @@ function ProfileGate() {
   if (error && !profile) {
     return (
       <ThemedView style={styles.loading}>
-        <ThemedText themeColor="danger">{error}</ThemedText>
+        <ThemedText themeColor="danger">
+          {hata ? hataMesaji(hata, t) : t.common.errorGeneric}
+        </ThemedText>
+        {hata ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {t.common.errorCode(hata.hataKodu)}
+          </ThemedText>
+        ) : null}
         <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
           {t.common.offlineBanner}
         </ThemedText>

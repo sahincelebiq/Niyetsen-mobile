@@ -54,7 +54,8 @@ function applyRtl(locale: AppLocale) {
 }
 
 function tryReloadApp() {
-  // Prod'da expo-updates yok; __DEV__'de hot reload, değilse kullanıcı kapat-aç.
+  // 06: expo-updates kurulu (OTA kanalları docs/RELEASE.md'de). Dil değişiminde
+  // otomatik reload YOK — kullanıcı kapat-aç yapar (bilinçli karar, akışı kesmemek için).
   if (__DEV__ && Platform.OS !== 'web' && typeof DevSettings?.reload === 'function') {
     DevSettings.reload();
   }

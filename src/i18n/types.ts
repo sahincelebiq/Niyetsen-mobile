@@ -26,6 +26,7 @@ export type Messages = {
     next: string;
     done: string;
     errorGeneric: string;
+    errorCode: (kod: string) => string;
     offlineBanner: string;
     rtlRestartTitle: string;
     rtlRestartBody: string;
@@ -490,12 +491,15 @@ export type Messages = {
     premium: string;
     birthInvalid: string;
     pushStatusFailed: string;
+    pushUnsupported: string;
+    pushPermissionOff: string;
+    pushEnabled: string;
+    pushDisabled: string;
     consentSaveFailed: string;
     notifPrefFailed: string;
     sectionOpen: string;
     sectionClose: string;
     pushOffHint: string;
-    pushUnsupported: string;
     pushTapToEnable: string;
     pushDenied: string;
     pushDeniedHint: string;

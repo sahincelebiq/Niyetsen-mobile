@@ -123,6 +123,8 @@ export default function PaywallScreen() {
   async function handlePurchase(plan: 'monthly' | 'yearly') {
     setBusy(plan);
     setMessage(null);
+    // 06-C kritik akış: deneme her basışta, sonuç yalnız başarıda.
+    void trackEvent('odeme_denemesi', { plan });
     const result = await purchasePlan(plan);
     if (result.ok) {
       void trackEvent('subscription_started', { plan });

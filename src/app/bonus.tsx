@@ -30,6 +30,8 @@ import {
   offerBonus,
   type BonusOffer,
 } from '@/lib/api';
+import { hataMesaji, siniflaHata } from '@/lib/app-error';
+import { bildirHata } from '@/lib/error-report';
 import { useI18n } from '@/providers/locale-provider';
 
 const BONUS_POINTS = 10;
@@ -59,8 +61,10 @@ export default function BonusScreen() {
       setOffer(today);
       setCompleted(today?.status === 'completed');
       setAttested(false);
-    } catch (value) {
-      setError(value instanceof ApiError ? value.message : t.bonus.loadFailed);
+    } catch (deger) {
+      const hata = siniflaHata(deger, 'BNS_YUK_001');
+      bildirHata(hata, 'bonus.load');
+      setError(hataMesaji(hata, t));
     } finally {
       setLoading(false);
     }
@@ -81,8 +85,10 @@ export default function BonusScreen() {
       setOffer(next);
       setCompleted(next.status === 'completed');
       setAttested(false);
-    } catch (value) {
-      setError(value instanceof Error ? value.message : t.bonus.offerFailed);
+    } catch (deger) {
+      const hata = siniflaHata(deger, 'BNS_TALEP_002');
+      bildirHata(hata, 'bonus.offer');
+      setError(hataMesaji(hata, t));
     } finally {
       setBusy(null);
     }
@@ -123,13 +129,15 @@ export default function BonusScreen() {
       }
       setCompleted(true);
       setOffer({ ...offer, status: 'completed' });
-    } catch (value) {
+    } catch (deger) {
       const hadCompletionAttempt = (await AsyncStorage.getItem(key)) !== null;
-      if (value instanceof ApiError && value.status === 409 && hadCompletionAttempt) {
+      if (deger instanceof ApiError && deger.status === 409 && hadCompletionAttempt) {
         setCompleted(true);
         setOffer({ ...offer, status: 'completed' });
       } else {
-        setError(value instanceof Error ? value.message : t.bonus.completeFailed);
+        const hata = siniflaHata(deger, 'BNS_TAMAMLA_003');
+        bildirHata(hata, 'bonus.complete');
+        setError(hataMesaji(hata, t));
       }
     } finally {
       setBusy(null);

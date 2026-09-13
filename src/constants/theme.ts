@@ -210,7 +210,8 @@ export const BottomTabInset = Platform.select({ ios: 78, android: 72, default: 6
 /** @deprecated Tema ile uyumsuz sabit kremdi (dark web'de beyaz şerit). Colors.*.backgroundElement kullan. */
 export const TabBarBackground = Colors.light.backgroundElement;
 export const MaxContentWidth = 800;
-export const ApiTimeoutMs = 20_000;
+/** Tek noktadan ağ zaman aşımı (06-D): 15 sn; sohbet/plan/kanıtın özeli aşağıda. */
+export const ApiTimeoutMs = 15_000;
 /**
  * Sohbet (Gemini 2.5 Flash): backend'de araç tespiti + JSON retry'ları 20 sn'yi
  * aşabiliyor. İstemci erken iptal edip "Sunucu yanıt vermedi" göstermesin diye

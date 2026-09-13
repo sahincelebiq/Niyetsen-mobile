@@ -9,6 +9,7 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
+      "autoIncrement": true,
       "ios": {
         "simulator": false
       },
@@ -26,6 +27,7 @@
       "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
+      "autoIncrement": true,
       "ios": {
         "resourceClass": "m-medium"
       },

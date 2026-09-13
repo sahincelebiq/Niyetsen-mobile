@@ -13,6 +13,7 @@ export const de: Messages = {
     next: 'Weiter',
     done: 'Fertig',
     errorGeneric: 'Etwas ist schiefgelaufen. Bitte gleich noch einmal versuchen.',
+    errorCode: (kod) => `Fehlercode: ${kod}`,
     offlineBanner: 'Keine Verbindung — Offline-Ansicht.',
     rtlRestartTitle: 'Neustart erforderlich',
     rtlRestartBody:
@@ -470,6 +471,9 @@ export const de: Messages = {
     premium: 'Premium',
     birthInvalid: 'Geburtsdatum als Tag.Monat.Jahr (z. B. 10.04.1995).',
     pushStatusFailed: 'Benachrichtigungsstatus nicht lesbar.',
+    pushPermissionOff: 'Mitteilungen in den Geräteeinstellungen deaktiviert.',
+    pushEnabled: 'Mitteilungen sind an.',
+    pushDisabled: 'Mitteilungen sind aus. Zusätzlich in den Geräteeinstellungen änderbar.',
     consentSaveFailed: 'Einstellung nicht gespeichert.',
     notifPrefFailed: 'Benachrichtigung nicht geändert.',
     sectionOpen: 'Abschnitt öffnen',

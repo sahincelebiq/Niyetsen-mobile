@@ -13,6 +13,7 @@ export const enUS: Messages = {
     next: 'Next',
     done: 'Done',
     errorGeneric: 'Something went wrong. Please try again shortly.',
+    errorCode: (kod) => `Error code: ${kod}`,
     offlineBanner: "Couldn't connect — you're offline.",
     rtlRestartTitle: 'Restart required',
     rtlRestartBody:
@@ -470,6 +471,9 @@ export const enUS: Messages = {
     premium: 'Premium',
     birthInvalid: 'Enter birth date as day.month.year (e.g. 10.04.1995).',
     pushStatusFailed: 'Could not read notification status.',
+    pushPermissionOff: 'Notification permission is off in device settings.',
+    pushEnabled: 'Notifications are on.',
+    pushDisabled: 'Notifications are off. You can also change the system permission in device settings.',
     consentSaveFailed: 'Could not save this preference.',
     notifPrefFailed: 'Could not change notification preference.',
     sectionOpen: 'Open section',

@@ -115,8 +115,10 @@ export function OnboardingScreen() {
     if (current.id === 'notif' && user?.id) {
       try {
         await enablePushNotifications(user.id);
+        void trackEvent('bildirim_izni_sonucu', { enabled: true, source: 'onboarding' });
       } catch {
-        // Expo Go / izin reddi onboarding'i durdurmaz; Profil'den tekrar açılır.
+        // İzin reddi / desteklenmeyen sürüm onboarding'i durdurmaz;
+        // Profil'den tekrar açılır.
       }
     }
     if (step < steps.length - 1) {

@@ -7,6 +7,7 @@
  * SecureStore/AsyncStorage'da (localStorage YOK).
  */
 import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiLocale } from '@/lib/api-locale';
 import { uiCopy } from '@/lib/ui-copy';
 import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
@@ -41,10 +42,21 @@ function getBaseUrl(): string {
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(status: number, message: string, code?: string) {
+  /** Uçtan uca eşleştirme: backend JSON logundaki `request_id` ile aynı değer. */
+  istekKimligi?: string;
+  /** Sınıflandırma ipucu: ağ kopması mı, zaman aşımı mı, HTTP yanıtı mı. */
+  neden?: 'ag' | 'zaman-asimi' | 'http';
+  constructor(
+    status: number,
+    message: string,
+    code?: string,
+    options?: { istekKimligi?: string; neden?: 'ag' | 'zaman-asimi' | 'http' },
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    this.istekKimligi = options?.istekKimligi;
+    this.neden = options?.neden;
   }
 }
 
@@ -81,26 +93,111 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 async function request<T>(
   path: string,
   init?: RequestInit,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; idempotentYenidenDene?: string },
 ): Promise<T> {
-  let accessToken: string | undefined;
+  const timeoutMs = options?.timeoutMs ?? ApiTimeoutMs;
+  const yontem = (init?.method ?? 'GET').toUpperCase();
+  const guvenli = yontem === 'GET' || yontem === 'HEAD' || yontem === 'OPTIONS';
+  const yenidenDeneGuvenli = guvenli || typeof options?.idempotentYenidenDene === 'string';
+  const istekKimligi = generateMessageId();
+  // Güvenli olmayan yöntemde idempotency anahtarı yoksa üret: ağ kopmasında
+  // tekrar gönderim çift uygulamaya yol açmasın.
+  const idempotencyAnahtari = !guvenli
+    ? (options?.idempotentYenidenDene
+      ?? (init?.headers as Record<string, string> | undefined)?.['X-Idempotency-Key']
+      ?? generateMessageId())
+    : undefined;
+
+  let accessToken = await oturumBelirteci();
+  let yenilemeDenendi = false;
+  let deneme = 0;
+  for (;;) {
+    try {
+      const sonuc = await tekIstek<T>(path, init, {
+        accessToken,
+        timeoutMs,
+        istekKimligi,
+        idempotencyAnahtari,
+      });
+      // Bağlantı var demek — bekleyen çevrimdışı yazımları akıt (arka plan).
+      void kuyruguBosalt();
+      return sonuc;
+    } catch (deger) {
+      if (!(deger instanceof ApiError)) throw deger;
+      // 401/403'te bir kez sessiz token yenileme; olmazsa giriş ekranı yolu.
+      if ((deger.status === 401 || deger.status === 403) && !yenilemeDenendi) {
+        yenilemeDenendi = true;
+        const taze = await tazeErisimBelirteci();
+        if (taze) {
+          accessToken = taze;
+          continue;
+        }
+        throw new ApiError(401, uiCopy().common.sessionExpired, deger.code, {
+          istekKimligi,
+          neden: 'http',
+        });
+      }
+      // Üstel geri çekilme: yalnız idempotent isteklerde, en fazla 2 tekrar.
+      if (yenidenDeneGuvenli && deneme < 2 && tekrarDenebilirDurum(deger.status)) {
+        deneme += 1;
+        await sleep(500 * 2 ** (deneme - 1) + Math.random() * 200);
+        continue;
+      }
+      throw deger;
+    }
+  }
+}
+
+/** Ağ kopması / zaman aşımı / 5xx (+ GET'te 429) tekrar denenir; 4xx asla. */
+function tekrarDenebilirDurum(status: number): boolean {
+  return status === 0 || status === 429 || status >= 500;
+}
+
+async function oturumBelirteci(): Promise<string> {
   try {
     const { data } = await withTimeout(
       supabase.auth.getSession(),
       SESSION_READ_MS,
       'session_timeout',
     );
-    accessToken = data.session?.access_token;
+    const mevcut = data.session?.access_token;
+    if (mevcut) return mevcut;
   } catch {
+    // Aşağıda sessiz yenileme denenir.
+  }
+  const yenilenen = await tazeErisimBelirteci();
+  if (!yenilenen) {
     throw new ApiError(401, uiCopy().common.sessionExpired);
   }
-  if (!accessToken) {
-    throw new ApiError(401, uiCopy().common.sessionExpired);
+  return yenilenen;
+}
+
+async function tazeErisimBelirteci(): Promise<string | undefined> {
+  try {
+    const { data } = await withTimeout(
+      supabase.auth.refreshSession(),
+      SESSION_READ_MS,
+      'session_timeout',
+    );
+    return data.session?.access_token;
+  } catch {
+    return undefined;
   }
+}
+
+async function tekIstek<T>(
+  path: string,
+  init: RequestInit | undefined,
+  ctx: {
+    accessToken: string;
+    timeoutMs: number;
+    istekKimligi: string;
+    idempotencyAnahtari?: string;
+  },
+): Promise<T> {
   let res: Response;
   const controller = new AbortController();
-  const timeoutMs = options?.timeoutMs ?? ApiTimeoutMs;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), ctx.timeoutMs);
   try {
     const isMultipart = typeof FormData !== 'undefined' && init?.body instanceof FormData;
     res = await fetch(`${getBaseUrl()}${path}`, {
@@ -108,17 +205,25 @@ async function request<T>(
       signal: controller.signal,
       headers: {
         ...(!isMultipart && { 'Content-Type': 'application/json' }),
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${ctx.accessToken}`,
         'X-App-Locale': getApiLocale(),
         'Accept-Language': getApiLocale(),
+        'X-Request-Id': ctx.istekKimligi,
+        ...(ctx.idempotencyAnahtari && { 'X-Idempotency-Key': ctx.idempotencyAnahtari }),
         ...(init?.headers ?? {}),
       },
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError(0, uiCopy().common.timeout);
+      throw new ApiError(0, uiCopy().common.timeout, undefined, {
+        istekKimligi: ctx.istekKimligi,
+        neden: 'zaman-asimi',
+      });
     }
-    throw new ApiError(0, uiCopy().common.unreachable);
+    throw new ApiError(0, uiCopy().common.unreachable, undefined, {
+      istekKimligi: ctx.istekKimligi,
+      neden: 'ag',
+    });
   } finally {
     clearTimeout(timeoutId);
   }
@@ -142,7 +247,10 @@ async function request<T>(
     if (res.status === 429) {
       detail = uiCopy().common.rateLimited;
     }
-    throw new ApiError(res.status, detail, code);
+    throw new ApiError(res.status, detail, code, {
+      istekKimligi: ctx.istekKimligi,
+      neden: 'http',
+    });
   }
 
   if (res.status === 204) return undefined as T;
@@ -650,6 +758,11 @@ export async function getDailyTasks(): Promise<DailyTasksResponse> {
       has_active_plan: raw.length > 0,
     };
   }
+  // Çalışma zamanı sözleşme doğrulaması: backend şeması değişirse sessiz
+  // `undefined` çökmesi yerine net hata (06-D).
+  if (!raw || !Array.isArray((raw as DailyTasksResponse).items)) {
+    throw new ApiError(502, uiCopy().common.starsUnreachable, 'gecersiz-yanit');
+  }
   return { ...raw, events: Array.isArray(raw.events) ? raw.events : [] };
 }
 
@@ -689,9 +802,17 @@ export type CompleteEventResponse = {
 
 /** Fotosuz Yaptım: +50/kategori; ikinci basış 409, gelecek gün 400. */
 export function completePlanEvent(occurrenceId: string): Promise<CompleteEventResponse> {
-  return request<CompleteEventResponse>(
-    `/plan/events/${encodeURIComponent(occurrenceId)}/complete`,
-    { method: 'POST' },
+  const yol = `/plan/events/${encodeURIComponent(occurrenceId)}/complete`;
+  const govde = JSON.stringify({});
+  return kritikYazma<CompleteEventResponse>(
+    yol,
+    govde,
+    `evt:${occurrenceId}`,
+    (y, g, anahtar) => request<CompleteEventResponse>(
+      y,
+      { method: 'POST', body: g },
+      { idempotentYenidenDene: anahtar },
+    ),
   );
 }
 
@@ -822,9 +943,17 @@ export async function uploadTaskProof(
 }
 
 export function excuseTask(taskId: string): Promise<ExcuseResponse> {
-  return request<ExcuseResponse>(`/task/${encodeURIComponent(taskId)}/excuse`, {
-    method: 'POST',
-  });
+  const govde = JSON.stringify({});
+  return kritikYazma<ExcuseResponse>(
+    `/task/${encodeURIComponent(taskId)}/excuse`,
+    govde,
+    `exc:${taskId}`,
+    (yol, govdeMetni, anahtar) => request<ExcuseResponse>(
+      yol,
+      { method: 'POST', body: govdeMetni },
+      { idempotentYenidenDene: anahtar },
+    ),
+  );
 }
 
 export function getState(): Promise<StateResponse> {
@@ -849,21 +978,138 @@ export function offerBonus(): Promise<BonusOffer> {
 }
 
 export function getActiveBonus(): Promise<BonusOffer | null> {
-  return request<BonusOffer | null>('/bonus/active');
+  return bugunBonusuOku('/bonus/active');
 }
 
 export function getTodayBonus(): Promise<BonusOffer | null> {
-  return request<BonusOffer | null>('/bonus/today');
+  return bugunBonusuOku('/bonus/today');
+}
+
+/**
+ * ss-06 dersi: bugün bonus yoksa backend 404 dönebilir — bu HATA değil,
+ * boş durumdur. 404'ü null'a çevirip boş kart yolunu açar.
+ */
+async function bugunBonusuOku(yol: string): Promise<BonusOffer | null> {
+  try {
+    const ham = await request<BonusOffer | null>(yol);
+    if (!ham || typeof ham !== 'object' || typeof (ham as BonusOffer).id !== 'string') {
+      return null;
+    }
+    return ham;
+  } catch (deger) {
+    if (deger instanceof ApiError && deger.status === 404) return null;
+    throw deger;
+  }
 }
 
 export function completeBonus(
   offerId: string,
   completionId: string,
 ): Promise<BonusCompletionResponse> {
-  return request<BonusCompletionResponse>(`/bonus/${encodeURIComponent(offerId)}/complete`, {
-    method: 'POST',
-    body: JSON.stringify({ completion_id: completionId }),
-  });
+  const yol = `/bonus/${encodeURIComponent(offerId)}/complete`;
+  const govde = JSON.stringify({ completion_id: completionId });
+  return kritikYazma<BonusCompletionResponse>(
+    yol,
+    govde,
+    completionId,
+    (y, g, anahtar) => request<BonusCompletionResponse>(
+      y,
+      { method: 'POST', body: g },
+      { idempotentYenidenDene: anahtar },
+    ),
+  );
+}
+
+/**
+ * Çevrimdışı kuyruk (06-D): tamamlama/mazeret gibi kritik yazma işlemleri
+ * bağlantı yokken AsyncStorage'da bekler, bağlantı gelince idempotency
+ * anahtarıyla gönderilir. Fotoğraf gövdeleri kuyruğa girmez (yalnız JSON).
+ */
+type KuyrukOgesi = {
+  id: string;
+  yol: string;
+  govde: string;
+  idempotency: string;
+  deneme: number;
+};
+
+const KUYRUK_ANAHTARI = 'cevrimdisi-kuyruk:v1';
+const KUYRUK_UST_SINIR = 20;
+let kuyrukAkitiliyor = false;
+
+async function kuyruguOku(): Promise<KuyrukOgesi[]> {
+  try {
+    const ham = await AsyncStorage.getItem(KUYRUK_ANAHTARI);
+    if (!ham) return [];
+    const dizi = JSON.parse(ham) as KuyrukOgesi[];
+    return Array.isArray(dizi) ? dizi : [];
+  } catch {
+    return [];
+  }
+}
+
+async function kuyruguYaz(ogeler: KuyrukOgesi[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KUYRUK_ANAHTARI, JSON.stringify(ogeler.slice(0, KUYRUK_UST_SINIR)));
+  } catch {
+    // Kuyruk yazılamazsa akış yine de hata fırlatır; veri kaybı raporlanır.
+  }
+}
+
+/** Kritik yazma: ağ koparsa kuyruğa alıp `cevrimdisi-kuyrukta` koduyla bildir. */
+async function kritikYazma<T>(
+  yol: string,
+  govde: string,
+  idempotency: string,
+  gonder: (yol: string, govde: string, idempotency: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await gonder(yol, govde, idempotency);
+  } catch (deger) {
+    if (deger instanceof ApiError && deger.status === 0) {
+      const mevcut = await kuyruguOku();
+      if (!mevcut.some((o) => o.idempotency === idempotency)) {
+        mevcut.push({ id: generateMessageId(), yol, govde, idempotency, deneme: 0 });
+        await kuyruguYaz(mevcut);
+      }
+      throw new ApiError(0, uiCopy().common.offlineBanner, 'cevrimdisi-kuyrukta', {
+        istekKimligi: deger.istekKimligi,
+        neden: 'ag',
+      });
+    }
+    throw deger;
+  }
+}
+
+/** Bekleyen yazımları sırayla gönderir. Başarılı/uygulanmış (2xx/409/400/422/404) düşer. */
+export async function kuyruguBosalt(): Promise<void> {
+  if (kuyrukAkitiliyor) return;
+  kuyrukAkitiliyor = true;
+  try {
+    let bekleyen = await kuyruguOku();
+    while (bekleyen.length > 0) {
+      const oge = bekleyen[0];
+      try {
+        await request<void>(
+          oge.yol,
+          { method: 'POST', body: oge.govde },
+          { idempotentYenidenDene: oge.idempotency },
+        );
+        bekleyen = bekleyen.slice(1);
+        await kuyruguYaz(bekleyen);
+      } catch (deger) {
+        if (deger instanceof ApiError && deger.status === 0) break; // hâlâ çevrimdışı
+        if (deger instanceof ApiError && [400, 404, 409, 422].includes(deger.status)) {
+          bekleyen = bekleyen.slice(1); // zaten uygulanmış ya da geçersiz
+          await kuyruguYaz(bekleyen);
+          continue;
+        }
+        break; // 5xx/429: sonra tekrar dene
+      }
+    }
+  } finally {
+    kuyrukAkitiliyor = false;
+  }
 }
 
 export function deleteAccount(): Promise<void> {

@@ -16,7 +16,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
-import { ApiError, deletePlanEvent, listPlanEvents, type PlanEvent } from '@/lib/api';
+import { hataMesaji, siniflaHata } from '@/lib/app-error';
+import { bildirHata } from '@/lib/error-report';
+import { deletePlanEvent, listPlanEvents, type PlanEvent } from '@/lib/api';
 import { showAlert, showConfirm } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
 
@@ -69,10 +71,9 @@ export function PlanEventsSection({ planId, planName, reloadKey = 0, onChanged }
               onChanged?.();
             })
             .catch((error: unknown) => {
-              showAlert(
-                t.common.errorGeneric,
-                error instanceof ApiError ? error.message : undefined,
-              );
+              const hata = siniflaHata(error, 'PLAN_ETKINLIK_001');
+              bildirHata(hata, 'plan-events.delete');
+              showAlert(t.common.errorGeneric, hataMesaji(hata, t));
             })
             .finally(() => setBusyId(null));
         },
@@ -86,6 +87,7 @@ export function PlanEventsSection({ planId, planName, reloadKey = 0, onChanged }
       setEvents((current) => [...current, event].sort(byTime));
       showAlert(t.events.created(event.title));
       void trackEvent('plan_event_created', { plan_id: planId, recurrence: event.recurrence });
+      void trackEvent('plan_etkinlik_kuruldu', { plan_id: planId, recurrence: event.recurrence });
       onChanged?.();
     },
     [onChanged, planId, t],

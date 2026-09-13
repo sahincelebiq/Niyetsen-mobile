@@ -9,8 +9,7 @@ export const NATIVE_AUTH_REDIRECT = 'niyetsen://auth/callback';
 
 /**
  * OAuth ve e-posta linklerinin döneceği adres.
- * Expo Go: exp://…/--/auth/callback (proxy).
- * Kapalı test / EAS: niyetsen://auth/callback (özel scheme).
+ * Development build / kapalı test / EAS: niyetsen://auth/callback (özel scheme).
  */
 export function getAuthRedirectUri(): string {
   if (Platform.OS === 'web') {

@@ -1,6 +1,6 @@
 /**
  * PostHog analitik — MASTER_PLAN §1.10 zorunlu event'ler.
- * Native SDK yerine HTTP capture kullanır; Expo Go'da da çalışır.
+ * Native SDK yerine HTTP capture kullanır; development build dahil çalışır.
  */
 import { Platform } from 'react-native';
 
@@ -26,7 +26,13 @@ export type AnalyticsEvent =
   | 'mystic_chat_message'
   | 'plan_event_created'
   | 'plan_event_completed'
-  | 'plan_agent_message';
+  | 'plan_agent_message'
+  // 06 — kritik akışlar için kanonik Türkçe olaylar (06-C). İngilizce
+  // karşılıklar geriye uyum için korunur; yeni kod Türkçe adı kullanır.
+  | 'gorev_tamamlandi'
+  | 'bildirim_izni_sonucu'
+  | 'plan_etkinlik_kuruldu'
+  | 'odeme_denemesi';
 
 let distinctId: string | null = null;
 

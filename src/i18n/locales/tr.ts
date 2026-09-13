@@ -13,6 +13,7 @@ export const tr: Messages = {
     next: 'İleri',
     done: 'Tamam',
     errorGeneric: 'Bir şeyler ters gitti. Birazdan tekrar dene.',
+    errorCode: (kod) => `Hata kodu: ${kod}`,
     offlineBanner: 'Bağlantı kurulamadı — çevrimdışı görünümdesin.',
     rtlRestartTitle: 'Yeniden başlatma gerekir',
     rtlRestartBody:
@@ -470,6 +471,9 @@ export const tr: Messages = {
     premium: 'Premium',
     birthInvalid: 'Doğum tarihini gün.ay.yıl olarak gir (ör. 10.04.1995).',
     pushStatusFailed: 'Bildirim durumu okunamadı.',
+    pushPermissionOff: 'Bildirim izni cihaz ayarlarından kapatılmış.',
+    pushEnabled: 'Bildirimler açıldı.',
+    pushDisabled: 'Bildirimler kapatıldı. Sistem iznini cihaz ayarlarından da değiştirebilirsin.',
     consentSaveFailed: 'Tercih kaydedilemedi.',
     notifPrefFailed: 'Bildirim tercihi değiştirilemedi.',
     sectionOpen: 'Bölümü aç',
