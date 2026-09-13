@@ -27,6 +27,9 @@ import {
 import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
 import { configurePurchases, logOutPurchases } from '@/lib/purchases';
+import { clearPushStateOnSignOut } from '@/lib/push-notifications';
+import { cancelDailyLocalReminder } from '@/lib/task-reminders';
+import { captureException } from '@/lib/sentry';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -402,12 +405,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = session?.user?.id;
     await logOutPurchases();
+    // Görev 01-D: çıkışta push token başka hesaba sızmasın; yerel
+    // günlük hatırlatıcı da iptal edilir (cihaz artık bu kullanıcıya ait değil).
+    if (userId) {
+      try {
+        await clearPushStateOnSignOut(userId);
+      } catch (error) {
+        captureException(error, 'auth:signout-push');
+      }
+      try {
+        await cancelDailyLocalReminder();
+      } catch (error) {
+        captureException(error, 'auth:signout-reminder');
+      }
+    }
     recoveryHoldRef.current = false;
     setRecovery(false);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  }, []);
+  }, [session?.user?.id]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
