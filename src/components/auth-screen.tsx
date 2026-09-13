@@ -30,6 +30,7 @@ import { ThemedView } from '@/components/themed-view';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, Motion, Radii, Spacing } from '@/constants/theme';
 import { authMesaji } from '@/features/auth/auth-errors';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
 import { AuthFlowError, useAuth } from '@/providers/auth-provider';
@@ -50,8 +51,10 @@ function emailLooksValid(value: string): boolean {
 
 export function AuthScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const auth = useAuth();
   const { t, regionId, setRegion } = useLocale();
+  const wallpaperScrim = scheme === 'dark' ? 0.52 : 0.38;
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>(auth.recovery ? 'password' : 'sign-in');
   const [intent, setIntent] = useState<Intent>('sign-in');
@@ -288,6 +291,15 @@ export function AuthScreen() {
     <KeyboardAwareView>
       <ThemedView style={styles.flex}>
         <ChatWallpaper />
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.wallpaperScrim,
+            { backgroundColor: theme.background, opacity: wallpaperScrim },
+          ]}
+        />
         <SafeAreaView style={styles.flex}>
           <ScrollView
             contentContainerStyle={styles.content}
@@ -306,9 +318,12 @@ export function AuthScreen() {
                 source={require('@/assets/images/niyetsen-logo.png')}
                 style={styles.logo}
                 contentFit="contain"
+                accessibilityLabel={t.auth.logoLabel}
                 accessibilityIgnoresInvertColors
               />
-              <ThemedText type="screenTitle">Niyetsen</ThemedText>
+              <ThemedText type="screenTitle" accessibilityRole="header">
+                {t.auth.logoLabel}
+              </ThemedText>
               <ThemedText type="smallBold" themeColor="tint" style={styles.center}>
                 {t.brand.tagline}
               </ThemedText>
@@ -344,6 +359,7 @@ export function AuthScreen() {
                     placeholder={t.auth.otpPlaceholder}
                     placeholderTextColor={theme.textSecondary}
                     accessibilityLabel={t.auth.otpPlaceholder}
+                    accessibilityHint={t.auth.otpHint}
                     value={otp}
                     onChangeText={(value) =>
                       setOtp(value.replace(/[^\d]/g, '').slice(0, OTP_MAX_LEN))
@@ -692,11 +708,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.four,
     gap: Spacing.four,
   },
+  wallpaperScrim: { ...StyleSheet.absoluteFillObject },
   topBar: {
     alignItems: 'flex-end',
   },
   hero: { alignItems: 'center', gap: Spacing.one },
-  logo: { width: 56, height: 56, borderRadius: 16, marginBottom: Spacing.one },
+  logo: { width: 56, height: 56, borderRadius: Radii.medium, marginBottom: Spacing.one },
   center: { textAlign: 'center' },
   card: {
     padding: Spacing.four,
@@ -715,10 +732,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   passwordWrap: { position: 'relative' },
-  passwordInput: { paddingRight: 52 },
+  passwordInput: { paddingEnd: 52 },
   eyeHit: {
     position: 'absolute',
-    right: 4,
+    end: Spacing.one,
     top: 0,
     bottom: 0,
     width: 44,

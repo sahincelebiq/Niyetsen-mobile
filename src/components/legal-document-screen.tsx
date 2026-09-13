@@ -62,7 +62,7 @@ export function LegalDocumentScreen({
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" themeColor="tint">
-                ← {t.legal.back}
+                {t.legal.back}
               </ThemedText>
             </Pressable>
             <View style={styles.topActions}>
@@ -71,7 +71,7 @@ export function LegalDocumentScreen({
                 accessibilityLabel={t.legal.openWeb}
                 hitSlop={8}
                 onPress={() => void openLegalDocument(documentId, locale)}
-                style={({ pressed }) => pressed && styles.pressed}>
+                style={({ pressed }) => [styles.legalHit, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" themeColor="tint">
                   {t.legal.openWeb}
                 </ThemedText>
@@ -83,10 +83,10 @@ export function LegalDocumentScreen({
           </View>
 
           <View style={styles.header}>
-            <ThemedText type="screenTitle">
+            <ThemedText type="screenTitle" accessibilityRole="header">
               {document.title}
             </ThemedText>
-            <ThemedText themeColor="textSecondary">{document.summary}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">{document.summary}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {t.legal.effective}: {getLegalEffectiveDate(locale)}
             </ThemedText>
@@ -106,7 +106,7 @@ export function LegalDocumentScreen({
 
           {document.sections.map((section) => (
             <View key={section.title} style={styles.section}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
+              <ThemedText type="subtitle">
                 {section.title}
               </ThemedText>
               {section.paragraphs?.map((paragraph) => (
@@ -124,7 +124,10 @@ export function LegalDocumentScreen({
           <View style={[styles.linkGrid, { borderTopColor: theme.border }]}>
             {LEGAL_LINKS.map((item) => (
               <Link key={item.id} href={item.href as Href} asChild>
-                <Pressable style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={documents[item.id].shortTitle}
+                  style={({ pressed }) => [styles.legalHit, pressed && styles.pressed]}>
                   <ThemedText
                     type="smallBold"
                     themeColor={item.id === documentId ? 'textSecondary' : 'tint'}>
@@ -180,7 +183,6 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   section: { gap: Spacing.two },
-  sectionTitle: { fontSize: 18, lineHeight: 24 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   bulletText: { flex: 1 },
   legalLink: {
@@ -193,6 +195,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.three,
+  },
+  legalHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
   },
   pressed: { opacity: 0.65 },
 });

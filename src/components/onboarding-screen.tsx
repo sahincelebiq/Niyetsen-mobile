@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,27 +11,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BirthDateField } from '@/components/birth-date-field';
-import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
+import { ChatWallpaper } from '@/components/chat-wallpaper';
 import {
   ConsentChoices,
   ConsentChoicesValue,
   EMPTY_CONSENT_CHOICES,
 } from '@/components/consent-choices';
+import { ErrorBanner } from '@/components/error-banner';
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { RegionLanguageSheet } from '@/components/region-language-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TimeOfDayField, type TimeOfDayValue } from '@/components/time-of-day-field';
+import { SurfaceCard } from '@/components/ui/surface-card';
+import { LEGAL_MIN_AGE } from '@/constants/legal';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { trackEvent } from '@/lib/analytics';
 import { updateConsent, updateProfile, GENDER_OPTIONS, type GenderOption } from '@/lib/api';
-import { enablePushNotifications } from '@/lib/push-notifications';
-import { useAuth } from '@/providers/auth-provider';
 import {
   birthDateIsoFromDisplay,
   isAtLeastYearsOld,
   isValidBirthDateDisplay,
 } from '@/lib/birth-date';
-import { LEGAL_MIN_AGE } from '@/constants/legal';
-import { trackEvent } from '@/lib/analytics';
+import { enablePushNotifications } from '@/lib/push-notifications';
+import { useAuth } from '@/providers/auth-provider';
 import { useLocale } from '@/providers/locale-provider';
 import { useProfile } from '@/providers/profile-provider';
 
@@ -40,6 +44,7 @@ type OnboardingStepId = 'region' | 'name' | 'gender' | 'birth' | 'notif' | 'cons
 
 export function OnboardingScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const { t, regionId, setRegion, timezone, locale } = useLocale();
   const { profile, refresh } = useProfile();
   const { user } = useAuth();
@@ -51,6 +56,14 @@ export function OnboardingScreen() {
   const [consents, setConsents] = useState<ConsentChoicesValue>(EMPTY_CONSENT_CHOICES);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const wallpaperScrim = scheme === 'dark' ? 0.52 : 0.38;
+
+  useEffect(() => {
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    return () => sub.remove();
+  }, []);
 
   const steps = useMemo(() => {
     const all: { id: OnboardingStepId; title: string }[] = [
@@ -65,6 +78,7 @@ export function OnboardingScreen() {
     return profile?.gender ? all.filter((item) => item.id !== 'gender') : all;
   }, [profile?.gender, t]);
   const current = steps[step] ?? steps[0];
+  const isLast = step === steps.length - 1;
 
   useEffect(() => {
     if (profile?.gender) setGender(profile.gender);
@@ -77,7 +91,6 @@ export function OnboardingScreen() {
 
   function validateCurrent() {
     if (current.id === 'name' && !name.trim()) return t.onboarding.nameRequired;
-    // cinsiyet atlanabilir — zorunlu değil.
     if (current.id === 'birth') {
       if (!isValidBirthDateDisplay(birthDate)) return t.onboarding.birthInvalid;
       const iso = birthDateIsoFromDisplay(birthDate);
@@ -142,23 +155,44 @@ export function OnboardingScreen() {
       });
       await refresh();
       void trackEvent('onboarding_complete');
-    } catch (value) {
-      setError(value instanceof Error ? value.message : t.onboarding.profileSaveFailed);
+    } catch {
+      setError(t.onboarding.profileSaveFailed);
     } finally {
       setBusy(false);
     }
   }
 
+  function pressScale(pressed: boolean) {
+    return pressed && !reduceMotion ? 0.97 : 1;
+  }
+
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAwareView>
       <ThemedView style={styles.flex}>
+        <ChatWallpaper />
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.wallpaperScrim,
+            { backgroundColor: theme.background, opacity: wallpaperScrim },
+          ]}
+        />
         <SafeAreaView style={styles.flex}>
           <ScrollView
             contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled">
-            <View style={styles.progressRow}>
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View
+              style={styles.progressRow}
+              accessibilityRole="progressbar"
+              accessibilityLabel={t.onboarding.stepOf(step + 1, steps.length)}
+              accessibilityValue={{
+                min: 1,
+                max: steps.length,
+                now: step + 1,
+              }}>
               {steps.map((item, index) => (
                 <View
                   key={item.id}
@@ -169,12 +203,15 @@ export function OnboardingScreen() {
                 />
               ))}
             </View>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.stepLabel}>
+              {t.onboarding.stepOf(step + 1, steps.length)}
+            </ThemedText>
 
-            <ThemedView
-              type="backgroundElement"
-              style={[styles.card, { borderColor: theme.border }]}>
-              <ThemedText type="subtitle">{current.title}</ThemedText>
-              {current.id === 'region' && (
+            <SurfaceCard elevated style={styles.card}>
+              <ThemedText type="subtitle" accessibilityRole="header">
+                {current.title}
+              </ThemedText>
+              {current.id === 'region' ? (
                 <>
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.regionHint}
@@ -184,27 +221,32 @@ export function OnboardingScreen() {
                     onChange={(id) => void setRegion(id)}
                   />
                 </>
-              )}
-              {current.id === 'name' && (
+              ) : null}
+              {current.id === 'name' ? (
                 <>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.nameHint}
                   </ThemedText>
-                  <Field value={name} onChangeText={setName} placeholder={t.onboarding.namePlaceholder} />
+                  <Field
+                    value={name}
+                    onChangeText={setName}
+                    placeholder={t.onboarding.namePlaceholder}
+                    accessibilityLabel={t.onboarding.namePlaceholder}
+                  />
                 </>
-              )}
-              {current.id === 'gender' && (
+              ) : null}
+              {current.id === 'gender' ? (
                 <>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.genderHint}
                   </ThemedText>
-                  <View style={styles.genderRow}>
+                  <View style={styles.genderRow} accessibilityRole="radiogroup">
                     {GENDER_OPTIONS.map((option) => {
                       const selected = gender === option;
                       return (
                         <Pressable
                           key={option}
-                          accessibilityRole="button"
+                          accessibilityRole="radio"
                           accessibilityState={{ selected }}
                           accessibilityLabel={t.gender[option]}
                           onPress={() => setGender(option)}
@@ -216,6 +258,7 @@ export function OnboardingScreen() {
                                 ? theme.backgroundSelected
                                 : theme.surfaceMuted,
                               opacity: pressed ? 0.85 : 1,
+                              transform: [{ scale: pressScale(pressed) }],
                             },
                           ]}>
                           <ThemedText type="smallBold" themeColor={selected ? 'tint' : 'text'}>
@@ -228,29 +271,35 @@ export function OnboardingScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t.onboarding.skipGender}
-                    hitSlop={12}
                     onPress={() => {
                       setGender(null);
                       setError(null);
                       setStep((value) => Math.min(value + 1, steps.length - 1));
-                    }}>
+                    }}
+                    style={({ pressed }) => [
+                      styles.textHit,
+                      {
+                        opacity: pressed ? 0.85 : 1,
+                        transform: [{ scale: pressScale(pressed) }],
+                      },
+                    ]}>
                     <ThemedText type="small" themeColor="textSecondary">
                       {t.onboarding.skipGender}
                     </ThemedText>
                   </Pressable>
                 </>
-              )}
-              {current.id === 'birth' && (
+              ) : null}
+              {current.id === 'birth' ? (
                 <>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.birthHint}
                   </ThemedText>
                   <BirthDateField value={birthDate} onChangeText={setBirthDate} />
                 </>
-              )}
-              {current.id === 'notif' && (
+              ) : null}
+              {current.id === 'notif' ? (
                 <>
-                  <ThemedText themeColor="textSecondary">
+                  <ThemedText type="small" themeColor="textSecondary">
                     {t.onboarding.notifHint}
                   </ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
@@ -262,44 +311,70 @@ export function OnboardingScreen() {
                     onChange={setNotifTime}
                   />
                 </>
-              )}
-              {current.id === 'consent' && (
+              ) : null}
+              {current.id === 'consent' ? (
                 <ConsentChoices value={consents} onChange={setConsents} />
-              )}
+              ) : null}
 
-              {error && <ThemedText themeColor="danger">{error}</ThemedText>}
+              {error ? (
+                <ErrorBanner
+                  message={error}
+                  onRetry={isLast ? () => void next() : undefined}
+                  retrying={busy}
+                />
+              ) : null}
 
               <View style={styles.actions}>
-                {step > 0 && (
+                {step > 0 ? (
                   <Pressable
-                    hitSlop={12}
-                    onPress={() => setStep((value) => value - 1)}>
-                    <ThemedText themeColor="tint">{t.common.back}</ThemedText>
+                    accessibilityRole="button"
+                    accessibilityLabel={t.common.back}
+                    onPress={() => {
+                      setError(null);
+                      setStep((value) => value - 1);
+                    }}
+                    style={({ pressed }) => [
+                      styles.backHit,
+                      {
+                        borderColor: theme.border,
+                        opacity: pressed ? 0.85 : 1,
+                        transform: [{ scale: pressScale(pressed) }],
+                      },
+                    ]}>
+                    <ThemedText type="smallBold" themeColor="tint">
+                      {t.common.back}
+                    </ThemedText>
                   </Pressable>
+                ) : (
+                  <View style={styles.backSpacer} />
                 )}
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isLast ? t.common.done : t.common.continue}
                   disabled={busy}
                   onPress={() => void next()}
-                  style={[
+                  style={({ pressed }) => [
                     styles.nextButton,
-                    { backgroundColor: theme.accentWarm, opacity: busy ? 0.7 : 1 },
+                    {
+                      backgroundColor: theme.accentWarm,
+                      opacity: busy ? 0.7 : pressed ? 0.9 : 1,
+                      transform: [{ scale: pressScale(pressed) }],
+                    },
                   ]}>
                   {busy ? (
                     <ActivityIndicator color={theme.onAccent} />
                   ) : (
-                    <ThemedText
-                      type="smallBold"
-                      style={{ color: theme.onAccent }}>
-                      {step === steps.length - 1 ? t.common.done : t.common.continue}
+                    <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                      {isLast ? t.common.done : t.common.continue}
                     </ThemedText>
                   )}
                 </Pressable>
               </View>
-            </ThemedView>
+            </SurfaceCard>
           </ScrollView>
         </SafeAreaView>
       </ThemedView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareView>
   );
 }
 
@@ -307,18 +382,24 @@ function Field(props: {
   value: string;
   onChangeText: (value: string) => void;
   placeholder: string;
+  accessibilityLabel?: string;
   keyboardType?: 'default' | 'number-pad' | 'numbers-and-punctuation';
 }) {
   const theme = useTheme();
+  const { accessibilityLabel, placeholder, ...rest } = props;
   return (
     <TextInput
-      {...props}
+      {...rest}
+      placeholder={placeholder}
       placeholderTextColor={theme.textSecondary}
+      accessibilityLabel={accessibilityLabel ?? placeholder}
+      autoCorrect={false}
       style={[
         styles.input,
         {
           borderColor: theme.border,
           color: theme.text,
+          backgroundColor: theme.surfaceMuted,
           fontFamily: Fonts.sans,
         },
       ]}
@@ -328,23 +409,23 @@ function Field(props: {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  wallpaperScrim: { ...StyleSheet.absoluteFillObject },
   content: {
     flexGrow: 1,
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 440,
     alignSelf: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.four,
+    gap: Spacing.three,
   },
   progressRow: { flexDirection: 'row', gap: Spacing.two },
-  progress: { height: 4, flex: 1, borderRadius: 99 },
+  progress: { height: 4, flex: 1, borderRadius: Radii.pill },
+  stepLabel: { textAlign: 'center' },
   card: {
-    borderWidth: 1,
-    borderRadius: Spacing.four,
-    padding: Spacing.three,
-    gap: Spacing.two,
+    padding: Spacing.four,
+    gap: Spacing.three,
   },
   genderRow: {
     flexDirection: 'row',
@@ -359,11 +440,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: '100%',
   },
   input: {
     minHeight: 52,
     borderWidth: 1,
-    borderRadius: Spacing.three,
+    borderRadius: Radii.medium,
     paddingHorizontal: Spacing.three,
     fontSize: 16,
   },
@@ -374,13 +456,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  nextButton: {
-    minHeight: 48,
-    flex: 1,
-    maxWidth: 280,
+  backHit: {
+    minHeight: 52,
+    minWidth: 72,
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Spacing.three,
+  },
+  backSpacer: { minWidth: Spacing.one },
+  textHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.one,
+  },
+  nextButton: {
+    minHeight: 52,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radii.pill,
     paddingHorizontal: Spacing.three,
   },
 });

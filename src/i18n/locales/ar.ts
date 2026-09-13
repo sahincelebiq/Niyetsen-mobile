@@ -100,6 +100,8 @@ export const ar: Messages = {
     createPasswordTitle: 'عيّن كلمة المرور',
     createPasswordHint: '6 أحرف على الأقل. اختر كلمة لا تستخدمها في مكان آخر.',
     invalidEmail: 'أدخل بريدًا إلكترونيًا صالحًا.',
+    logoLabel: 'Niyetsen',
+    verifyingSession: 'جارٍ تأكيد الجلسة…',
     legalPrivacy: 'الخصوصية',
     legalKvkk: 'إشعار الخصوصية',
     legalConsent: 'الموافقة',
@@ -128,6 +130,13 @@ export const ar: Messages = {
     birthHint: 'يُستخدم لحساب برجك تلقائيًا.',
     notifHint: 'في أي ساعة تريد تذكير المهام اليومية؟',
     notifHourLabel: 'وقت التذكير',
+    birthPlaceholder: '10.04.1995',
+    stepOf: (current, total) => `الخطوة ${current} من ${total}`,
+    timeChange: 'تغيير',
+    timeSelectTitle: 'اختر الوقت',
+    timeRangeHint:
+      'من 06:00 إلى 00:00. إذا ضبطت بعد منتصف الليل يُسجَّل لليوم التالي.',
+    timeSelectA11y: (label) => `اختر ${label}`,
   },
   regions: {
     TR: 'تركيا · Türkçe',

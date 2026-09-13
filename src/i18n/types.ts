@@ -115,6 +115,8 @@ export type Messages = {
     createPasswordTitle: string;
     createPasswordHint: string;
     invalidEmail: string;
+    logoLabel: string;
+    verifyingSession: string;
   };
   onboarding: {
     regionTitle: string;
@@ -139,6 +141,12 @@ export type Messages = {
     birthHint: string;
     notifHint: string;
     notifHourLabel: string;
+    birthPlaceholder: string;
+    stepOf: (current: number, total: number) => string;
+    timeChange: string;
+    timeSelectTitle: string;
+    timeRangeHint: string;
+    timeSelectA11y: (label: string) => string;
   };
   regions: {
     TR: string;

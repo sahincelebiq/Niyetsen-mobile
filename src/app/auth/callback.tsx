@@ -3,10 +3,13 @@ import * as Linking from 'expo-linking';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { logAuthEvent, toAuthFlowError } from '@/features/auth/auth-errors';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { completeAuthFromUrl, NATIVE_AUTH_REDIRECT } from '@/lib/auth-redirect';
+import { useI18n } from '@/providers/locale-provider';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -15,6 +18,7 @@ import { supabase } from '@/lib/supabase';
  */
 export default function AuthCallbackScreen() {
   const theme = useTheme();
+  const { t } = useI18n();
   const router = useRouter();
   const params = useLocalSearchParams<{
     code?: string | string[];
@@ -72,11 +76,20 @@ export default function AuthCallbackScreen() {
 
   return (
     <ThemedView style={styles.center}>
-      <ActivityIndicator color={theme.tint} />
+      <ActivityIndicator color={theme.tint} accessibilityLabel={t.auth.verifyingSession} />
+      <ThemedText type="small" themeColor="textSecondary">
+        {t.auth.verifyingSession}
+      </ThemedText>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    padding: Spacing.four,
+  },
 });
