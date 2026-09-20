@@ -29,10 +29,16 @@ import {
   type CompleteEventResponse,
   type DailyTasksResponse,
 } from '@/lib/api';
+import {
+  isFreshGunlukRecord,
+  type PersistedGunluk,
+} from '@/lib/gunluk-akis-cache';
 import { supabase } from '@/lib/supabase';
 import { bugunIso } from '@/lib/zaman';
 
 const STORAGE_KEY = 'niyetsen.gunluk-akis.v1';
+/** Eski boot-cache anahtarı — hidrate/temizlik sırasında yok sayılır. */
+const LEGACY_DAILY_KEY = 'niyetsen.boot.daily.v1';
 /** Ağ/5xx için üstel geri çekilme (ms): 3 otomatik deneme, sonra manuel buton. */
 const RETRY_DELAYS_MS = [700, 1_400, 2_800] as const;
 
@@ -87,11 +93,25 @@ export function subscribeGunlukAkis(listener: (next: GunlukAkisState) => void): 
   };
 }
 
-type Persisted = { date: string; savedAt: number; payload: DailyTasksResponse };
+type Persisted = PersistedGunluk<DailyTasksResponse>;
+
+async function currentUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 async function persist(data: DailyTasksResponse): Promise<void> {
   try {
-    const record: Persisted = { date: state.date, savedAt: state.savedAt, payload: data };
+    const record: Persisted = {
+      date: state.date,
+      savedAt: state.savedAt,
+      userId: (await currentUserId()) ?? undefined,
+      payload: data,
+    };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
   } catch {
     // Önbellek yazılamazsa akış yine de çalışır.
@@ -106,7 +126,8 @@ export function ensureGunlukHydrated(): Promise<void> {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         const record = JSON.parse(raw) as Persisted;
-        if (record && record.date === bugunIso() && record.payload) {
+        const userId = await currentUserId();
+        if (isFreshGunlukRecord(record, bugunIso(), userId)) {
           emit({
             data: normalizeDaily(record.payload),
             savedAt: record.savedAt ?? 0,
@@ -117,7 +138,8 @@ export function ensureGunlukHydrated(): Promise<void> {
     } catch {
       // Bozuk kayıt — yok say, ağdan tazelenir.
     } finally {
-      emit({ hydrated: true });
+      // Veri yoksa loading açık kalsın: hidrate→fetch arasında boş kart yanıp sönmesin.
+      emit({ hydrated: true, loading: state.data === null });
     }
   })();
   return hydratePromise;
@@ -181,7 +203,7 @@ export function refreshGunlukAkis(mode: 'full' | 'silent' = 'silent'): Promise<v
     } catch (error) {
       emit({ error: error instanceof ApiError ? error : new ApiError(0, String(error)) });
     } finally {
-      emit({ loading: false, refreshing: false });
+      emit({ loading: false, refreshing: false, stale: false });
       refreshInFlight = null;
     }
   })();
@@ -245,4 +267,17 @@ export function rolloverGunlukAkisIfNeeded(): boolean {
   emit({ date: today, data: null, savedAt: 0, error: null, stale: true });
   void refreshGunlukAkis('full');
   return true;
+}
+
+/** Çıkış / hesap değişimi: bellek + disk. Önceki kullanıcının günü sızmaz. */
+export async function clearGunlukAkis(): Promise<void> {
+  hydratePromise = null;
+  refreshInFlight = null;
+  state = { ...INITIAL, date: bugunIso(), hydrated: true, stale: true, data: null };
+  listeners.forEach((listener) => listener(state));
+  try {
+    await AsyncStorage.multiRemove([STORAGE_KEY, LEGACY_DAILY_KEY]);
+  } catch {
+    // Temizlik düşse bile oturum akışı sürer.
+  }
 }
