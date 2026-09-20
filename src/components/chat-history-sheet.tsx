@@ -3,9 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +14,7 @@ import Animated, { FadeIn, FadeOut, SlideInDown, SlideInLeft, SlideOutDown, Slid
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Href, useRouter } from 'expo-router';
 
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, MaxContentWidth, Motion, Radii, Shadows, Spacing } from '@/constants/theme';
@@ -480,9 +479,7 @@ export function ChatHistorySheet({
               shadowOffset: { width: 4, height: 0 },
             },
           ]}>
-          <KeyboardAvoidingView
-            style={styles.drawerFlex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <KeyboardAwareView style={styles.drawerFlex}>
             <View style={styles.drawerHeader}>
               <View style={styles.headerTitles}>
                 <ThemedText type="subtitle">{copy.title}</ThemedText>
@@ -739,7 +736,7 @@ export function ChatHistorySheet({
                 )}
               </Pressable>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAwareView>
 
           {actionThread ? (
             <View style={styles.actionOverlay} pointerEvents="box-none">

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Href, useRouter } from 'expo-router';
 
+import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
@@ -161,9 +160,7 @@ export function PlanPickerSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.sheetRoot}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={styles.sheetRoot}>
         <View style={styles.sheetBackdrop}>
           <View
             pointerEvents="none"
@@ -179,7 +176,8 @@ export function PlanPickerSheet({
             accessibilityLabel="Paneli kapat"
           />
         </View>
-        <View
+        <KeyboardAwareView
+          fill={false}
           style={[
             styles.sheet,
             {
@@ -326,8 +324,8 @@ export function PlanPickerSheet({
               </ThemedText>
             )}
           </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareView>
+      </View>
     </Modal>
   );
 }
