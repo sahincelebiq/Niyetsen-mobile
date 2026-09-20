@@ -30,6 +30,7 @@ import {
   type LeagueMember,
   leaveLeague,
 } from '@/lib/api';
+import { EMPTY_LEAGUE, leagueLoadOutcome, normalizeLeague } from '@/lib/league-shell';
 import { showConfirm } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
 
@@ -59,18 +60,15 @@ export default function LeagueScreen() {
     }
     setError(null);
     try {
-      setLeague(await getLeague());
+      setLeague(normalizeLeague(await getLeague()) as League);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t.league.loadFailed,
-      );
-      // TODO: /league 404 veya eski backend — kabuk düşmesin; katılım formu kalsın.
-      setLeague((current) => current ?? {
-        opted_in: false,
-        alias: null,
-        my_rank: null,
-        members: [],
-      });
+      const status = err instanceof ApiError ? err.status : 0;
+      const outcome = leagueLoadOutcome(status);
+      setError(outcome.showError
+        ? err instanceof ApiError ? err.message : t.league.loadFailed
+        : null);
+      // /league 404 veya eski backend — kabuk + katılım formu kalır, çökme yok.
+      setLeague((current) => current ?? (EMPTY_LEAGUE as League));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -89,9 +87,10 @@ export default function LeagueScreen() {
     setBusy(true);
     setError(null);
     try {
-      setLeague(await joinLeague(cleaned));
+      setLeague(normalizeLeague(await joinLeague(cleaned)) as League);
       setAlias('');
     } catch (err) {
+      setLeague((current) => current ?? (EMPTY_LEAGUE as League));
       setError(err instanceof ApiError ? err.message : t.league.joinFailed);
     } finally {
       setBusy(false);
@@ -105,8 +104,9 @@ export default function LeagueScreen() {
         void (async () => {
           setBusy(true);
           try {
-            setLeague(await leaveLeague());
+            setLeague(normalizeLeague(await leaveLeague()) as League);
           } catch {
+            setLeague((current) => current ?? (EMPTY_LEAGUE as League));
             setError(t.league.leaveFailed);
           } finally {
             setBusy(false);

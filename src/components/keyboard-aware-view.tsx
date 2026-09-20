@@ -18,6 +18,8 @@ type KeyboardAwareViewProps = {
   bottomInset?: number;
   /** Ekranın klavye durumuna ihtiyacı varsa (sohbet: composer padding, scroll). */
   onKeyboardChange?: (state: KeyboardLiftState) => void;
+  /** false: bottom sheet / shrink-wrap — dış kap flex:1 almaz. */
+  fill?: boolean;
 };
 
 /**
@@ -43,6 +45,7 @@ export function KeyboardAwareView({
   style,
   bottomInset,
   onKeyboardChange,
+  fill = true,
 }: KeyboardAwareViewProps) {
   const containerRef = useRef<View>(null);
   const { onLayout, ...keyboard } = useKeyboardLift(containerRef, { bottomInset });
@@ -66,9 +69,11 @@ export function KeyboardAwareView({
     paddingBottom: lift.value,
   }));
 
+  const fillStyle = fill ? styles.flex : undefined;
+
   return (
-    <View ref={containerRef} collapsable={false} onLayout={onLayout} style={styles.flex}>
-      <Animated.View style={[styles.flex, animatedPadding, style]}>
+    <View ref={containerRef} collapsable={false} onLayout={onLayout} style={fillStyle}>
+      <Animated.View style={[fillStyle, animatedPadding, style]}>
         {children}
       </Animated.View>
     </View>

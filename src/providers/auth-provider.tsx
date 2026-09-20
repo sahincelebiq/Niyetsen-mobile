@@ -27,7 +27,9 @@ import {
 } from '@/lib/auth-redirect';
 import { supabase } from '@/lib/supabase';
 import { resetAnalyticsIdentity } from '@/lib/analytics';
+import { AUTH_HOLD_MAX_MS, isAuthUiLocked } from '@/lib/auth-boot';
 import { clearBootCache } from '@/lib/boot-cache';
+import { clearGunlukAkis } from '@/lib/gunluk-akis';
 import { clearConsentOkCache } from '@/lib/consent-cache';
 import { clearAllOnboardingDrafts, clearOnboardingDraft } from '@/lib/onboarding-draft';
 import { clearPendingChatMessage } from '@/lib/pending-chat';
@@ -154,6 +156,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const draftTask = userId ? clearOnboardingDraft(userId) : clearAllOnboardingDrafts();
     await Promise.allSettled([
       clearBootCache(),
+      clearGunlukAkis(),
       clearConsentOkCache(),
       draftTask,
     ]);
@@ -183,18 +186,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
           if (mounted) setDeepLinkHold(true);
           await applyUrl(initialUrl);
         }
-        const attempts = fromOAuth ? 10 : 1;
         let next: Session | null = null;
-        for (let i = 0; i < attempts; i += 1) {
+        try {
           const { data } = await withTimeout(
             supabase.auth.getSession(),
             SESSION_BOOT_MS,
             'session_timeout',
           );
           next = data.session;
-          if (next) break;
-          if (fromOAuth) {
+        } catch (error) {
+          console.warn('Oturum okunamadı', error);
+        }
+        // Deep link yazıldıysa kısa yoklama — her turda 8sn timeout yok (eski 80sn spinner).
+        if (fromOAuth && !next) {
+          for (let i = 0; i < 8; i += 1) {
             await new Promise((resolve) => setTimeout(resolve, 200));
+            const { data } = await supabase.auth.getSession();
+            next = data.session;
+            if (next) break;
           }
         }
         if (mounted) {
@@ -237,9 +246,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setLoading(false);
     });
 
-    void Linking.getInitialURL().then((url) => {
-      if (mounted) void applyUrl(url);
-    });
     const linking = Linking.addEventListener('url', ({ url }) => {
       if (!looksLikeAuthCallback(url)) return;
       setDeepLinkHold(true);
@@ -264,23 +270,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, [clearLocalSessionCaches, reportAuthCallbackError]);
 
-  // Custom Tab dönüşünde depo yazısı gecikirse giriş ekranı bir kez
-  // görünür; kısa süre sonra oturumu tekrar oku — kapat-aç gerekmesin.
+  // Custom Tab / deep link: SecureStore yazısı gecikirse spinner açıkken
+  // getSession yokla — oauthHold varken 700ms tek deneme eskiden hiç çalışmıyordu.
   useEffect(() => {
-    if (loading || session) return;
+    if (session) return;
+    if (!loading && !oauthHold && !deepLinkHold) return;
     let cancelled = false;
-    const timer = setTimeout(() => {
+    const poll = () => {
       void supabase.auth.getSession().then(({ data }) => {
         if (!cancelled && data.session) {
           setSession(data.session);
         }
       });
-    }, 700);
+    };
+    poll();
+    const timer = setInterval(poll, 400);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      clearInterval(timer);
     };
-  }, [loading, session]);
+  }, [loading, session, oauthHold, deepLinkHold]);
+
+  useEffect(() => {
+    if (!oauthHold && !deepLinkHold) return undefined;
+    const timer = setTimeout(() => {
+      setOauthHold(false);
+      setDeepLinkHold(false);
+    }, AUTH_HOLD_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [oauthHold, deepLinkHold]);
 
   useEffect(() => {
     if (session) {
@@ -415,21 +433,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setRecovery(false);
   }, []);
 
+  const adoptSessionOrReleaseHold = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      setSession(data.session);
+    }
+    setOauthHold(false);
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     setOauthHold(true);
     try {
       await openOAuth('google');
+      await adoptSessionOrReleaseHold();
     } catch (error) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+        setOauthHold(false);
+        return;
+      }
       setOauthHold(false);
       throw error;
     }
-  }, []);
+  }, [adoptSessionOrReleaseHold]);
 
   const signInWithApple = useCallback(async () => {
     setOauthHold(true);
     try {
       if (Platform.OS !== 'ios') {
         await openOAuth('apple');
+        await adoptSessionOrReleaseHold();
         return;
       }
       const credential = await AppleAuthentication.signInAsync({
@@ -455,7 +489,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         logAuthEvent(mapped.kod, 'signInWithApple', mapped.teknikDetay);
         throw mapped;
       }
+      await adoptSessionOrReleaseHold();
     } catch (error) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+        setOauthHold(false);
+        return;
+      }
       setOauthHold(false);
       const mapped = toAuthFlowError(error);
       if (mapped.kod !== 'iptal') {
@@ -463,7 +504,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       throw mapped;
     }
-  }, []);
+  }, [adoptSessionOrReleaseHold]);
 
   const signOut = useCallback(async () => {
     const userId = session?.user?.id;
@@ -499,7 +540,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       session,
       user: session?.user ?? null,
-      loading: loading || oauthHold || deepLinkHold,
+      loading: isAuthUiLocked({
+        bootLoading: loading,
+        oauthHold,
+        deepLinkHold,
+        hasSession: Boolean(session),
+        holdElapsedMs: 0,
+      }),
       recovery,
       callbackErrorCode,
       reportAuthCallbackError,

@@ -57,7 +57,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
       setProfile(next);
       setOffline(false);
       void writeCachedProfile(next);
-    } catch {
+    } catch (value) {
       const cached = profileRef.current ?? (await readCachedProfile());
       if (cached) {
         setProfile(cached);

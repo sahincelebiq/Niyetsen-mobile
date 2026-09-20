@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -27,6 +28,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
 import { waitForPremiumAccess } from '@/lib/api';
 import { LEGAL_APP_ROUTES } from '@/lib/legal-links';
+import { paywallCatalogFromPrices } from '@/lib/paywall-catalog';
 import {
   getStorePrices, purchasePlan, restorePurchases, storeUnavailableReason,
 } from '@/lib/purchases';
@@ -86,7 +88,7 @@ export default function PaywallScreen() {
       else setYearlyPrice(null);
       setMonthlyIntroDays(prices.monthlyIntroDays);
       setYearlyIntroDays(prices.yearlyIntroDays);
-      setPriceState(prices.monthly || prices.yearly ? 'ready' : 'unavailable');
+      setPriceState(paywallCatalogFromPrices(prices.monthly, prices.yearly).state);
     },
     [t],
   );
@@ -98,9 +100,17 @@ export default function PaywallScreen() {
   useEffect(() => {
     if (storeUnavailableReason()) return undefined;
     let mounted = true;
-    void getStorePrices().then((prices) => {
-      if (mounted) applyPrices(prices);
-    });
+    void getStorePrices()
+      .then((prices) => {
+        if (mounted) applyPrices(prices);
+      })
+      .catch(() => {
+        if (mounted) {
+          setMonthlyPrice(null);
+          setYearlyPrice(null);
+          setPriceState('unavailable');
+        }
+      });
     return () => {
       mounted = false;
     };
@@ -109,8 +119,14 @@ export default function PaywallScreen() {
   async function refreshPrices() {
     setPriceState('loading');
     setMessage(null);
-    const prices = await getStorePrices();
-    applyPrices(prices);
+    try {
+      const prices = await getStorePrices();
+      applyPrices(prices);
+    } catch {
+      setMonthlyPrice(null);
+      setYearlyPrice(null);
+      setPriceState('unavailable');
+    }
   }
 
   const shouldRedirectHome = Boolean(status?.has_premium_access && !status.show_paywall);
@@ -174,7 +190,13 @@ export default function PaywallScreen() {
   }
 
   if (shouldRedirectHome) {
-    return null;
+    return (
+      <ThemedView style={styles.flex}>
+        <SafeAreaView style={styles.redirect} edges={['top', 'left', 'right']}>
+          <ActivityIndicator color={theme.tint} />
+        </SafeAreaView>
+      </ThemedView>
+    );
   }
 
   const catalog = [
@@ -280,61 +302,72 @@ export default function PaywallScreen() {
             </ThemedView>
           ) : priceState === 'ready' ? (
             <>
-              <Animated.View
-                entering={
-                  reduceMotion
-                    ? undefined
-                    : FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)
-                }>
-                <PlanCard
-                  recommended
-                  title={t.paywall.yearlyRecommended}
-                  price={yearlyPrice ?? t.paywall.priceLoading}
-                  hint={
-                    yearlyIntroDays
-                      ? t.paywall.introFree(yearlyIntroDays)
-                      : t.paywall.yearlyHint
-                  }
-                  cta={t.paywall.yearlyCta}
-                  busy={busy === 'yearly'}
-                  disabled={busy !== null || !yearlyPrice}
-                  fill
-                  reduceMotion={reduceMotion}
-                  onPress={() => void handlePurchase('yearly')}
-                />
-              </Animated.View>
+              {yearlyPrice ? (
+                <Animated.View
+                  entering={
+                    reduceMotion
+                      ? undefined
+                      : FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)
+                  }>
+                  <PlanCard
+                    recommended
+                    title={t.paywall.yearlyRecommended}
+                    price={yearlyPrice}
+                    hint={
+                      yearlyIntroDays
+                        ? t.paywall.introFree(yearlyIntroDays)
+                        : t.paywall.yearlyHint
+                    }
+                    cta={t.paywall.yearlyCta}
+                    busy={busy === 'yearly'}
+                    disabled={busy !== null}
+                    fill
+                    reduceMotion={reduceMotion}
+                    onPress={() => void handlePurchase('yearly')}
+                  />
+                </Animated.View>
+              ) : null}
 
-              <Animated.View
-                entering={
-                  reduceMotion
-                    ? undefined
-                    : FadeIn.duration(Motion.fast)
-                      .delay(Motion.stagger)
-                      .reduceMotion(ReduceMotion.System)
-                }>
-                <PlanCard
-                  title={t.paywall.monthlyLabel}
-                  price={monthlyPrice ?? t.paywall.priceLoading}
-                  hint={
-                    monthlyIntroDays
-                      ? t.paywall.introFree(monthlyIntroDays)
-                      : t.paywall.monthlyHint
-                  }
-                  cta={t.paywall.monthlyCta}
-                  busy={busy === 'monthly'}
-                  disabled={busy !== null || !monthlyPrice}
-                  fill={false}
-                  reduceMotion={reduceMotion}
-                  onPress={() => void handlePurchase('monthly')}
-                />
-              </Animated.View>
+              {monthlyPrice ? (
+                <Animated.View
+                  entering={
+                    reduceMotion
+                      ? undefined
+                      : FadeIn.duration(Motion.fast)
+                        .delay(Motion.stagger)
+                        .reduceMotion(ReduceMotion.System)
+                  }>
+                  <PlanCard
+                    title={t.paywall.monthlyLabel}
+                    price={monthlyPrice}
+                    hint={
+                      monthlyIntroDays
+                        ? t.paywall.introFree(monthlyIntroDays)
+                        : t.paywall.monthlyHint
+                    }
+                    cta={t.paywall.monthlyCta}
+                    busy={busy === 'monthly'}
+                    disabled={busy !== null}
+                    fill={!yearlyPrice}
+                    reduceMotion={reduceMotion}
+                    onPress={() => void handlePurchase('monthly')}
+                  />
+                </Animated.View>
+              ) : null}
             </>
           ) : null}
 
           {message ? (
-            <ThemedText themeColor="danger" style={styles.message}>
-              {message}
-            </ThemedText>
+            message === t.paywall.syncing || message === t.paywall.restoreSyncing ? (
+              <ThemedText themeColor="textSecondary" style={styles.message}>
+                {message}
+              </ThemedText>
+            ) : (
+              <ErrorBanner
+                message={message}
+                onRetry={busy ? undefined : () => void handleRestore()}
+              />
+            )
           ) : null}
 
           <Pressable
@@ -542,6 +575,11 @@ function PlanCard({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  redirect: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,

@@ -75,6 +75,7 @@ import {
   refreshGunlukAkis,
   rolloverGunlukAkisIfNeeded,
 } from '@/lib/gunluk-akis';
+import { shouldShowDailySkeleton } from '@/lib/gunluk-akis-cache';
 import { DailyEventCard } from '@/components/plan-event-card';
 import {
   awardedPointsFromMessage,
@@ -512,7 +513,7 @@ export default function DailyTasksScreen() {
     return null;
   }, [dayComplete, events, nowMinutes, tasks]);
 
-  const showSkeleton = !akis.data && (akis.loading || !akis.hydrated);
+  const showSkeleton = shouldShowDailySkeleton(akis);
   const hasActivePlan = akis.data?.has_active_plan ?? true;
   const needsExtension = !!akis.data?.needs_extension;
 
