@@ -251,7 +251,16 @@ function ProfileGate() {
   if (!profile) {
     return (
       <ThemedView style={styles.loading}>
-        <ActivityIndicator color={theme.tint} />
+        <ThemedText themeColor="danger">{t.common.errorGeneric}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+          {t.common.offlineBanner}
+        </ThemedText>
+        <Pressable onPress={() => void retry()} hitSlop={12} style={styles.retryHit}>
+          <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
+        </Pressable>
+        <Pressable onPress={() => void signOut()} hitSlop={12} style={styles.retryHit}>
+          <ThemedText themeColor="tint">{t.auth.signOutRetry}</ThemedText>
+        </Pressable>
       </ThemedView>
     );
   }
