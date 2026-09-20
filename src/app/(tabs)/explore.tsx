@@ -157,16 +157,14 @@ export default function PlanScreen() {
         />
 
         {plan && !loading ? (
-          <View style={[styles.intentHero, { backgroundColor: theme.tint }]}>
-            <ThemedText
-              type="smallBold"
-              style={[styles.intentLabel, { color: theme.onAccent, opacity: 0.8 }]}>
+          <SurfaceCard elevated style={styles.intentHero}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.intentLabel}>
               {t.plan.dayProgress(Math.max(1, todayDay), plan.duration_days)}
             </ThemedText>
-            <ThemedText style={[styles.intentText, { color: theme.onAccent }]}>
+            <ThemedText type="screenTitle" style={styles.intentText}>
               {contentIntent}
             </ThemedText>
-          </View>
+          </SurfaceCard>
         ) : null}
 
         {plan && !loading ? (
@@ -497,16 +495,12 @@ function VisionTaskCard({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   intentHero: {
-    borderRadius: Radii.large,
-    padding: Spacing.four,
     gap: Spacing.two,
   },
   intentLabel: {
-    letterSpacing: 1.1,
+    letterSpacing: 0.8,
   },
   intentText: {
-    fontSize: 22,
-    lineHeight: 30,
     fontFamily: Fonts.serif,
   },
   switchPlan: {
