@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiLocale } from '@/lib/api-locale';
+import { normalizeLeague } from '@/lib/league-shell';
 import { uiCopy } from '@/lib/ui-copy';
 import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
@@ -1324,18 +1325,20 @@ export type League = {
 };
 
 export function getLeague(): Promise<League> {
-  return request<League>('/league');
+  return request<League>('/league').then((raw) => normalizeLeague(raw) as League);
 }
 
 export function joinLeague(alias: string): Promise<League> {
   return request<League>('/league/join', {
     method: 'POST',
     body: JSON.stringify({ alias }),
-  });
+  }).then((raw) => normalizeLeague(raw) as League);
 }
 
 export function leaveLeague(): Promise<League> {
-  return request<League>('/league/leave', { method: 'POST' });
+  return request<League>('/league/leave', { method: 'POST' }).then(
+    (raw) => normalizeLeague(raw) as League,
+  );
 }
 
 /** faz8.13/2b — mistik rehber sohbeti (/chat'ten ayrı; mistik hafızalı). */
