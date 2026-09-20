@@ -22,6 +22,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { ScreenScaffold } from '@/components/screen-scaffold';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import {
@@ -258,7 +259,8 @@ export default function SettingsScreen() {
     <ThemedView style={styles.flex}>
       <KeyboardAwareView>
         <ScreenScaffold scrollable contentStyle={styles.scaffoldTight}>
-        {/* Kimlik → mistik → hesap → tercihler; uzun kart yığını yok */}
+        <ScreenHeader title={t.profile.title} subtitle={t.profile.subtitle} />
+        {/* Kimlik → kısayol chip → PRO kart → hesap */}
         <SurfaceCard>
           <View style={styles.profileRow}>
             <View
@@ -298,29 +300,43 @@ export default function SettingsScreen() {
           </View>
         </SurfaceCard>
 
-        {/* faz8.13/7: mistik girişi ayarlardan kalktı — yeni evi Bugün sekmesi (2a). */}
-        <ThemedView
-          type="backgroundElement"
-          style={[styles.card, { borderColor: theme.border }]}>
-          <SettingsRow
+        <View style={styles.chipRow}>
+          <QuickChip
             icon="account-group-outline"
             label={t.settings.friends}
-            value={t.settings.leagueHint}
             onPress={() => router.push('/arkadaslar' as Href)}
           />
-          <SettingsRow
+          <QuickChip
             icon="weather-night"
             label={t.settings.mysticChat}
-            value={t.settings.mysticGuide}
             onPress={() => router.push(mysticHref.chat)}
           />
-          <SettingsRow
+          <QuickChip
             icon="chart-box-outline"
             label={t.settings.reportPanel}
-            value={t.settings.reportHint}
             onPress={() => router.push('/rapor' as Href)}
           />
-        </ThemedView>
+        </View>
+
+        {subscriptionStatus?.status !== 'active' ? (
+          <SurfaceCard elevated>
+            <ThemedText type="smallBold">{t.settings.goPro}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.paywall.benefitReport}
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/paywall' as Href)}
+              style={({ pressed }) => [
+                styles.proCta,
+                { backgroundColor: theme.accentWarm, opacity: pressed ? 0.88 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                {t.paywall.subscribeCta}
+              </ThemedText>
+            </Pressable>
+          </SurfaceCard>
+        ) : null}
 
         <CollapsibleCard title={t.settings.account} initiallyOpen>
           <Field label={t.settings.name} value={name} onChangeText={setName} />
@@ -721,6 +737,37 @@ function ConsentSwitch({
   );
 }
 
+function QuickChip({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: theme.backgroundElement,
+          borderColor: theme.border,
+          opacity: pressed ? 0.8 : 1,
+        },
+      ]}>
+      <MaterialCommunityIcons name={icon} size={18} color={theme.tint} />
+      <ThemedText type="smallBold" numberOfLines={1} style={styles.chipLabel}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 function SettingsRow({
   icon,
   label,
@@ -846,6 +893,31 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  chipRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  chip: {
+    flex: 1,
+    minHeight: 44,
+    minWidth: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  chipLabel: {
+    textAlign: 'center',
+  },
+  proCta: {
+    minHeight: 44,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.two,
+  },
   scaffoldTight: {
     gap: Spacing.two,
     paddingTop: Spacing.one,
