@@ -5,6 +5,7 @@
  * yalnız bu plan için etkinlik ekler / hatırlatır; yeni 365 plan üretmez.
  * Sunucu etkinliği kendisi oluşturur → her yanıttan sonra liste yenilenir.
  */
+import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +26,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  ApiError,
   generateMessageId,
   getPlanAgentHistory,
   sendPlanAgentMessage,
@@ -47,7 +49,9 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { t } = useLocale();
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [errorAction, setErrorAction] = useState<'consent' | null>(null);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -103,6 +107,7 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
       setDraft('');
       setSuggestions([]);
       setError(null);
+      setErrorAction(null);
       setSending(true);
       try {
         const res = await sendPlanAgentMessage(planId, next);
@@ -127,7 +132,16 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
         setSuggestions(res.suggestions ?? []);
         onEventsChanged();
       } catch (err) {
-        setError(err instanceof Error && err.message ? err.message : t.events.agentUnavailable);
+        if (err instanceof ApiError && err.code === 'consent_required') {
+          setError(t.events.agentConsentRequired);
+          setErrorAction('consent');
+        } else if (err instanceof ApiError && err.status === 404) {
+          setError(t.events.agentNotDeployed);
+          setErrorAction(null);
+        } else {
+          setError(err instanceof Error && err.message ? err.message : t.events.agentUnavailable);
+          setErrorAction(null);
+        }
       } finally {
         setSending(false);
       }
@@ -239,9 +253,27 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
             </View>
           ) : null}
           {error ? (
-            <ThemedText type="small" themeColor="danger" style={styles.error}>
-              {error}
-            </ThemedText>
+            <View style={styles.errorBlock}>
+              <ThemedText type="small" themeColor="danger" style={styles.error}>
+                {error}
+              </ThemedText>
+              {errorAction === 'consent' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    onClose();
+                    router.push('/settings' as Href);
+                  }}
+                  style={({ pressed }) => [
+                    styles.consentHit,
+                    { borderColor: theme.tint, opacity: pressed ? 0.8 : 1 },
+                  ]}>
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {t.events.openConsent}
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
           {!sending && suggestions.length ? (
             <ChatQuickReplies suggestions={suggestions} onSelect={(label) => void send(label)} />
@@ -375,8 +407,21 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.one,
   },
   error: {
+    paddingBottom: Spacing.one,
+  },
+  errorBlock: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.one,
+    gap: Spacing.two,
+  },
+  consentHit: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   composer: {
     flexDirection: 'row',

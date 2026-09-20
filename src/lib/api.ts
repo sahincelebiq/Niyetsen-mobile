@@ -126,6 +126,9 @@ async function request<T>(
     } catch (deger) {
       if (!(deger instanceof ApiError)) throw deger;
       // 401/403'te bir kez sessiz token yenileme; olmazsa giriş ekranı yolu.
+      if (deger.status === 403 && deger.code === 'consent_required') {
+        throw deger;
+      }
       if ((deger.status === 401 || deger.status === 403) && !yenilemeDenendi) {
         yenilemeDenendi = true;
         const taze = await tazeErisimBelirteci();
