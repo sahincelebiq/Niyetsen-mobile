@@ -25,7 +25,6 @@ import { nextMilestone, ScoringRules } from '@/constants/scoring';
 import {
   Fonts,
   Radii,
-  Shadows,
   Spacing,
 } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
@@ -123,46 +122,11 @@ export default function RankScreen() {
 
         {state && !loading && (
           <>
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t.chain.recapOpen}
-                accessibilityHint={
-                  hasPaidAccess ? undefined : t.chain.recapHintFree
-                }
-                onPress={() => {
-                  router.push('/rapor' as Href);
-                }}
-                style={[
-                  styles.recapBanner,
-                  {
-                    backgroundColor: theme.backgroundSelected,
-                    borderColor: theme.tint,
-                  },
-                ]}>
-                <View style={styles.recapBannerCopy}>
-                  <View style={styles.recapTitleRow}>
-                    <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                      {t.chain.reportReady}
-                    </ThemedText>
-                    {!hasPaidAccess ? <ProBadge /> : null}
-                  </View>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {hasPaidAccess
-                      ? t.chain.reportReadyHint
-                      : t.chain.reportProHint}
-                  </ThemedText>
-                </View>
-                <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                  {t.chain.reportOpen}
-                </ThemedText>
-              </Pressable>
-            <View
-              style={[
-                styles.hero,
-                { backgroundColor: theme.tint },
-                milestoneGlow ? Shadows.clay ?? {} : Shadows.soft ?? {},
-              ]}>
-              <ThemedText type="smallBold" style={[styles.heroLabel, { color: theme.onAccent }]}>
+            <SurfaceCard
+              elevated
+              hero={milestoneGlow}
+              style={styles.hero}>
+              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.heroLabel}>
                 {t.chain.heroLabel.toUpperCase()}
               </ThemedText>
               <View style={styles.heroRow}>
@@ -175,7 +139,7 @@ export default function RankScreen() {
                   style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
                   <ChainCompanion
                     streakDays={state.streak_len}
-                    color={theme.onAccent}
+                    color={theme.tint}
                     companionId={companionId}
                     investedDays={investedDays}
                   />
@@ -183,16 +147,16 @@ export default function RankScreen() {
                 <View style={styles.heroNumbers}>
                   <CountUpText
                     value={state.streak_len}
-                    style={[styles.heroCount, { color: theme.onAccent }]}
+                    style={[styles.heroCount, { color: theme.tint }]}
                   />
-                  <ThemedText style={[styles.heroUnit, { color: theme.onAccent }]}>
+                  <ThemedText style={[styles.heroUnit, { color: theme.text }]}>
                     {t.chain.daysUnit}
                   </ThemedText>
                 </View>
               </View>
               <ChainCompanionCaption
                 streakDays={state.streak_len}
-                color={theme.onAccent}
+                color={theme.textSecondary}
                 companionId={companionId}
                 investedDays={investedDays}
               />
@@ -201,20 +165,20 @@ export default function RankScreen() {
                 onPress={() => setPickerOpen(true)}
                 style={styles.pickHint}
                 hitSlop={8}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" themeColor="tint">
                   {t.chain.changeCompanion}
                 </ThemedText>
               </Pressable>
-              <ThemedText style={[styles.heroHint, { color: theme.onAccent }]}>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.heroHint}>
                 {upcoming ? t.chain.nextMilestone(upcoming.remaining, upcoming.day) : t.chain.heroHint}
               </ThemedText>
-            </View>
+            </SurfaceCard>
 
             <SurfaceCard>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 {t.chain.overallRank}
               </ThemedText>
-              <ThemedText type="title" style={styles.centerText}>
+              <ThemedText type="subtitle" style={styles.centerText}>
                 {state.overall_rank}
               </ThemedText>
               <View style={styles.streakRow}>
@@ -261,6 +225,40 @@ export default function RankScreen() {
                 {t.chain.gameStateDetail(state.excuse_count, state.silent_miss_streak)}
               </ThemedText>
             </SurfaceCard>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.chain.recapOpen}
+              accessibilityHint={
+                hasPaidAccess ? undefined : t.chain.recapHintFree
+              }
+              onPress={() => {
+                router.push('/rapor' as Href);
+              }}
+              style={[
+                styles.recapBanner,
+                {
+                  backgroundColor: theme.backgroundElement,
+                  borderColor: theme.border,
+                },
+              ]}>
+              <View style={styles.recapBannerCopy}>
+                <View style={styles.recapTitleRow}>
+                  <ThemedText type="smallBold">
+                    {t.chain.reportReady}
+                  </ThemedText>
+                  {!hasPaidAccess ? <ProBadge /> : null}
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {hasPaidAccess
+                    ? t.chain.reportReadyHint
+                    : t.chain.reportProHint}
+                </ThemedText>
+              </View>
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.chain.reportOpen}
+              </ThemedText>
+            </Pressable>
           </>
         )}
       </ScreenScaffold>
