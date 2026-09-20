@@ -362,6 +362,9 @@ export const de: Messages = {
     agentPlaceholder: 'Was sollen wir hinzufügen?',
     agentSuggestions: ['Jeden Tag 14:00 100 Liegestütze', 'Werktags 07:00 Spaziergang', 'Jeden Abend 23:00 schlafen'],
     agentUnavailable: 'Der Assistent kann gerade nicht antworten; versuch es gleich noch einmal.',
+    agentConsentRequired: 'Die KI-Chat-Erlaubnis ist aus. Öffne sie unter Profil → Datenschutz und komm dann zurück.',
+    agentNotDeployed: 'Der Plan-Assistent antwortet in dieser Version noch nicht. Versuch es gleich noch einmal.',
+    openConsent: 'Erlaubnis öffnen',
     planNameFallback: 'Mein Plan',
     durationShort: (minutes) => `${minutes} Min.`,
   },
@@ -456,9 +459,15 @@ export const de: Messages = {
   },
   paywall: {
     title: 'Deine Kette wartet',
+    brandTitle: 'Niyetsen PRO',
     body:
       'Alles bleibt sichtbar. Chat ist unbegrenzt und kostenlos. Mit dem Kauf öffnen sich Plan, Wege, Mystik, Berichte und Gefährten.',
     trialEnded: 'Deine Testphase ist vorbei — deine Absicht bleibt.',
+    closedTesterHint:
+      'In einem geschlossenen Test muss deine Anmelde-E-Mail auf der Testerliste stehen. Die Store-Einladung allein reicht nicht.',
+    subscribeCta: 'Abonnieren',
+    restoreShort: 'Wiederherstellen',
+    cancelAnytime: 'Du kannst jederzeit im App Store oder bei Google Play kündigen.',
     renewalNote:
       'Die Zahlung wird bei Bestätigung deinem App-Store- oder Google-Play-Konto belastet. Das Abo verlängert sich automatisch, wenn Auto-Renew nicht mindestens 24 Stunden vor Periodenende ausgeschaltet wird. Die Verlängerung wird innerhalb von 24 Stunden vor Periodenende berechnet. Apple: Einstellungen → Apple-ID → Abonnements. Google Play: Zahlungen und Abos. Kein externer Zahlungslink. Erstattungen nach Store-Politik.',
     perMonth: '/ Monat',

@@ -363,6 +363,9 @@ export const tr: Messages = {
     agentPlaceholder: 'Plana ne ekleyelim?',
     agentSuggestions: ['Her gün 14:00 100 şınav', 'Hafta içi 07:00 yürüyüş', 'Her akşam 23:00 uyku'],
     agentUnavailable: 'Asistan şu an yanıt veremiyor; birazdan tekrar dene.',
+    agentConsentRequired: 'AI sohbet izni kapalı. Profil → Gizlilik’ten aç, sonra buradan devam et.',
+    agentNotDeployed: 'Plan asistanı bu sürümde henüz yanıt vermiyor. Birazdan tekrar dene.',
+    openConsent: 'İzni aç',
     planNameFallback: 'Planım',
     durationShort: (minutes) => `${minutes} dk`,
   },
@@ -459,9 +462,15 @@ export const tr: Messages = {
   },
   paywall: {
     title: 'Zincirin seni bekliyor',
+    brandTitle: 'Niyetsen PRO',
     body:
       'Her şey görünür kalır. Sohbet sınırsız ve ücretsiz. Satın alınca plan, yol, mistik, rapor ve yoldaşlar açılır.',
     trialEnded: 'Deneme süren doldu — niyetin silinmedi.',
+    closedTesterHint:
+      'Kapalı testteysen giriş e-postanın test listesinde olduğundan emin ol. Mağaza daveti tek başına yetmez.',
+    subscribeCta: 'Abone ol',
+    restoreShort: 'Geri Yükle',
+    cancelAnytime: 'İstediğin zaman App Store veya Google Play üzerinden iptal edebilirsin.',
     renewalNote:
       'Ödeme, onayda App Store veya Google Play hesabına işlenir. Abonelik, dönem bitiminden en az 24 saat önce otomatik yenileme kapatılmazsa yenilenir. Yenileme ücreti bitişten önceki 24 saat içinde alınır. Apple: Ayarlar → Apple Kimliği → Abonelikler. Google Play: Ödemeler ve abonelikler. Harici ödeme yok. İade mağaza politikasına tabidir.',
     perMonth: '/ ay',

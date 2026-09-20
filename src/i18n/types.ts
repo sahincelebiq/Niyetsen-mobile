@@ -366,6 +366,9 @@ export type Messages = {
     agentPlaceholder: string;
     agentSuggestions: string[];
     agentUnavailable: string;
+    agentConsentRequired: string;
+    agentNotDeployed: string;
+    openConsent: string;
     planNameFallback: string;
     durationShort: (minutes: number) => string;
   };
@@ -458,8 +461,13 @@ export type Messages = {
   };
   paywall: {
     title: string;
+    brandTitle: string;
     body: string;
     trialEnded: string;
+    closedTesterHint: string;
+    subscribeCta: string;
+    restoreShort: string;
+    cancelAnytime: string;
     renewalNote: string;
     close: string;
     monthlyLabel: string;

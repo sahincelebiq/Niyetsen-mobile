@@ -360,6 +360,9 @@ export const ar: Messages = {
     agentPlaceholder: 'ماذا نضيف؟',
     agentSuggestions: ['100 تمرين ضغط كل يوم 14:00', 'مشي أيام الأسبوع 07:00', 'النوم 23:00 كل ليلة'],
     agentUnavailable: 'لا يستطيع المساعد الرد الآن؛ حاول مرة أخرى بعد قليل.',
+    agentConsentRequired: 'إذن دردشة الذكاء الاصطناعي مغلق. افتحه من الملف → الخصوصية ثم عد إلى هنا.',
+    agentNotDeployed: 'مساعد الخطة لا يرد بعد في هذا الإصدار. حاول بعد قليل.',
+    openConsent: 'افتح الإذن',
     planNameFallback: 'خطتي',
     durationShort: (minutes) => `${minutes} د`,
   },
@@ -454,9 +457,15 @@ export const ar: Messages = {
   },
   paywall: {
     title: 'سلسلتك بانتظارك',
+    brandTitle: 'Niyetsen PRO',
     body:
       'كل شيء يبقى ظاهرًا. الدردشة مجانية بلا حد. الشراء يفتح الخطة والمسارات والروحانيات والتقارير والرفاق.',
     trialEnded: 'انتهت التجربة — نيتك لم تُحذف.',
+    closedTesterHint:
+      'إذا كنت في الاختبار المغلق فيجب أن يكون بريد الدخول في قائمة المختبرين. دعوة المتجر وحدها لا تكفي.',
+    subscribeCta: 'اشترك',
+    restoreShort: 'استعادة',
+    cancelAnytime: 'يمكنك الإلغاء في أي وقت من App Store أو Google Play.',
     renewalNote:
       'يُخصم الدفع من حساب App Store أو Google Play عند التأكيد. يتجدد الاشتراك تلقائيًا ما لم يُوقف التجديد قبل نهاية الفترة بـ 24 ساعة على الأقل. يُخصم التجديد خلال 24 ساعة قبل النهاية. Apple: الإعدادات → Apple ID → الاشتراكات. Google Play: المدفوعات والاشتراكات. لا رابط دفع خارجي. الاسترداد وفق سياسة المتجر.',
     perMonth: '/ شهر',

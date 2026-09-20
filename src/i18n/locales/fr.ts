@@ -361,6 +361,9 @@ export const fr: Messages = {
     agentPlaceholder: 'Qu’ajoutons-nous ?',
     agentSuggestions: ['100 pompes chaque jour à 14:00', 'Marche en semaine à 07:00', 'Dormir à 23:00 chaque soir'],
     agentUnavailable: 'L’assistant ne peut pas répondre pour le moment ; réessaie bientôt.',
+    agentConsentRequired: 'L’autorisation du chat IA est fermée. Ouvre-la dans Profil → Confidentialité, puis reviens ici.',
+    agentNotDeployed: 'L’assistant du plan ne répond pas encore dans cette version. Réessaie bientôt.',
+    openConsent: 'Ouvrir l’autorisation',
     planNameFallback: 'Mon plan',
     durationShort: (minutes) => `${minutes} min`,
   },
@@ -455,9 +458,15 @@ export const fr: Messages = {
   },
   paywall: {
     title: 'Ta chaîne t’attend',
+    brandTitle: 'Niyetsen PRO',
     body:
       'Tout reste visible. Le chat est illimité et gratuit. L’achat ouvre plan, chemins, mystique, rapports et compagnons.',
     trialEnded: 'Ton essai est terminé — ton intention n’a pas été effacée.',
+    closedTesterHint:
+      'En test fermé, l’e-mail de connexion doit être sur la liste. L’invitation magasin ne suffit pas.',
+    subscribeCta: 'S’abonner',
+    restoreShort: 'Restaurer',
+    cancelAnytime: 'Tu peux annuler à tout moment sur l’App Store ou Google Play.',
     renewalNote:
       'Le paiement est débité sur ton compte App Store ou Google Play à la confirmation. L’abonnement se renouvelle automatiquement sauf désactivation du renouvellement au moins 24 heures avant la fin de la période. Le renouvellement est débité dans les 24 heures précédant la fin. Apple : Réglages → Identifiant Apple → Abonnements. Google Play : Paiements et abonnements. Pas de lien de paiement externe. Remboursements selon la boutique.',
     perMonth: '/ mois',

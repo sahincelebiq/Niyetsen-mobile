@@ -360,6 +360,9 @@ export const enUS: Messages = {
     agentPlaceholder: 'What should we add?',
     agentSuggestions: ['100 push-ups every day at 14:00', 'Weekday walk at 07:00', 'Sleep at 23:00 every night'],
     agentUnavailable: 'The assistant can’t answer right now; try again shortly.',
+    agentConsentRequired: 'AI chat permission is off. Open it in Profile → Privacy, then continue here.',
+    agentNotDeployed: 'The plan assistant is not answering in this build yet. Try again shortly.',
+    openConsent: 'Open permission',
     planNameFallback: 'My plan',
     durationShort: (minutes) => `${minutes} min`,
   },
@@ -454,9 +457,15 @@ export const enUS: Messages = {
   },
   paywall: {
     title: 'Your streak is waiting',
+    brandTitle: 'Niyetsen PRO',
     body:
       'Everything stays visible. Chat is unlimited and free. Buying unlocks plan, paths, mystic, reports and companions.',
     trialEnded: 'Your trial ended — your intention was not deleted.',
+    closedTesterHint:
+      'If you are in closed testing, your sign-in email must be on the test list. A store invite alone is not enough.',
+    subscribeCta: 'Subscribe',
+    restoreShort: 'Restore',
+    cancelAnytime: 'You can cancel anytime in the App Store or Google Play.',
     renewalNote:
       'Payment is charged to your App Store or Google Play account at confirmation. The subscription renews automatically unless auto-renew is turned off at least 24 hours before the period ends. Renewal is charged within 24 hours prior to the end. Apple: Settings → Apple ID → Subscriptions. Google Play: Payments & subscriptions. No external payment link. Refunds follow the store policy.',
     perMonth: '/ month',
