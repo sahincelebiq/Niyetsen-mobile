@@ -1,5 +1,4 @@
-import { type Href, usePathname, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ConnectivityBanner } from '@/components/connectivity-banner';
@@ -7,34 +6,23 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { isMysticPath } from '@/lib/mystic-routes';
+import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
 type SubscriptionGateProps = {
   children: React.ReactNode;
 };
 
+/**
+ * KAPI İÇERİDE: PRO yüzeyler görünür kalır; `replace('/paywall')` ile dışarı
+ * atma yok. Fal zaten ücretsiz — otomatik paywall push/replace YOK.
+ * Ekranlar kilit önizlemesi + CTA ile `push('/paywall')` açar.
+ */
 export function SubscriptionGate({ children }: SubscriptionGateProps) {
   const theme = useTheme();
-  const router = useRouter();
-  const pathname = usePathname();
+  const { t } = useLocale();
   const { status, loading, error, offline, refresh } = useSubscription();
   const [retrying, setRetrying] = useState(false);
-  const didAutoPush = useRef(false);
-
-  useEffect(() => {
-    // Çevrimdışı varsayılanda paywall'a atma — kullanıcı uygulama içinde kalır.
-    if (offline) return;
-    if (!status?.show_paywall) {
-      didAutoPush.current = false;
-      return;
-    }
-    // Fal ücretsizdir — süresi bitmiş deneme mistik ekranı paywall ile çalamaz.
-    if (isMysticPath(pathname) || pathname === '/paywall') return;
-    if (didAutoPush.current) return;
-    didAutoPush.current = true;
-    router.push('/paywall' as Href);
-  }, [offline, pathname, router, status?.show_paywall]);
 
   async function retry() {
     setRetrying(true);
@@ -59,7 +47,7 @@ export function SubscriptionGate({ children }: SubscriptionGateProps) {
       <ThemedView style={styles.centered}>
         <ThemedText themeColor="danger">{error}</ThemedText>
         <Pressable onPress={() => void retry()} hitSlop={12} style={styles.retryHit}>
-          <ThemedText themeColor="tint">Tekrar dene</ThemedText>
+          <ThemedText themeColor="tint">{t.common.retry}</ThemedText>
         </Pressable>
       </ThemedView>
     );
