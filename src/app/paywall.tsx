@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -70,6 +71,7 @@ export default function PaywallScreen() {
   const reduceMotion = useReduceMotion();
   const [busy, setBusy] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   // Fiyat ASLA uydurulmaz — mağazadan gelene kadar yükleniyor gösterilir
   // (App Store 3.1.2 / Play ödeme politikası: gösterilen fiyat gerçek olmalı).
   const [monthlyPrice, setMonthlyPrice] = useState<string | null>(null);
@@ -89,6 +91,8 @@ export default function PaywallScreen() {
       setMonthlyIntroDays(prices.monthlyIntroDays);
       setYearlyIntroDays(prices.yearlyIntroDays);
       setPriceState(paywallCatalogFromPrices(prices.monthly, prices.yearly).state);
+      if (!prices.yearly && prices.monthly) setSelectedPlan('monthly');
+      if (prices.yearly) setSelectedPlan('yearly');
     },
     [t],
   );
@@ -201,12 +205,14 @@ export default function PaywallScreen() {
 
   const catalog = [
     t.paywall.benefitPlan,
-    t.paywall.benefitProof,
+    t.paywall.benefitPaths,
     t.paywall.benefitReport,
-    t.paywall.benefitFalFree,
+    t.paywall.benefitProof,
   ];
 
   const edge = surfaceEdge(scheme);
+  const selectedHasPrice = selectedPlan === 'yearly' ? !!yearlyPrice : !!monthlyPrice;
+  const subscribeBusy = busy === selectedPlan;
 
   return (
     <ThemedView style={styles.flex}>
@@ -214,19 +220,29 @@ export default function PaywallScreen() {
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
-          <Pressable
-            onPress={close}
-            hitSlop={12}
-            style={styles.closeHit}
-            accessibilityRole="button"
-            accessibilityLabel={t.common.back}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t.paywall.close}
-            </ThemedText>
-          </Pressable>
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={close}
+              hitSlop={12}
+              style={styles.iconHit}
+              accessibilityRole="button"
+              accessibilityLabel={t.paywall.close}>
+              <MaterialCommunityIcons name="close" size={22} color={theme.text} />
+            </Pressable>
+            <Pressable
+              disabled={busy !== null}
+              onPress={() => void handleRestore()}
+              hitSlop={8}
+              style={styles.restoreHit}
+              accessibilityRole="button">
+              <ThemedText type="smallBold" themeColor="tint">
+                {busy === 'restore' ? t.paywall.restoring : t.paywall.restoreShort}
+              </ThemedText>
+            </Pressable>
+          </View>
 
           <ThemedView style={styles.hero}>
-            <ThemedText type="screenTitle">{t.paywall.title}</ThemedText>
+            <ThemedText type="screenTitle">{t.paywall.brandTitle}</ThemedText>
             <ThemedText themeColor="textSecondary">
               {t.paywall.body}
             </ThemedText>
@@ -256,18 +272,16 @@ export default function PaywallScreen() {
                 backgroundColor: theme.backgroundElement,
               },
             ]}>
-            <ThemedText type="smallBold" themeColor="tint">
-              {t.paywall.catalogFreeTitle}
-            </ThemedText>
-            <ThemedText type="smallBold" themeColor="accentWarm">
-              {t.paywall.catalogProTitle}
-            </ThemedText>
             {catalog.map((line, index) => (
               <Animated.View
                 key={line}
                 entering={firstMountEnter(index, reduceMotion)}
                 style={styles.benefitRow}>
-                <View style={[styles.benefitDot, { backgroundColor: theme.tint }]} />
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={20}
+                  color={theme.tint}
+                />
                 <ThemedText type="small" style={styles.benefitText}>
                   {line}
                 </ThemedText>
@@ -277,7 +291,7 @@ export default function PaywallScreen() {
 
           {priceState === 'loading' ? (
             <View
-              style={styles.priceSkeletonBlock}
+              style={styles.priceRow}
               accessibilityRole="progressbar"
               accessibilityState={{ busy: true }}
               accessibilityLabel={t.paywall.priceLoading}>
@@ -301,60 +315,67 @@ export default function PaywallScreen() {
               </Pressable>
             </ThemedView>
           ) : priceState === 'ready' ? (
-            <>
-              {yearlyPrice ? (
-                <Animated.View
-                  entering={
-                    reduceMotion
-                      ? undefined
-                      : FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)
-                  }>
-                  <PlanCard
-                    recommended
-                    title={t.paywall.yearlyRecommended}
-                    price={yearlyPrice}
-                    hint={
-                      yearlyIntroDays
-                        ? t.paywall.introFree(yearlyIntroDays)
-                        : t.paywall.yearlyHint
-                    }
-                    cta={t.paywall.yearlyCta}
-                    busy={busy === 'yearly'}
-                    disabled={busy !== null}
-                    fill
-                    reduceMotion={reduceMotion}
-                    onPress={() => void handlePurchase('yearly')}
-                  />
-                </Animated.View>
-              ) : null}
-
+            <Animated.View
+              entering={
+                reduceMotion
+                  ? undefined
+                  : FadeIn.duration(Motion.fast).reduceMotion(ReduceMotion.System)
+              }
+              style={styles.priceRow}>
               {monthlyPrice ? (
-                <Animated.View
-                  entering={
-                    reduceMotion
-                      ? undefined
-                      : FadeIn.duration(Motion.fast)
-                        .delay(Motion.stagger)
-                        .reduceMotion(ReduceMotion.System)
-                  }>
-                  <PlanCard
-                    title={t.paywall.monthlyLabel}
-                    price={monthlyPrice}
-                    hint={
-                      monthlyIntroDays
-                        ? t.paywall.introFree(monthlyIntroDays)
-                        : t.paywall.monthlyHint
-                    }
-                    cta={t.paywall.monthlyCta}
-                    busy={busy === 'monthly'}
-                    disabled={busy !== null}
-                    fill={!yearlyPrice}
-                    reduceMotion={reduceMotion}
-                    onPress={() => void handlePurchase('monthly')}
-                  />
-                </Animated.View>
+                <PlanCard
+                  title={t.paywall.monthlyLabel}
+                  price={monthlyPrice}
+                  hint={
+                    monthlyIntroDays
+                      ? t.paywall.introFree(monthlyIntroDays)
+                      : t.paywall.monthlyHint
+                  }
+                  selected={selectedPlan === 'monthly'}
+                  disabled={busy !== null}
+                  reduceMotion={reduceMotion}
+                  onPress={() => setSelectedPlan('monthly')}
+                />
               ) : null}
-            </>
+              {yearlyPrice ? (
+                <PlanCard
+                  recommended
+                  title={t.paywall.yearlyRecommended}
+                  price={yearlyPrice}
+                  hint={
+                    yearlyIntroDays
+                      ? t.paywall.introFree(yearlyIntroDays)
+                      : t.paywall.yearlyHint
+                  }
+                  selected={selectedPlan === 'yearly'}
+                  disabled={busy !== null}
+                  reduceMotion={reduceMotion}
+                  onPress={() => setSelectedPlan('yearly')}
+                />
+              ) : null}
+            </Animated.View>
+          ) : null}
+
+          {priceState === 'ready' ? (
+            <Pressable
+              disabled={busy !== null || !selectedHasPrice}
+              onPress={() => void handlePurchase(selectedPlan)}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy !== null || !selectedHasPrice }}
+              style={({ pressed }) => [
+                styles.subscribe,
+                { backgroundColor: theme.accentWarm },
+                busy !== null || !selectedHasPrice ? { opacity: 0.5 } : null,
+                pressed && busy === null && selectedHasPrice ? { opacity: 0.9 } : null,
+              ]}>
+              {subscribeBusy ? (
+                <ActivityIndicator color={theme.onAccent} />
+              ) : (
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {t.paywall.subscribeCta}
+                </ThemedText>
+              )}
+            </Pressable>
           ) : null}
 
           {message ? (
@@ -370,15 +391,12 @@ export default function PaywallScreen() {
             )
           ) : null}
 
-          <Pressable
-            disabled={busy !== null}
-            onPress={() => void handleRestore()}
-            style={styles.linkButton}
-            accessibilityRole="button">
-            <ThemedText type="linkPrimary">
-              {busy === 'restore' ? t.paywall.restoring : t.paywall.restore}
-            </ThemedText>
-          </Pressable>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+            {t.paywall.cancelAnytime}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+            {t.paywall.closedTesterHint}
+          </ThemedText>
 
           <ThemedView style={styles.legalRow}>
             <Pressable
@@ -452,7 +470,7 @@ function PlanCardSkeleton({
       {recommended ? (
         <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]} />
       ) : null}
-      <View style={[styles.skeletonLine, { width: '34%', backgroundColor: theme.surfaceMuted }]} />
+      <View style={[styles.skeletonLine, { width: '48%', backgroundColor: theme.surfaceMuted }]} />
       <View
         style={[
           styles.skeletonLine,
@@ -460,16 +478,7 @@ function PlanCardSkeleton({
           { backgroundColor: theme.surfaceMuted },
         ]}
       />
-      <View style={[styles.skeletonLine, { width: '70%', backgroundColor: theme.surfaceMuted }]} />
-      <View
-        style={[
-          styles.button,
-          {
-            backgroundColor: recommended ? theme.tint : theme.surfaceMuted,
-            opacity: recommended ? 0.28 : 1,
-          },
-        ]}
-      />
+      <View style={[styles.skeletonLine, { width: '72%', backgroundColor: theme.surfaceMuted }]} />
     </Animated.View>
   );
 }
@@ -478,22 +487,18 @@ function PlanCard({
   title,
   price,
   hint,
-  cta,
-  busy,
-  disabled,
-  fill,
+  selected,
   recommended,
+  disabled,
   reduceMotion,
   onPress,
 }: {
   title: string;
   price: string;
   hint: string;
-  cta: string;
-  busy: boolean;
-  disabled: boolean;
-  fill: boolean;
+  selected: boolean;
   recommended?: boolean;
+  disabled: boolean;
   reduceMotion: boolean;
   onPress: () => void;
 }) {
@@ -507,30 +512,7 @@ function PlanCard({
   }));
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        recommended ? Shadows.lifted ?? {} : Shadows.subtle ?? {},
-        {
-          borderColor: recommended ? theme.tint : theme.border,
-          borderWidth: recommended ? 2 : Texture.cardBorderWidth,
-          borderTopColor: recommended ? theme.tint : surfaceEdge(scheme),
-          backgroundColor: theme.backgroundElement,
-        },
-        animated,
-      ]}>
-      {recommended ? (
-        <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText type="smallBold" themeColor="tint">
-            {t.paywall.recommendedBadge}
-          </ThemedText>
-        </View>
-      ) : null}
-      <ThemedText type="subtitle" themeColor={recommended ? 'tint' : 'text'}>
-        {title}
-      </ThemedText>
-      <ThemedText type="screenTitle">{price}</ThemedText>
-      <ThemedText themeColor="textSecondary">{hint}</ThemedText>
+    <Animated.View style={[styles.cardWrap, animated]}>
       <Pressable
         disabled={disabled}
         onPress={onPress}
@@ -550,24 +532,32 @@ function PlanCard({
           });
         }}
         accessibilityRole="button"
-        accessibilityState={{ disabled }}
-        style={({ pressed }) => [
-          styles.button,
-          fill
-            ? { backgroundColor: theme.tint }
-            : { backgroundColor: theme.surfaceMuted, borderWidth: 1, borderColor: theme.tint },
+        accessibilityState={{ disabled, selected }}
+        style={[
+          styles.card,
+          selected ? Shadows.lifted ?? {} : Shadows.subtle ?? {},
+          {
+            borderColor: selected ? theme.accentWarm : theme.border,
+            borderWidth: selected ? 2 : Texture.cardBorderWidth,
+            borderTopColor: selected ? theme.accentWarm : surfaceEdge(scheme),
+            backgroundColor: theme.backgroundElement,
+          },
           disabled ? { opacity: 0.5 } : null,
-          pressed && !disabled ? { opacity: 0.9 } : null,
         ]}>
-        {busy ? (
-          <ActivityIndicator color={fill ? theme.onAccent : theme.tint} />
-        ) : (
-          <ThemedText
-            type="smallBold"
-            style={{ color: fill ? theme.onAccent : theme.tint }}>
-            {cta}
-          </ThemedText>
-        )}
+        {recommended ? (
+          <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]}>
+            <ThemedText type="smallBold" themeColor="tint">
+              {t.paywall.recommendedBadge}
+            </ThemedText>
+          </View>
+        ) : null}
+        <ThemedText type="smallBold" themeColor={selected ? 'accentWarm' : 'text'}>
+          {title}
+        </ThemedText>
+        <ThemedText type="subtitle">{price}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {hint}
+        </ThemedText>
       </Pressable>
     </Animated.View>
   );
@@ -588,10 +578,22 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.five,
     gap: Spacing.four,
   },
-  closeHit: {
+  topBar: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconHit: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  restoreHit: {
     minHeight: 44,
     justifyContent: 'center',
-    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.one,
   },
   hero: { gap: Spacing.two },
   benefitCard: {
@@ -604,34 +606,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.three,
+    minHeight: 44,
   },
-  benefitDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
+  benefitText: { flex: 1, paddingTop: 2 },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Spacing.three,
   },
-  benefitText: { flex: 1 },
+  cardWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   card: {
+    flex: 1,
     borderRadius: Radii.large,
-    padding: Spacing.four,
+    padding: Spacing.three,
     gap: Spacing.two,
+    minHeight: 132,
   },
   badge: {
     alignSelf: 'flex-start',
     borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     minHeight: 28,
     justifyContent: 'center',
   },
-  priceSkeletonBlock: { gap: Spacing.four },
   skeletonLine: {
     height: 14,
     borderRadius: Radii.small,
   },
   skeletonPrice: {
-    width: '46%',
+    width: '62%',
     height: 22,
   },
   retryBlock: { gap: Spacing.three, alignItems: 'center' },
@@ -644,18 +651,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  button: {
+  subscribe: {
     minHeight: 48,
     borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.two,
-  },
-  linkButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    paddingVertical: Spacing.two,
   },
   legalRow: {
     flexDirection: 'row',
@@ -670,5 +670,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
   },
   renewal: { textAlign: 'center', lineHeight: 20 },
+  hint: { textAlign: 'center', lineHeight: 20 },
   message: { textAlign: 'center' },
 });
