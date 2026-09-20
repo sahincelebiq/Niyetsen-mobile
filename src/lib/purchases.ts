@@ -2,6 +2,7 @@
  * RevenueCat IAP — Supabase user id = app_user_id (webhook ile backend senkron).
  * Gerçek satın alma için EAS/dev build gerekir (önizleme modunda işlem yok).
  */
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import Purchases, {
   LOG_LEVEL,
@@ -44,11 +45,12 @@ let configureTask: Promise<void> | null = null;
 function validKey(value: string | undefined): string | undefined {
   const key = value?.trim();
   if (!key) return undefined;
-  if (!/^(appl|goog|amzn|rcb)_[A-Za-z0-9]+$/.test(key)) {
+  // test_ = RevenueCat Test Store (Play/App Store olmadan SDK denemesi).
+  if (!/^(appl|goog|amzn|rcb|test)_[A-Za-z0-9]+$/.test(key)) {
     if (__DEV__) {
       console.warn(
         `[purchases] Geçersiz RevenueCat anahtarı yok sayıldı: "${key.slice(0, 12)}…" `
-        + '(appl_/goog_ önekli public SDK anahtarı bekleniyor)',
+        + '(appl_/goog_/test_ önekli public SDK anahtarı bekleniyor)',
       );
     }
     return undefined;
@@ -56,7 +58,13 @@ function validKey(value: string | undefined): string | undefined {
   return key;
 }
 
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
+
 function getApiKey(): string | undefined {
+  // Expo Go'da native Purchases modülü yok — anahtar dolu olsa da yapılandırılmaz.
+  if (isExpoGo()) return undefined;
   if (Platform.OS === 'ios') {
     return (
       validKey(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
@@ -137,6 +145,11 @@ function pickPackage(
     );
     if (byId) return byId;
   }
+  const storeNeedle = plan === 'monthly' ? 'niyetsen_monthly' : 'niyetsen_yearly';
+  const byStore = packages.find((item) =>
+    item.product.identifier.toLowerCase().includes(storeNeedle),
+  );
+  if (byStore) return byStore;
   const targetType = plan === 'monthly' ? PACKAGE_TYPE.MONTHLY : PACKAGE_TYPE.ANNUAL;
   return packages.find((item) => item.packageType === targetType);
 }
@@ -145,15 +158,32 @@ export function purchasesAvailable(): boolean {
   return Boolean(getApiKey()) && Platform.OS !== 'web';
 }
 
+async function resolveAppUserId(explicit?: string): Promise<string | undefined> {
+  const given = explicit?.trim();
+  if (given) return given;
+  try {
+    const { supabase } = await import('@/lib/supabase');
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user.id;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function configurePurchases(appUserId?: string): Promise<void> {
   if (Platform.OS === 'web' || !getApiKey()) return;
+  const userId = await resolveAppUserId(appUserId);
   if (!configureTask) {
+    if (!userId) {
+      // Anonim $RCAnonymousID webhook'ta yok sayılır; oturum gelene kadar bekle.
+      return;
+    }
     configureTask = (async () => {
       try {
         Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
         Purchases.configure({
           apiKey: getApiKey()!,
-          appUserID: appUserId,
+          appUserID: userId,
         });
         configured = true;
       } catch {
@@ -162,9 +192,11 @@ export async function configurePurchases(appUserId?: string): Promise<void> {
     })();
   }
   await configureTask;
-  if (!configured || !appUserId) return;
+  if (!configured) return;
+  const loginId = userId ?? (await resolveAppUserId());
+  if (!loginId) return;
   try {
-    await Purchases.logIn(appUserId);
+    await Purchases.logIn(loginId);
   } catch {
     // Oturum zaten bağlı olabilir; webhook senkronu yine çalışır.
   }
@@ -183,10 +215,14 @@ export async function getStorePrices(): Promise<StorePrices> {
   if (!purchasesAvailable()) {
     return { monthly: null, yearly: null, monthlyIntroDays: null, yearlyIntroDays: null };
   }
-  // Paywall, auth sağlayıcısı configure'u bitirmeden açılabiliyordu; beklemeden
-  // çağırınca configured=false olup fiyatlar hep null dönüyordu → ekranda sabit
-  // "150 TL" görünüyordu. Mağaza fiyatı ASLA uydurulmaz (App Store 3.1.2).
-  await configurePurchases();
+  // Paywall, auth oturumu SDK'ya bağlanmadan açılabiliyor. Anonim configure
+  // YASAK (webhook $RCAnonymousID yok sayıyor); oturum için kısa bekleriz.
+  // Mağaza fiyatı ASLA uydurulmaz (App Store 3.1.2 / Play).
+  for (let attempt = 0; attempt < 4 && !configured; attempt += 1) {
+    await configurePurchases();
+    if (configured) break;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
   if (!configured) {
     return { monthly: null, yearly: null, monthlyIntroDays: null, yearlyIntroDays: null };
   }
