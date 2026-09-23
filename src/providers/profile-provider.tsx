@@ -69,7 +69,7 @@ export function ProfileProvider({ children }: PropsWithChildren) {
         const sinifli = siniflaHata(value, 'PROFIL_YUK_001');
         bildirHata(sinifli, 'profile.refresh');
         setHata(sinifli);
-        setError(`${sinifli.name}:${sinifli.hataKodu}`);
+        setError('load_failed');
         setOffline(true);
       }
     } finally {

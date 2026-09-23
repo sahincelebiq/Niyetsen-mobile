@@ -126,13 +126,17 @@ export default function ChatScreen() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const openHistory = useCallback(() => setHistoryOpen(true), []);
   const closeHistory = useCallback(() => setHistoryOpen(false), []);
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attaching, setAttaching] = useState(false);
   // Composer üstü mini sayfalar: ek eylemler (＋) ve Felsefe Yolları (✿).
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [pathsOpen, setPathsOpen] = useState(false);
+  const openHistory = useCallback(() => {
+    setPathsOpen(false);
+    setAttachMenuOpen(false);
+    setHistoryOpen(true);
+  }, []);
   // Geçmişe kaydırınca başlık ince yapışkan bara küçülür.
   const [headerCompact, setHeaderCompact] = useState(false);
   // Hızlı yanıt çipleri: modelin sorduğu soruya tek dokunuşla cevap (FAZ 7.5)
@@ -294,7 +298,7 @@ export default function ChatScreen() {
     }, [scrollToEnd]),
   );
 
-  // Android `pan` modunda lift 0 kalabilir; klavye açılınca da son mesaja kay.
+  // Klavye açılınca (resize veya ölçülen lift) son mesaj composer'ın üstünde kalsın.
   useEffect(() => {
     if (keyboard.open || keyboard.lift > 0) {
       scrollToEnd(true);
@@ -578,6 +582,11 @@ export default function ChatScreen() {
             void trackEvent('mystic_secret_entry', { source: 'chat_header' });
             router.push(mysticHref.chat);
           }}
+          onOpenPro={
+            subscriptionStatus?.status === 'active'
+              ? undefined
+              : () => router.push('/paywall')
+          }
           activeIntentName={
             activePlanName && activePlanName !== t.chat.defaultPlanName
               ? activePlanName
@@ -683,12 +692,11 @@ export default function ChatScreen() {
                 attaching={attaching}
               />
             ) : null}
-            {pathsOpen ? (
-              <ChatPathsSheet
-                onClose={() => setPathsOpen(false)}
-                onTurnPath={handleTurnPath}
-              />
-            ) : null}
+            <ChatPathsSheet
+              visible={pathsOpen}
+              onClose={() => setPathsOpen(false)}
+              onTurnPath={handleTurnPath}
+            />
           </View>
         </KeyboardAwareView>
         <ChatHistorySheet

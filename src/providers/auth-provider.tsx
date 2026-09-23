@@ -194,8 +194,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
             'session_timeout',
           );
           next = data.session;
-        } catch (error) {
-          console.warn('Oturum okunamadı', error);
+        } catch {
+          if (__DEV__) console.warn('Oturum okunamadı');
         }
         // Deep link yazıldıysa kısa yoklama — her turda 8sn timeout yok (eski 80sn spinner).
         if (fromOAuth && !next) {
@@ -212,8 +212,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setSession((current) => next ?? current);
           setDeepLinkHold(false);
         }
-      } catch (error) {
-        console.warn('Oturum okunamadı', error);
+      } catch {
+        if (__DEV__) console.warn('Oturum okunamadı');
         // Timeout'ta session'ı silme — OAuth/onAuthStateChange gelmiş olabilir.
       } finally {
         if (mounted) {

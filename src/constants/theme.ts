@@ -33,26 +33,26 @@ export const Colors = {
     tabInactive: '#8A9684',
     progressTrack: '#E8ECDD',
   },
-  // Soft dark — simsiyah değil; hafif açık orman charcoal (profesyonel).
+  // Soft dark — simsiyah değil. Zemin nötr kömür; İlkbahar yeşili yalnız aksanda.
   dark: {
-    text: '#EAF1E6',
-    textSecondary: '#A3B49A',
-    background: '#1C241B',
-    backgroundElement: '#2A3428',
-    backgroundSelected: '#354235',
+    text: '#F3F4F6',
+    textSecondary: '#9CA3AF',
+    background: '#14161C',
+    backgroundElement: '#1C2028',
+    backgroundSelected: '#262B34',
     tint: '#7BBF86',
     accentWarm: '#E2855C',
-    border: '#445343',
+    border: '#2E3440',
     success: '#86C992',
     danger: '#E98F85',
     onAccent: '#FFF8EE',
-    surfaceMuted: '#303B2E',
-    categoryBadge: '#3A4A36',
+    surfaceMuted: '#22262E',
+    categoryBadge: '#243028',
     categoryBadgeText: '#B4D4AC',
-    pointsBadge: '#4A3526',
+    pointsBadge: '#3A2C24',
     pointsBadgeText: '#EBB894',
-    tabInactive: '#87967F',
-    progressTrack: '#354235',
+    tabInactive: '#8B93A1',
+    progressTrack: '#2A303A',
   },
 } as const;
 
@@ -108,8 +108,13 @@ export const Radii = {
   medium: 16,
   large: 18,
   bubble: 19,
+  /** Alt sayfa / çekmece üst köşesi (Stitch sheet). */
+  sheet: 24,
   pill: 999,
 } as const;
+
+/** Sekme üstü katman karartması — sayfa arkası tıklanmasın. */
+export const OverlayScrim = 'rgba(12, 14, 16, 0.5)';
 
 export const Shadows = {
   soft: Platform.select({

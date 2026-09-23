@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { companionLabelsFromMessages, companionVisual, type CompanionId } from '@/constants/chain-animals';
 import { Motion, Radii, Spacing } from '@/constants/theme';
 import { useLocale } from '@/providers/locale-provider';
@@ -34,6 +35,7 @@ export function ChainCompanion({
   const { t } = useLocale();
   const labels = companionLabelsFromMessages(t.companion);
   const visual = companionVisual(companionId, investedDays, streakDays, Math.round(size * 0.5), labels);
+  const ringWidth = 2 + Math.round(visual.progress * 2);
   const scale = useSharedValue(1);
   const stageKey = `${visual.name}-${visual.stageLabel}`;
   const previousKey = useRef(stageKey);
@@ -64,7 +66,13 @@ export function ChainCompanion({
     <View
       style={[
         styles.ring,
-        { width: size, height: size, borderRadius: size / 2, borderColor: color },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderColor: color,
+          borderWidth: ringWidth,
+        },
       ]}>
       <Animated.View style={animatedStyle}>
         <MaterialCommunityIcons name={visual.icon} size={visual.iconSize} color={color} />
@@ -97,8 +105,11 @@ export function ChainCompanionCaption({
       <ThemedText type="small" style={[styles.captionText, { color }]}>
         {visual.motto}
       </ThemedText>
+      <ProgressBar progress={visual.progress} color={color} />
       <ThemedText type="small" style={[styles.captionText, { color, opacity: 0.85 }]}>
-        {t.chain.then}: {visual.nextLabel}
+        {visual.daysToNext > 0
+          ? t.chain.stageRemaining(visual.daysToNext, visual.nextLabel)
+          : t.chain.stageHeld}
       </ThemedText>
     </View>
   );
@@ -106,7 +117,6 @@ export function ChainCompanionCaption({
 
 const styles = StyleSheet.create({
   ring: {
-    borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },

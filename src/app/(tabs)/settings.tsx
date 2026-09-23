@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -94,10 +94,12 @@ export default function SettingsScreen() {
     setIradeMode(profile?.irade_modu_active ?? false);
   }, [profile]);
 
-  useEffect(() => {
-    if (!auth.user?.id) return;
-    void refreshPush();
-  }, [auth.user?.id, refreshPush]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!auth.user?.id) return;
+      void refreshPush();
+    }, [auth.user?.id, refreshPush]),
+  );
 
   const previewZodiac = useMemo(() => {
     const iso = birthDateIsoFromDisplay(birthDate);
@@ -288,6 +290,19 @@ export default function SettingsScreen() {
                     accessibilityLabel={zodiacDisplayName(previewZodiac, t.zodiac)}
                   />
                 ) : null}
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: theme.backgroundSelected },
+                  ]}>
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {subscriptionStatus?.status === 'active'
+                      ? t.settings.premium
+                      : subscriptionStatus?.status === 'trial'
+                        ? t.settings.subTrial(subscriptionStatus.trial_days_remaining)
+                        : t.settings.subEnded}
+                  </ThemedText>
+                </View>
               </View>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                 {previewZodiac
@@ -442,14 +457,25 @@ export default function SettingsScreen() {
               <Switch
                 accessibilityLabel={t.profile.notifications}
                 value={pushStatus?.enabled ?? false}
-                disabled={pushBusy || pushStatus?.state === 'granted_no_token'}
-                onValueChange={(value) => void changePushPreference(value)}
+                disabled={pushBusy}
+                onValueChange={(value) => {
+                  void (async () => {
+                    const next = await changePushPreference(value);
+                    if (
+                      value &&
+                      next &&
+                      (next.state === 'ready' || next.state === 'granted_no_token')
+                    ) {
+                      void rescheduleDailyLocalReminder(notifTime.hour, notifTime.minute);
+                    }
+                  })();
+                }}
                 trackColor={{ false: theme.border, true: theme.tint }}
                 thumbColor={theme.background}
               />
             </View>
           )}
-          {pushBusy || pushStatus?.state === 'granted_no_token' ? (
+          {pushBusy ? (
             <View style={styles.statusRow}>
               <ActivityIndicator color={theme.tint} />
               <ThemedText type="small" themeColor="textSecondary">
@@ -460,7 +486,8 @@ export default function SettingsScreen() {
           {!pushStatus && !pushError ? (
             <ActivityIndicator color={theme.tint} />
           ) : null}
-          {pushStatus?.state === 'ready' ? (
+          {!pushBusy &&
+          (pushStatus?.state === 'ready' || pushStatus?.state === 'granted_no_token') ? (
             <ThemedText type="small" themeColor="textSecondary">
               {t.settings.pushReadyAt(formatTimeOfDay(notifTime))}
             </ThemedText>
@@ -499,7 +526,9 @@ export default function SettingsScreen() {
               {pushError}
             </ThemedText>
           ) : null}
-          {pushStatus?.state === 'ready' || pushStatus?.state === 'denied' ? (
+          {pushStatus?.state === 'ready' ||
+          pushStatus?.state === 'granted_no_token' ||
+          pushStatus?.state === 'denied' ? (
             <View style={styles.channelList}>
               <ThemedText type="small" themeColor="textSecondary">
                 {t.settings.channelDaily} · {t.settings.channelTasks} ·{' '}
@@ -979,7 +1008,15 @@ const styles = StyleSheet.create({
   nameGlyphRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  statusPill: {
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    minHeight: 24,
+    justifyContent: 'center',
   },
   profileName: {
     fontSize: 16,

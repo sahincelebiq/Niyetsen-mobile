@@ -205,6 +205,22 @@ export function siniflaHata(deger: unknown, hataKodu: string, istekKimligi?: str
   return new BeklenmeyenHata(hataKodu, { istekKimligi, teknikDetay, neden: deger });
 }
 
+const TEKNIK_SIZINTI =
+  /https?:\/\/|eyJ[A-Za-z0-9_-]{10,}|EXPO_PUBLIC_|service_role|sb_secret_|sb_publishable_|traceback|stack\s*trace|\bat\s+\S+\s+\(|\b(password|secret|api[_-]?key|bearer|localhost|127\.0\.0\.1|supabase|railway|sqlalchemy|exception|errno)\b|\btoken\b|internal server error|unauthorized|forbidden|bad request|not found/i;
+
+/**
+ * Ekrana basılacak serbest metin. URL, anahtar, yığın izi ve sağlayıcı adı
+ * gelirse yedek cümle döner — ham sunucu gövdesi kullanıcıya gitmez.
+ */
+export function ekranaGuvenliMetin(ham: string | undefined | null, yedek: string): string {
+  if (!ham) return yedek;
+  const kirpilmis = ham.replace(/\s+/g, ' ').trim();
+  if (!kirpilmis || TEKNIK_SIZINTI.test(kirpilmis)) return yedek;
+  const steril = sterilAlanMesaji(kirpilmis);
+  if (!steril || TEKNIK_SIZINTI.test(steril)) return yedek;
+  return steril;
+}
+
 /** Backend alan açıklamasını steril tut: URL/e-posta sızmasın, 140 karakteri aşmasın. */
 function sterilAlanMesaji(metin: string): string | undefined {
   const temiz = metin

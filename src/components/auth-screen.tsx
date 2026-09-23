@@ -1,7 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image } from 'expo-image';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -55,7 +54,7 @@ export function AuthScreen() {
   const auth = useAuth();
   const { recovery, callbackErrorCode, clearAuthCallbackError } = auth;
   const { t, regionId, setRegion } = useLocale();
-  const wallpaperScrim = scheme === 'dark' ? 0.52 : 0.38;
+  const wallpaperScrim = scheme === 'dark' ? 0.62 : 0.06;
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>(recovery ? 'password' : 'sign-in');
   const [intent, setIntent] = useState<Intent>('sign-in');
@@ -327,34 +326,30 @@ export function AuthScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            <View style={styles.topBar}>
+            <View style={styles.brandRow}>
+              <View style={styles.brandMarkRow}>
+                <View
+                  style={[
+                    styles.brandMark,
+                    { backgroundColor: theme.backgroundSelected, borderColor: theme.border },
+                  ]}>
+                  <MaterialCommunityIcons name="leaf" size={18} color={theme.tint} />
+                </View>
+                <ThemedText type="screenTitle" accessibilityRole="header" style={styles.brandName}>
+                  {t.auth.logoLabel}
+                </ThemedText>
+              </View>
               <RegionLanguageSheet
                 compact
                 value={regionId}
                 onChange={(id) => void setRegion(id)}
               />
             </View>
-
-            <View style={styles.hero}>
-              <Image
-                source={require('@/assets/images/niyetsen-logo.png')}
-                style={styles.logo}
-                contentFit="contain"
-                accessibilityLabel={t.auth.logoLabel}
-                accessibilityIgnoresInvertColors
-              />
-              <ThemedText type="screenTitle" accessibilityRole="header">
-                {t.auth.logoLabel}
+            {!supabaseConfigured ? (
+              <ThemedText themeColor="danger" style={styles.center}>
+                {t.auth.supabaseMissing}
               </ThemedText>
-              <ThemedText type="smallBold" themeColor="tint" style={styles.center}>
-                {t.brand.tagline}
-              </ThemedText>
-              {!supabaseConfigured ? (
-                <ThemedText themeColor="danger" style={styles.center}>
-                  {t.auth.supabaseMissing}
-                </ThemedText>
-              ) : null}
-            </View>
+            ) : null}
 
             <SurfaceCard elevated style={styles.card}>
               <ThemedText type="subtitle">{title}</ThemedText>
@@ -365,6 +360,33 @@ export function AuthScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   {normalizedEmail()}
                 </ThemedText>
+              ) : null}
+
+              {screen === 'sign-in' ? (
+                <>
+                  <AuthButton
+                    label={t.auth.continueWithGoogle}
+                    icon="google"
+                    busy={busy === 'google'}
+                    highlighted={preferGoogle}
+                    onPress={() => void run('google', auth.signInWithGoogle)}
+                  />
+                  {showApple ? (
+                    <AuthButton
+                      label={t.auth.continueWithApple}
+                      icon="apple"
+                      busy={busy === 'apple'}
+                      onPress={() => void run('apple', auth.signInWithApple)}
+                    />
+                  ) : null}
+                  <View style={styles.dividerRow}>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.auth.orDivider}
+                    </ThemedText>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  </View>
+                </>
               ) : null}
 
               {screen === 'otp' ? (
@@ -541,16 +563,28 @@ export function AuthScreen() {
                     busy={busy === 'email'}
                     onPress={submitSignIn}
                     primary
+                    warm
                   />
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!!busy}
-                    onPress={() => openEmailScreen('forgot')}
-                    style={styles.textHit}>
-                    <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {t.auth.forgotPassword}
-                    </ThemedText>
-                  </Pressable>
+                  <View style={styles.linkRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={!!busy}
+                      onPress={() => openEmailScreen('sign-up')}
+                      style={styles.textHit}>
+                      <ThemedText type="smallBold" themeColor="tint">
+                        {t.auth.switchToSignUp}
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={!!busy}
+                      onPress={() => openEmailScreen('forgot')}
+                      style={styles.textHit}>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {t.auth.forgotPassword}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
                 </>
               ) : null}
 
@@ -566,43 +600,6 @@ export function AuthScreen() {
                 </Pressable>
               ) : null}
 
-              {screen === 'sign-in' ? (
-                <>
-                  <View style={styles.dividerRow}>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {t.auth.orDivider}
-                    </ThemedText>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  </View>
-
-                  <AuthButton
-                    label={t.auth.continueWithGoogle}
-                    icon="google"
-                    busy={busy === 'google'}
-                    highlighted={preferGoogle}
-                    onPress={() => void run('google', auth.signInWithGoogle)}
-                  />
-                  {showApple ? (
-                    <AuthButton
-                      label={t.auth.continueWithApple}
-                      icon="apple"
-                      busy={busy === 'apple'}
-                      onPress={() => void run('apple', auth.signInWithApple)}
-                    />
-                  ) : null}
-
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={!!busy}
-                    onPress={() => openEmailScreen('sign-up')}
-                    style={styles.textHit}>
-                    <ThemedText type="small" themeColor="tint" style={styles.center}>
-                      {t.auth.switchToSignUp}
-                    </ThemedText>
-                  </Pressable>
-                </>
-              ) : null}
             </SurfaceCard>
 
             <View style={styles.legalLinks}>
@@ -734,17 +731,36 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     alignSelf: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.four,
     gap: Spacing.four,
   },
   wallpaperScrim: { ...StyleSheet.absoluteFillObject },
-  topBar: {
-    alignItems: 'flex-end',
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    minHeight: 44,
   },
-  hero: { alignItems: 'center', gap: Spacing.one },
-  logo: { width: 56, height: 56, borderRadius: Radii.medium, marginBottom: Spacing.one },
+  brandMarkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexShrink: 1,
+  },
+  brandMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandName: {
+    flexShrink: 1,
+  },
   center: { textAlign: 'center' },
   card: {
     padding: Spacing.four,
@@ -752,7 +768,7 @@ const styles = StyleSheet.create({
   },
   field: { gap: Spacing.one },
   input: {
-    minHeight: 52,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: Radii.medium,
     paddingHorizontal: Spacing.three,
@@ -774,12 +790,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   button: {
-    minHeight: 52,
+    minHeight: 44,
     borderWidth: 1,
-    borderRadius: Radii.pill,
+    borderRadius: Radii.medium,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
   },
   buttonInner: {
     flexDirection: 'row',

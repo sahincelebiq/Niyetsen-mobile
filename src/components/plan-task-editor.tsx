@@ -157,9 +157,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
         'İşlem tamamlanamadı',
         error instanceof ApiError
           ? error.message
-          : error instanceof Error
-            ? error.message
-            : 'Birazdan tekrar dene.',
+          : 'Birazdan tekrar dene.',
       );
     } finally {
       setBusy(false);

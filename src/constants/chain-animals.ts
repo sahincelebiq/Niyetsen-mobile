@@ -122,19 +122,44 @@ export function stageIconSize(stage: ChainStage, base = 30): number {
 export const SPROUT_ID = 'sprout' as const;
 export type CompanionId = typeof SPROUT_ID | number;
 
+/**
+ * Yoldaş aşaması yolculuk gününe bağlıdır (seçilen hayvan değişmez).
+ * 1–7 Bebek · 8–21 Çırak · 22–66 Olgun · 67+ Bilge
+ */
+export const COMPANION_STAGE_MARKS = [
+  { key: 'bebek', at: 1 },
+  { key: 'cirak', at: 8 },
+  { key: 'olgun', at: 22 },
+  { key: 'bilge', at: 67 },
+] as const;
+
+export type CompanionStageKey = (typeof COMPANION_STAGE_MARKS)[number]['key'];
+
+export function companionStageIndex(days: number): number {
+  const safe = Math.max(0, Math.floor(days));
+  if (safe >= 67) return 3;
+  if (safe >= 22) return 2;
+  if (safe >= 8) return 1;
+  return 0;
+}
+
 export type CompanionGrowth = {
-  key: 'bebek' | 'olgun' | 'eriskin' | 'yas';
+  key: CompanionStageKey;
   label: string;
   year: number;
   nextLabel: string;
+  daysToNext: number;
+  progress: number;
 };
 
 export type CompanionLabels = {
   filiz: string;
   sproutMotto: string;
   stageBaby: string;
+  stageApprentice: string;
   stageMature: string;
   stageAdult: string;
+  stageWise: string;
   age: (n: number) => string;
   animalNames: readonly string[];
   animalMottos: readonly string[];
@@ -144,8 +169,10 @@ const DEFAULT_LABELS: CompanionLabels = {
   filiz: 'Filiz',
   sproutMotto: 'Küçük bir filiz; her gün bir yaprak daha.',
   stageBaby: 'Bebek',
+  stageApprentice: 'Çırak',
   stageMature: 'Olgun',
   stageAdult: 'Erişkin',
+  stageWise: 'Bilge',
   age: (n) => `Yaş ${n}`,
   animalNames: CHAIN_ANIMALS.map((item) => item.name),
   animalMottos: CHAIN_ANIMALS.map((item) => item.motto),
@@ -155,8 +182,10 @@ export function companionLabelsFromMessages(copy: {
   filiz: string;
   sproutMotto: string;
   stageBaby: string;
+  stageApprentice: string;
   stageMature: string;
   stageAdult: string;
+  stageWise: string;
   age: (n: number) => string;
   animalNames: readonly string[];
   animalMottos: readonly string[];
@@ -165,49 +194,79 @@ export function companionLabelsFromMessages(copy: {
     filiz: copy.filiz,
     sproutMotto: copy.sproutMotto,
     stageBaby: copy.stageBaby,
+    stageApprentice: copy.stageApprentice,
     stageMature: copy.stageMature,
     stageAdult: copy.stageAdult,
+    stageWise: copy.stageWise,
     age: copy.age,
     animalNames: copy.animalNames,
     animalMottos: copy.animalMottos,
   };
 }
 
-/** Seçili yoldaşın kendi günleri — zincir kırılsa bile olgunluk silinmez. */
+function bandProgress(days: number, start: number, end: number): number {
+  const span = end - start;
+  if (span <= 0) return 1;
+  return Math.max(0, Math.min(1, (days - start) / span));
+}
+
+/** Yolculuk günü aşamayı belirler. 73. gün Bilge'dir, Bebek'te kalmaz. */
 export function companionGrowth(
   investedDays: number,
   labels: CompanionLabels = DEFAULT_LABELS,
 ): CompanionGrowth {
   const days = Math.max(0, Math.floor(investedDays));
-  if (days < 10) {
-    return { key: 'bebek', label: labels.stageBaby, year: 0, nextLabel: labels.stageMature };
+  if (days < 8) {
+    return {
+      key: 'bebek',
+      label: labels.stageBaby,
+      year: 0,
+      nextLabel: labels.stageApprentice,
+      daysToNext: 8 - days,
+      progress: bandProgress(days, 0, 7),
+    };
   }
-  if (days < 20) {
-    return { key: 'olgun', label: labels.stageMature, year: 0, nextLabel: labels.stageAdult };
+  if (days < 22) {
+    return {
+      key: 'cirak',
+      label: labels.stageApprentice,
+      year: 0,
+      nextLabel: labels.stageMature,
+      daysToNext: 22 - days,
+      progress: bandProgress(days, 7, 21),
+    };
   }
-  if (days < 30) {
-    return { key: 'eriskin', label: labels.stageAdult, year: 0, nextLabel: labels.age(1) };
+  if (days < 67) {
+    return {
+      key: 'olgun',
+      label: labels.stageMature,
+      year: 0,
+      nextLabel: labels.stageWise,
+      daysToNext: 67 - days,
+      progress: bandProgress(days, 21, 66),
+    };
   }
-  const year = Math.max(1, Math.floor(days / 30));
   return {
-    key: 'yas',
-    label: labels.age(year),
-    year,
-    nextLabel: labels.age(year + 1),
+    key: 'bilge',
+    label: labels.stageWise,
+    year: 0,
+    nextLabel: labels.stageWise,
+    daysToNext: 0,
+    progress: 1,
   };
 }
 
 export function sproutIcon(key: CompanionGrowth['key']): ChainIconName {
   if (key === 'bebek') return 'sprout';
-  if (key === 'olgun') return 'leaf';
+  if (key === 'cirak') return 'leaf';
   return 'pine-tree';
 }
 
 export function growthIconSize(key: CompanionGrowth['key'], base = 30): number {
   if (key === 'bebek') return Math.round(base * 0.7);
-  if (key === 'olgun') return Math.round(base * 0.86);
-  if (key === 'eriskin') return base;
-  return Math.round(base * 1.08);
+  if (key === 'cirak') return Math.round(base * 0.86);
+  if (key === 'olgun') return base;
+  return Math.round(base * 1.12);
 }
 
 export function companionStorageKey(id: CompanionId): string {
@@ -222,6 +281,8 @@ export type CompanionVisual = {
   stageLabel: string;
   nextLabel: string;
   iconSize: number;
+  progress: number;
+  daysToNext: number;
 };
 
 export function companionVisual(
@@ -234,8 +295,10 @@ export function companionVisual(
   const nameOf = (index: number, fallback: string) => labels.animalNames[index] ?? fallback;
   const mottoOf = (index: number, fallback: string) => labels.animalMottos[index] ?? fallback;
 
+  const growthDays = Math.max(0, Math.floor(Math.max(investedDays, streakDays)));
+
   if (id === SPROUT_ID) {
-    const growth = companionGrowth(investedDays, labels);
+    const growth = companionGrowth(growthDays, labels);
     return {
       id,
       icon: sproutIcon(growth.key),
@@ -244,11 +307,13 @@ export function companionVisual(
       stageLabel: growth.label,
       nextLabel: growth.nextLabel,
       iconSize: growthIconSize(growth.key, baseIcon),
+      progress: growth.progress,
+      daysToNext: growth.daysToNext,
     };
   }
   if (typeof id === 'number' && id >= 0 && id < CHAIN_ANIMALS.length) {
     const animal = CHAIN_ANIMALS[id];
-    const growth = companionGrowth(investedDays, labels);
+    const growth = companionGrowth(growthDays, labels);
     return {
       id,
       icon: animal.icon,
@@ -257,6 +322,8 @@ export function companionVisual(
       stageLabel: growth.label,
       nextLabel: growth.nextLabel,
       iconSize: growthIconSize(growth.key, baseIcon),
+      progress: growth.progress,
+      daysToNext: growth.daysToNext,
     };
   }
   const evolution = chainEvolution(streakDays);
@@ -289,5 +356,7 @@ export function companionVisual(
     stageLabel,
     nextLabel,
     iconSize: stageIconSize(evolution.stage, baseIcon),
+    progress: evolution.cycleProgress,
+    daysToNext: evolution.daysToNext,
   };
 }

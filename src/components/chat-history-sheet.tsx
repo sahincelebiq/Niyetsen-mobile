@@ -2,23 +2,31 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideInLeft, SlideOutDown, SlideOutLeft } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  runOnJS,
+  SlideInDown,
+  SlideInLeft,
+  SlideOutDown,
+  SlideOutLeft,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Href, useRouter } from 'expo-router';
 
+import { AboveTabsLayer, useSheetBottomPadding } from '@/components/above-tabs-layer';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts, MaxContentWidth, Motion, Radii, Shadows, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Fonts, MaxContentWidth, Motion, OverlayScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   activateChatThread,
@@ -40,7 +48,6 @@ import { loadPinnedThreads, togglePinnedThread } from '@/lib/thread-prefs';
 import { showConfirm } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
 
-const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.86, 340);
 const HIT_SLOP_44 = { top: 12, bottom: 12, left: 12, right: 12 } as const;
 /** Bu kadar ve üzeri sohbette liste üstünde arama alanı görünür. */
 const SEARCH_THRESHOLD = 10;
@@ -90,10 +97,12 @@ export function ChatHistorySheet({
   subscriptionStatus,
 }: ChatHistorySheetProps) {
   const theme = useTheme();
-  const scheme = useColorScheme();
   const { t, locale } = useLocale();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const bottomPadding = useSheetBottomPadding();
+  const drawerWidth = Math.min(Math.round(windowWidth * 0.85), 420);
   const [projects, setProjects] = useState<PlanSummary[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [pins, setPins] = useState<string[]>([]);
@@ -439,31 +448,37 @@ export function ChatHistorySheet({
     );
   }
 
-  const overlayOpacity = scheme === 'dark' ? 0.55 : 0.32;
   const showSearch = threads.length >= SEARCH_THRESHOLD;
+  const closeFromSwipe = useCallback(() => onClose(), [onClose]);
+  const swipeToClose = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX(-28)
+        .failOffsetY([-20, 20])
+        .onEnd((event) => {
+          if (event.translationX < -48 || event.velocityX < -700) {
+            runOnJS(closeFromSwipe)();
+          }
+        }),
+    [closeFromSwipe],
+  );
 
   return (
-    <Modal visible={visible} animationType="none" transparent onRequestClose={onClose}>
+    <AboveTabsLayer visible={visible} onRequestClose={onClose}>
       <View style={styles.overlayRoot}>
         <Animated.View
           entering={FadeIn.duration(180)}
           exiting={FadeOut.duration(160)}
           style={styles.backdrop}>
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: theme.text, opacity: overlayOpacity },
-            ]}
-          />
           <Pressable
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { backgroundColor: OverlayScrim }]}
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel={copy.close}
           />
         </Animated.View>
 
+        <GestureDetector gesture={swipeToClose}>
         <Animated.View
           entering={SlideInLeft.duration(Motion.base)}
           exiting={SlideOutLeft.duration(220)}
@@ -471,11 +486,11 @@ export function ChatHistorySheet({
             styles.drawer,
             Shadows.lifted,
             {
-              width: DRAWER_WIDTH,
+              width: drawerWidth,
               backgroundColor: theme.backgroundElement,
               borderColor: theme.border,
-              paddingTop: insets.top + Spacing.three,
-              paddingBottom: insets.bottom + Spacing.three,
+              paddingTop: Math.max(insets.top, 12) + Spacing.two,
+              paddingBottom: bottomPadding,
               shadowOffset: { width: 4, height: 0 },
             },
           ]}>
@@ -630,7 +645,7 @@ export function ChatHistorySheet({
                         style={({ pressed }) => [
                           styles.row,
                           {
-                            borderColor: active ? theme.accentWarm : theme.border,
+                            borderColor: active ? theme.tint : theme.border,
                             backgroundColor: active
                               ? theme.backgroundSelected
                               : theme.background,
@@ -639,7 +654,7 @@ export function ChatHistorySheet({
                         ]}>
                         {active ? (
                           <View
-                            style={[styles.activeRail, { backgroundColor: theme.accentWarm }]}
+                            style={[styles.activeRail, { backgroundColor: theme.tint }]}
                           />
                         ) : null}
                         <View style={styles.rowText}>
@@ -651,7 +666,7 @@ export function ChatHistorySheet({
                               {project.name}
                             </ThemedText>
                             {active ? (
-                              <CategoryBadge label={copy.activeBadge} variant="points" />
+                              <CategoryBadge label={copy.activeBadge} variant="category" />
                             ) : null}
                           </View>
                           <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
@@ -837,8 +852,9 @@ export function ChatHistorySheet({
             </View>
           ) : null}
         </Animated.View>
+        </GestureDetector>
       </View>
-    </Modal>
+    </AboveTabsLayer>
   );
 }
 
@@ -851,9 +867,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   drawer: {
+    height: '100%',
     borderRightWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: Spacing.three,
     maxWidth: MaxContentWidth,
+    zIndex: 2,
+    elevation: 24,
   },
   drawerFlex: {
     flex: 1,
@@ -909,7 +928,7 @@ const styles = StyleSheet.create({
   list: {
     gap: Spacing.two,
     // Alt sabit bloğa yapışmadan nefes alır; son satır kesilmez.
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.five,
   },
   groupBlock: {
     gap: Spacing.two,

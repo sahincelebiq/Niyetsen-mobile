@@ -8,6 +8,7 @@
 import { memo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { CompletionMark } from '@/components/gunluk/completion-mark';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
@@ -77,32 +78,12 @@ export const DailyEventCard = memo(function DailyEventCard({
             ))}
           </View>
         </View>
-        {done ? (
-          <View style={[styles.doneChip, { borderColor: theme.success }]}>
-            <ThemedText type="smallBold" themeColor="success">
-              ✓ {t.events.done}
-            </ThemedText>
-          </View>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t.events.markDone}: ${event.title}`}
-            disabled={busy}
-            onPress={onComplete}
-            hitSlop={6}
-            style={({ pressed }) => [
-              styles.doneButton,
-              { backgroundColor: theme.tint, opacity: pressed || busy ? 0.8 : 1 },
-            ]}>
-            {busy ? (
-              <ActivityIndicator color={theme.onAccent} />
-            ) : (
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                {t.events.markDone}
-              </ThemedText>
-            )}
-          </Pressable>
-        )}
+        <CompletionMark
+          state={done ? 'done' : 'pending'}
+          busy={busy}
+          label={done ? `${t.events.done}: ${event.title}` : `${t.events.markDone}: ${event.title}`}
+          onPress={done ? undefined : onComplete}
+        />
       </View>
       {outcome ? (
         <ThemedText
@@ -208,22 +189,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 4,
     marginTop: 2,
-  },
-  doneButton: {
-    minHeight: 44,
-    minWidth: 84,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneChip: {
-    minHeight: 36,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Radii.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   outcome: {
     marginTop: Spacing.one,

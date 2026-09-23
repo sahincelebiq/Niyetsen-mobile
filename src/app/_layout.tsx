@@ -293,6 +293,7 @@ function ProfileGate() {
             <Stack.Screen name="yollar" />
             <Stack.Screen name="yol-detay" />
             <Stack.Screen name="arkadaslar" />
+            <Stack.Screen name="plan-gorev" />
           </Stack>
         </SubscriptionGate>
       </SubscriptionProvider>

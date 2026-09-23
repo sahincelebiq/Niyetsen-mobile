@@ -164,15 +164,17 @@ export default function PhilosophyPathsScreen() {
             </ThemedText>
           ) : null}
 
-          {paths
-            ? paths.map((path, index) => {
+          {paths ? (
+            <View style={styles.pathGrid}>
+            {paths.map((path, index) => {
                 const isOpen = expanded === path.name;
                 return (
                   <Animated.View
                     key={path.slug || path.name}
                     entering={FadeIn.delay(index * Motion.stagger)
                       .duration(Motion.base)
-                      .reduceMotion(ReduceMotion.System)}>
+                      .reduceMotion(ReduceMotion.System)}
+                    style={[styles.pathCell, isOpen ? styles.pathCellOpen : null]}>
                     <SurfaceCard
                       elevated
                       style={{
@@ -256,8 +258,9 @@ export default function PhilosophyPathsScreen() {
                     </SurfaceCard>
                   </Animated.View>
                 );
-              })
-            : null}
+              })}
+            </View>
+          ) : null}
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
             {t.paths.disclaimer}
@@ -319,9 +322,22 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     justifyContent: 'center',
   },
+  pathGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  pathCell: {
+    width: '47%',
+    flexGrow: 1,
+  },
+  pathCellOpen: {
+    width: '100%',
+  },
   card: {
     gap: Spacing.two,
-    padding: Spacing.four,
+    padding: Spacing.three,
+    flex: 1,
   },
   cardHeader: {
     flexDirection: 'row',

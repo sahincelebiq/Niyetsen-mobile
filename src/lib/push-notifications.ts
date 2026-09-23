@@ -6,6 +6,7 @@ import type { Href, Router } from 'expo-router';
 import { Platform } from 'react-native';
 
 import { trackEvent } from '@/lib/analytics';
+import { resolvePushUi, type StoredPushPreference } from '@/lib/push-preference';
 import {
   registerPushToken,
   unregisterPushToken,
@@ -103,7 +104,7 @@ function stateMessage(
     case 'denied':
       return permission === 'unsupported' ? null : t.pushDeniedHint;
     case 'granted_no_token':
-      return t.pushConnecting;
+      return null;
     case 'ready':
       return null;
     default:
@@ -136,26 +137,32 @@ export async function getPushStatus(userId: string): Promise<PushStatus> {
     throw new Error(uiCopy().settings.pushStatusFailed);
   }
 
-  const preferenceOn = enabledValue === 'true';
-  let state: NotificationState;
-  if (status === Notifications.PermissionStatus.UNDETERMINED) {
-    state = 'undetermined';
-  } else if (status === Notifications.PermissionStatus.DENIED) {
-    state = 'denied';
-  } else if (preferenceOn) {
-    const token = await AsyncStorage.getItem(tokenKey(userId)).catch(() => null);
-    state = token ? 'ready' : 'granted_no_token';
-  } else {
-    state = 'undetermined';
-  }
+  const preference = storedPreference(enabledValue);
+  const granted = status === Notifications.PermissionStatus.GRANTED;
+  const token = granted ? await AsyncStorage.getItem(tokenKey(userId)).catch(() => null) : null;
+  const ui = resolvePushUi({
+    supported: true,
+    permission: granted
+      ? 'granted'
+      : status === Notifications.PermissionStatus.DENIED
+        ? 'denied'
+        : 'undetermined',
+    preference,
+    hasToken: Boolean(token),
+  });
 
   return {
-    enabled: state === 'ready',
+    enabled: ui.enabled,
     supported: true,
     permission: status,
-    state,
-    message: stateMessage(state, status, preferenceOn),
+    state: ui.state,
+    message: stateMessage(ui.state, status, preference === 'true'),
   };
+}
+
+function storedPreference(value: string | null): StoredPushPreference {
+  if (value === 'true' || value === 'false') return value;
+  return null;
 }
 
 export async function enablePushNotifications(userId: string): Promise<PushStatus> {
@@ -166,31 +173,47 @@ export async function enablePushNotifications(userId: string): Promise<PushStatu
   const projectId = getProjectId();
   if (!projectId) {
     captureException(new Error('EAS projectId yok'), 'push:projectId');
-    throw new Error(uiCopy().settings.notifPrefFailed);
+    throw new Error(uiCopy().settings.pushConnectFailed);
   }
 
   await ensureChannels();
 
   let permission: Notifications.PermissionResponse;
   try {
-    permission = await Notifications.requestPermissionsAsync();
+    permission = await Notifications.getPermissionsAsync();
   } catch (error) {
-    captureException(error, 'push:permission');
-    throw new Error(uiCopy().settings.notifPrefFailed);
+    captureException(error, 'push:permission-read');
+    throw new Error(uiCopy().settings.pushStatusFailed);
+  }
+  if (permission.status !== Notifications.PermissionStatus.GRANTED) {
+    try {
+      permission = await Notifications.requestPermissionsAsync();
+    } catch (error) {
+      captureException(error, 'push:permission');
+      permission = await Notifications.getPermissionsAsync().catch(() => permission);
+    }
   }
   if (permission.status !== Notifications.PermissionStatus.GRANTED) {
     await AsyncStorage.setItem(preferenceKey(userId), 'false').catch(() => undefined);
     throw new Error(uiCopy().settings.pushDenied);
   }
 
+  await AsyncStorage.setItem(preferenceKey(userId), 'true').catch(() => undefined);
+
   let expoToken: string;
   try {
     const response = await Notifications.getExpoPushTokenAsync({ projectId });
     expoToken = response.data;
   } catch (error) {
-    // Ham FCM/credential detayı asla ekrana çıkmaz — servise + konsola gider.
     captureException(error, 'push:token');
-    throw new Error(uiCopy().settings.notifPrefFailed);
+    console.error('push:token', error);
+    return {
+      enabled: true,
+      supported: true,
+      permission: permission.status,
+      state: 'granted_no_token',
+      message: null,
+    };
   }
 
   const platform = Platform.OS as PushPlatform;
@@ -201,7 +224,14 @@ export async function enablePushNotifications(userId: string): Promise<PushStatu
     await registerPushToken(expoToken, platform);
   } catch (error) {
     captureException(error, 'push:register');
-    throw new Error(uiCopy().settings.notifPrefFailed);
+    console.error('push:register', error);
+    return {
+      enabled: true,
+      supported: true,
+      permission: permission.status,
+      state: 'granted_no_token',
+      message: null,
+    };
   }
   await AsyncStorage.multiSet([
     [preferenceKey(userId), 'true'],
@@ -226,9 +256,8 @@ export async function disablePushNotifications(userId: string): Promise<PushStat
       captureException(error, 'push:unregister');
     }
   }
-  await AsyncStorage.multiRemove([preferenceKey(userId), tokenKey(userId)]).catch(
-    () => undefined,
-  );
+  await AsyncStorage.multiSet([[preferenceKey(userId), 'false']]).catch(() => undefined);
+  await AsyncStorage.removeItem(tokenKey(userId)).catch(() => undefined);
 
   const permission =
     Platform.OS === 'web'
@@ -248,6 +277,32 @@ export async function disablePushNotifications(userId: string): Promise<PushStat
     state,
     message: null,
   };
+}
+
+/**
+ * Sistem izni açık, uygulama tercihi kapalı değil ve token yoksa kaydı dener.
+ * Kullanıcı sistem ayarından izni açıp dönünce anahtar "değiştirilemedi"de
+ * kalmasın. Açıkça kapatılmış tercih (false) yeniden açılmaz.
+ */
+export async function reconcilePushWithSystem(userId: string): Promise<PushStatus> {
+  const current = await getPushStatus(userId);
+  if (!current.supported || current.state === 'ready') return current;
+  if (current.permission !== Notifications.PermissionStatus.GRANTED) return current;
+  const preference = await AsyncStorage.getItem(preferenceKey(userId)).catch(() => null);
+  if (preference === 'false') return current;
+  try {
+    return await enablePushNotifications(userId);
+  } catch (error) {
+    captureException(error, 'push:reconcile');
+    console.error('push:reconcile', error);
+    return {
+      enabled: true,
+      supported: true,
+      permission: current.permission,
+      state: 'granted_no_token',
+      message: null,
+    };
+  }
 }
 
 /**

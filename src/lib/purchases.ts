@@ -243,11 +243,21 @@ export async function getStorePrices(): Promise<StorePrices> {
 
 export function subscribeToPurchaseUpdates(onUpdate: () => void): () => void {
   if (Platform.OS === 'web' || !getApiKey()) return () => {};
-  Purchases.addCustomerInfoUpdateListener(onUpdate);
+  // Anahtar dolu olsa da native modül (Expo Go, çevrimdışı ilk açılış) fırlatabilir.
+  // Kök gezgin bu yüzden çökmesin; abonelik önbelleği SubscriptionProvider'da kalır.
+  try {
+    Purchases.addCustomerInfoUpdateListener(onUpdate);
+  } catch {
+    return () => {};
+  }
   // Dinleyici gerçekten kaldırılmalı — no-op dönmek her remount'ta yeni
   // listener biriktiriyor ve unmount sonrası setState'e yol açıyordu.
   return () => {
-    Purchases.removeCustomerInfoUpdateListener(onUpdate);
+    try {
+      Purchases.removeCustomerInfoUpdateListener(onUpdate);
+    } catch {
+      // Native modül kalkmış olabilir; çıkış akışı sürmeli.
+    }
   };
 }
 

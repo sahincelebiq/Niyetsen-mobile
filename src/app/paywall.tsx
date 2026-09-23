@@ -203,11 +203,11 @@ export default function PaywallScreen() {
     );
   }
 
-  const catalog = [
-    t.paywall.benefitPlan,
-    t.paywall.benefitPaths,
-    t.paywall.benefitReport,
-    t.paywall.benefitProof,
+  const catalog: { line: string; icon: 'calendar-check' | 'book-open-variant' | 'chart-timeline-variant' | 'camera-outline' }[] = [
+    { line: t.paywall.benefitPlan, icon: 'calendar-check' },
+    { line: t.paywall.benefitPaths, icon: 'book-open-variant' },
+    { line: t.paywall.benefitReport, icon: 'chart-timeline-variant' },
+    { line: t.paywall.benefitProof, icon: 'camera-outline' },
   ];
 
   const edge = surfaceEdge(scheme);
@@ -272,18 +272,20 @@ export default function PaywallScreen() {
                 backgroundColor: theme.backgroundElement,
               },
             ]}>
-            {catalog.map((line, index) => (
+            {catalog.map((item, index) => (
               <Animated.View
-                key={line}
+                key={item.line}
                 entering={firstMountEnter(index, reduceMotion)}
                 style={styles.benefitRow}>
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={20}
-                  color={theme.tint}
-                />
+                <View style={[styles.benefitIcon, { backgroundColor: theme.backgroundSelected }]}>
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={18}
+                    color={theme.tint}
+                  />
+                </View>
                 <ThemedText type="small" style={styles.benefitText}>
-                  {line}
+                  {item.line}
                 </ThemedText>
               </Animated.View>
             ))}
@@ -607,6 +609,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.three,
     minHeight: 44,
+  },
+  benefitIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   benefitText: { flex: 1, paddingTop: 2 },
   priceRow: {

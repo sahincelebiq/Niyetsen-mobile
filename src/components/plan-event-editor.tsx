@@ -22,6 +22,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  ApiError,
   createPlanEvent,
   type EventRecurrence,
   type PlanEvent,
@@ -110,7 +111,10 @@ export function PlanEventEditor({ visible, planId, onClose, onCreated }: Props) 
       onCreated(created);
       onClose();
     } catch (error) {
-      showAlert(t.common.errorGeneric, error instanceof Error ? error.message : undefined);
+      showAlert(
+        t.common.errorGeneric,
+        error instanceof ApiError ? error.message : undefined,
+      );
     } finally {
       setSaving(false);
     }

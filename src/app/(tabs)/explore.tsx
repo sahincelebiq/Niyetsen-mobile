@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -28,40 +28,47 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, ImageScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
-import { ApiError, ensureTodayPlan, getCurrentPlan, Plan, PlanDay, Task } from '@/lib/api';
+import {
+  ApiError,
+  ensureTodayPlan,
+  getCurrentPlan,
+  isPaywallError,
+  Plan,
+  PlanDay,
+  Task,
+} from '@/lib/api';
+import {
+  PLAN_HORIZON_DAYS,
+  daysInWeek,
+  planHorizon,
+  progressTotal,
+  visibleWeeks,
+  weekBounds,
+  weekIndex,
+  weekNeedsHorizonUnlock,
+  weekWasSkipped,
+  type PlanWeek,
+} from '@/lib/plan-weeks';
 import { invalidateGunlukAkis } from '@/lib/gunluk-akis';
+import { safeImageUri } from '@/lib/safe-image-uri';
 import { addDaysIso } from '@/lib/plan-dates';
+import { planGunu } from '@/lib/zaman';
 import { showAlert } from '@/lib/web-alert';
 import { useLocale } from '@/providers/locale-provider';
 import { useSubscription } from '@/providers/subscription-provider';
 
-function calendarDayNumber(startDate: string): number {
-  const start = new Date(`${startDate}T12:00:00`);
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-  return Math.floor((today.getTime() - start.getTime()) / 86_400_000) + 1;
-}
-
-function nearestGeneratedDay(days: PlanDay[], todayDay: number): number {
-  if (!days.length) return Math.max(1, todayDay);
-  const exact = days.find((item) => item.day === todayDay);
-  if (exact) return exact.day;
-  return days.reduce((best, item) =>
-    Math.abs(item.day - todayDay) < Math.abs(best - todayDay) ? item.day : best,
-    days[0].day,
-  );
-}
-
-function weekWindow(days: PlanDay[], todayDay: number): PlanDay[] {
-  const around = days.filter((item) => Math.abs(item.day - todayDay) <= 6);
-  return around.length ? around : [...days].sort((a, b) => a.day - b.day);
+function todayDayFrom(plan: Plan): number {
+  return planGunu(plan.start_date);
 }
 
 export default function PlanScreen() {
   const { t } = useLocale();
   const { status: subscriptionStatus } = useSubscription();
+  const { hasPaidAccess, loading: premiumLoading } = usePremiumAccess();
+  const horizonKey = useRef<string | null>(null);
   const theme = useTheme();
   const router = useRouter();
 
@@ -71,6 +78,8 @@ export default function PlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [horizonDenied, setHorizonDenied] = useState(false);
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
   const [addDate, setAddDate] = useState<string | null>(null);
   const [extending, setExtending] = useState(false);
@@ -85,24 +94,39 @@ export default function PlanScreen() {
     try {
       let next = await getCurrentPlan();
       if (next) {
-        const todayNo = calendarDayNumber(next.start_date);
-        const needs =
+        const todayNo = planGunu(next.start_date);
+        const withinBatch =
           todayNo > next.batch_generated_until &&
           next.batch_generated_until < next.duration_days;
-        if (needs) {
-          setExtending(true);
-          try {
-            next = await ensureTodayPlan();
-            // Gün içeriği değişti — Bugün sekmesi aynı kaynaktan beslenir.
-            invalidateGunlukAkis();
-          } catch (extendError) {
-            setError(
-              extendError instanceof ApiError
-                ? extendError.message
-                : t.plan.generateFailed,
-            );
-          } finally {
-            setExtending(false);
+        const pastHorizon =
+          !premiumLoading &&
+          hasPaidAccess &&
+          todayNo > next.duration_days &&
+          next.duration_days < PLAN_HORIZON_DAYS;
+        if (withinBatch || pastHorizon) {
+          const key = `${next.id}:${todayNo}`;
+          if (pastHorizon && horizonKey.current === key) {
+            // Bu oturumda süre uzatma denendi; çekerek yenileme tekrar dener.
+          } else {
+            if (pastHorizon) horizonKey.current = key;
+            setExtending(true);
+            try {
+              next = await ensureTodayPlan();
+              setHorizonDenied(false);
+              invalidateGunlukAkis();
+            } catch (extendError) {
+              if (pastHorizon && isPaywallError(extendError)) {
+                setHorizonDenied(true);
+              } else {
+                setError(
+                  extendError instanceof ApiError
+                    ? extendError.message
+                    : t.plan.generateFailed,
+                );
+              }
+            } finally {
+              setExtending(false);
+            }
           }
         }
       }
@@ -113,33 +137,85 @@ export default function PlanScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [hasPaidAccess, premiumLoading, t]);
 
   useWarmFocusReload(load, plan != null);
 
-  const todayDay = plan ? calendarDayNumber(plan.start_date) : 1;
-  const weekDays = useMemo(
-    () => (plan ? weekWindow(plan.days, todayDay) : []),
-    [plan, todayDay],
+  const horizonWatch = useRef('');
+  useEffect(() => {
+    if (!plan || premiumLoading || !hasPaidAccess) return;
+    const todayNo = todayDayFrom(plan);
+    if (todayNo <= plan.duration_days || plan.duration_days >= PLAN_HORIZON_DAYS) return;
+    const stamp = `${plan.id}:${plan.duration_days}:${todayNo}`;
+    if (horizonWatch.current === stamp) return;
+    horizonWatch.current = stamp;
+    void load(true);
+  }, [hasPaidAccess, load, plan, premiumLoading]);
+
+  const todayDay = plan ? todayDayFrom(plan) : 1;
+  const horizon = plan ? planHorizon(plan.duration_days, todayDay) : 1;
+  const weeks = useMemo(
+    () => (plan ? visibleWeeks({ horizonDays: horizon, todayDay }) : []),
+    [horizon, plan, todayDay],
+  );
+  const activeWeek = useMemo(() => {
+    const wanted = selectedWeek ?? weekIndex(Math.min(Math.max(1, todayDay), horizon));
+    return weeks.find((week) => week.week === wanted) ?? weekBounds(wanted, horizon) ?? weeks[0] ?? null;
+  }, [horizon, selectedWeek, todayDay, weeks]);
+  const weekDayNumbers = activeWeek ? daysInWeek(activeWeek) : [];
+  const generatedDays = useMemo(() => plan?.days.map((day) => day.day) ?? [], [plan]);
+  const dayByNumber = useMemo(() => {
+    const map = new Map<number, PlanDay>();
+    plan?.days.forEach((day) => map.set(day.day, day));
+    return map;
+  }, [plan]);
+  const showHorizonLock = Boolean(
+    plan &&
+      activeWeek &&
+      !premiumLoading &&
+      (horizonDenied || !hasPaidAccess) &&
+      weekNeedsHorizonUnlock(activeWeek, plan.duration_days, todayDay),
+  );
+  const skippedWeek = Boolean(
+    activeWeek && !showHorizonLock && weekWasSkipped(activeWeek, generatedDays, todayDay),
   );
   const contentIntent =
-    plan?.days.find((item) => item.day === todayDay)?.theme ||
-    plan?.days.find((item) => item.day === nearestGeneratedDay(plan.days, todayDay))?.theme ||
+    (focusedDay != null ? dayByNumber.get(focusedDay)?.theme : undefined) ||
+    dayByNumber.get(todayDay)?.theme ||
+    (activeWeek
+      ? weekDayNumbers.map((day) => dayByNumber.get(day)?.theme).find(Boolean)
+      : undefined) ||
     plan?.name ||
     t.plan.title;
-  const activeDay =
-    focusedDay ?? (plan ? nearestGeneratedDay(plan.days, todayDay) : 1);
+  const activeDay = focusedDay ?? (weekDayNumbers.includes(todayDay) ? todayDay : -1);
   const visibleDays = useMemo(() => {
-    if (!plan) return [];
-    if (focusedDay === null) return weekDays;
-    return plan.days.filter((d) => d.day === focusedDay);
-  }, [focusedDay, plan, weekDays]);
+    if (!plan || showHorizonLock || skippedWeek) return [];
+    const numbers = focusedDay == null ? weekDayNumbers : [focusedDay];
+    return numbers
+      .map((day) => dayByNumber.get(day))
+      .filter((day): day is PlanDay => day != null);
+  }, [dayByNumber, focusedDay, plan, showHorizonLock, skippedWeek, weekDayNumbers]);
+  const focusedMissing = focusedDay != null && !showHorizonLock && !skippedWeek && !dayByNumber.has(focusedDay);
+  const canExtend = Boolean(
+    plan &&
+      !showHorizonLock &&
+      !skippedWeek &&
+      ((todayDay > plan.batch_generated_until && plan.batch_generated_until < plan.duration_days) ||
+        (hasPaidAccess && todayDay > plan.duration_days && plan.duration_days < PLAN_HORIZON_DAYS)),
+  );
 
   return (
     <ThemedView style={styles.flex}>
       <ScreenScaffold
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              horizonWatch.current = '';
+              horizonKey.current = null;
+              void load(true);
+            }}
+          />
         }>
         <ScreenHeader
           title={t.plan.title}
@@ -159,7 +235,15 @@ export default function PlanScreen() {
         {plan && !loading ? (
           <SurfaceCard elevated style={styles.intentHero}>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.intentLabel}>
-              {t.plan.dayProgress(Math.max(1, todayDay), plan.duration_days)}
+              {activeWeek
+                ? t.plan.weekLabel(activeWeek.week, activeWeek.startDay, activeWeek.endDay)
+                : t.plan.dayProgress(Math.max(1, todayDay), progressTotal(plan.duration_days, todayDay))}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.plan.dayProgress(
+                Math.min(Math.max(1, todayDay), PLAN_HORIZON_DAYS),
+                progressTotal(plan.duration_days, todayDay),
+              )}
             </ThemedText>
             <ThemedText type="screenTitle" style={styles.intentText}>
               {contentIntent}
@@ -169,8 +253,16 @@ export default function PlanScreen() {
 
         {plan && !loading ? (
           <>
+            <WeekStrip
+              weeks={weeks}
+              activeWeek={activeWeek?.week ?? 1}
+              onSelect={(week) => {
+                setSelectedWeek(week);
+                setFocusedDay(null);
+              }}
+            />
             <DayStrip
-              days={weekDays}
+              days={weekDayNumbers}
               todayDay={todayDay}
               activeDay={activeDay}
               onSelect={(day) => setFocusedDay((prev) => (prev === day ? null : day))}
@@ -180,7 +272,36 @@ export default function PlanScreen() {
                 {t.daily.extending}
               </ThemedText>
             ) : null}
-            {todayDay > plan.batch_generated_until && plan.batch_generated_until < plan.duration_days ? (
+            {showHorizonLock ? (
+              <SurfaceCard style={styles.lockCard}>
+                <ThemedText type="smallBold">{t.plan.horizonLockTitle}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.plan.horizonLockBody}
+                </ThemedText>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/paywall')}
+                  style={({ pressed }) => [
+                    styles.ctaButton,
+                    { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
+                  ]}>
+                  <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                    {t.common.proCta}
+                  </ThemedText>
+                </Pressable>
+              </SurfaceCard>
+            ) : null}
+            {skippedWeek ? (
+              <ThemedText type="small" themeColor="textSecondary" style={{ paddingHorizontal: Spacing.three }}>
+                {t.plan.weekSkipped}
+              </ThemedText>
+            ) : null}
+            {focusedMissing ? (
+              <ThemedText type="small" themeColor="textSecondary" style={{ paddingHorizontal: Spacing.three }}>
+                {t.plan.weekEmpty}
+              </ThemedText>
+            ) : null}
+            {canExtend ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => void load(true)}
@@ -256,6 +377,9 @@ export default function PlanScreen() {
                   setEditTarget(null);
                   setAddDate(date);
                 }}
+                onOpenTask={(taskId) =>
+                  router.push({ pathname: '/plan-gorev', params: { taskId } } as unknown as Href)
+                }
               />
             ))}
           </ThemedView>
@@ -265,6 +389,10 @@ export default function PlanScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onPlanChanged={() => {
+          horizonWatch.current = '';
+          horizonKey.current = null;
+          setSelectedWeek(null);
+          setFocusedDay(null);
           invalidateGunlukAkis();
           void load();
         }}
@@ -286,46 +414,107 @@ export default function PlanScreen() {
   );
 }
 
+function WeekStrip({
+  weeks,
+  activeWeek,
+  onSelect,
+}: {
+  weeks: PlanWeek[];
+  activeWeek: number;
+  onSelect: (week: number) => void;
+}) {
+  const { t } = useLocale();
+  const theme = useTheme();
+  const scroller = useRef<ScrollView>(null);
+  useEffect(() => {
+    const index = weeks.findIndex((week) => week.week === activeWeek);
+    if (index <= 0) return;
+    scroller.current?.scrollTo({ x: Math.max(0, index * 108 - 24), animated: false });
+  }, [activeWeek, weeks]);
+  return (
+    <ScrollView
+      ref={scroller}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.dayStrip}>
+      {weeks.map((week) => {
+        const selected = week.week === activeWeek;
+        return (
+          <Pressable
+            key={week.week}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => onSelect(week.week)}
+            style={({ pressed }) => [
+              styles.weekChip,
+              {
+                borderColor: selected ? theme.tint : theme.border,
+                backgroundColor: selected ? theme.backgroundSelected : theme.backgroundElement,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}>
+            <ThemedText type="smallBold" themeColor={selected ? 'tint' : 'text'}>
+              {t.plan.weekChip(week.week)}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 function DayStrip({
   days,
   todayDay,
   activeDay,
   onSelect,
 }: {
-  days: PlanDay[];
+  days: number[];
   todayDay: number;
   activeDay: number;
   onSelect: (day: number) => void;
 }) {
   const theme = useTheme();
+  const scroller = useRef<ScrollView>(null);
+  useEffect(() => {
+    const index = days.indexOf(todayDay);
+    if (index <= 0) return;
+    scroller.current?.scrollTo({ x: Math.max(0, index * (44 + Spacing.two) - Spacing.four), animated: false });
+  }, [days, todayDay]);
   return (
     <ScrollView
+      ref={scroller}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.dayStrip}>
       {days.map((day) => {
-        const isToday = day.day === todayDay;
-        const isActive = day.day === activeDay;
-        const isPast = day.day < todayDay;
+        const isToday = day === todayDay;
+        const isActive = day === activeDay;
+        const isPast = day < todayDay;
         return (
           <Pressable
-            key={day.day}
+            key={day}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
-            onPress={() => onSelect(day.day)}
+            onPress={() => onSelect(day)}
             style={({ pressed }) => [
               styles.dayChip,
               {
                 borderColor: isToday ? theme.tint : theme.border,
-                backgroundColor: isActive ? theme.backgroundSelected : theme.backgroundElement,
+                backgroundColor: isToday
+                  ? theme.tint
+                  : isActive
+                    ? theme.backgroundSelected
+                    : theme.backgroundElement,
                 opacity: isPast && !isActive ? 0.55 : pressed ? 0.85 : 1,
               },
               isToday ? styles.dayChipToday : null,
             ]}>
             <ThemedText
               type="smallBold"
-              themeColor={isToday ? 'tint' : isPast ? 'textSecondary' : 'text'}>
-              {day.day}
+              themeColor={isPast && !isToday ? 'textSecondary' : 'text'}
+              style={isToday ? { color: theme.onAccent } : undefined}>
+              {day}
             </ThemedText>
           </Pressable>
         );
@@ -340,12 +529,14 @@ function DaySection({
   relation,
   onEditTask,
   onAddTask,
+  onOpenTask,
 }: {
   day: PlanDay;
   plan: Plan;
   relation: 'past' | 'today' | 'future';
   onEditTask: (task: Task) => void;
   onAddTask: (date: string) => void;
+  onOpenTask: (taskId: string) => void;
 }) {
   const theme = useTheme();
   const { t } = useLocale();
@@ -367,12 +558,13 @@ function DaySection({
         ) : null}
       </View>
       <ThemedView style={styles.taskList}>
-        {day.tasks.map((task) => (
+        {(day.tasks ?? []).map((task) => (
           <VisionTaskCard
             key={task.id}
             task={task}
             planStartDate={plan.start_date}
             onLongPressEdit={() => onEditTask(task)}
+            onOpen={() => onOpenTask(task.id)}
           />
         ))}
       </ThemedView>
@@ -402,22 +594,28 @@ function VisionTaskCard({
   task,
   planStartDate,
   onLongPressEdit,
+  onOpen,
 }: {
   task: Task;
   planStartDate: string;
   onLongPressEdit: () => void;
+  onOpen: () => void;
 }) {
   const theme = useTheme();
   const { t } = useLocale();
   const scheme = useColorScheme();
   const scrim = scheme === 'dark' ? ImageScrim.dark : ImageScrim.light;
   const editable = isTaskEditable(task, planStartDate);
+  const coverUri = safeImageUri(task.image_url);
+  const categories = task.categories ?? [];
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={t.plan.openSteps}
       accessibilityHint={editable ? t.common.longPressEdit : undefined}
       delayLongPress={380}
+      onPress={onOpen}
       onLongPress={() => {
         if (!editable) {
           showAlert(t.plan.taskActionsTitle, t.plan.notEditable);
@@ -426,9 +624,9 @@ function VisionTaskCard({
         onLongPressEdit();
       }}>
       <SurfaceCard elevated style={styles.taskCard}>
-        {!!task.image_url && (
+        {coverUri ? (
           <ThemedView style={styles.imageWrapper}>
-            <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+            <Image source={{ uri: coverUri }} style={styles.taskImage} contentFit="cover" />
             {/* faz8.13/8: yalnız alt başlık bandı — görselin geri kalanı canlı. */}
             <View
               pointerEvents="none"
@@ -469,9 +667,9 @@ function VisionTaskCard({
               </Pressable>
             )}
           </ThemedView>
-        )}
+        ) : null}
         <ThemedView style={styles.taskInfo}>
-          {!task.image_url ? (
+          {!coverUri ? (
             <ThemedText type="default" style={styles.coverTitlePlain}>
               {task.title}
             </ThemedText>
@@ -482,7 +680,7 @@ function VisionTaskCard({
             </ThemedText>
           )}
           <ThemedView style={styles.tagRow}>
-            {task.categories.map((c) => (
+            {categories.map((c) => (
               <CategoryBadge key={c} label={c} />
             ))}
           </ThemedView>
@@ -524,7 +722,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   dayChipToday: {
-    borderWidth: 2,
+    borderRadius: Radii.small,
+    borderWidth: 0,
+  },
+  weekChip: {
+    minHeight: 44,
+    borderRadius: Radii.pill,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  lockCard: {
+    gap: Spacing.two,
   },
   dayHeading: {
     flexDirection: 'row',

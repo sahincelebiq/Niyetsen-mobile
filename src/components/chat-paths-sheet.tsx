@@ -1,11 +1,19 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { type Href, useRouter } from 'expo-router';
 
-import { ComposerPopover } from '@/components/composer-popover';
+import { AboveTabsLayer, useSheetBottomPadding } from '@/components/above-tabs-layer';
 import { ProBadge } from '@/components/pro-badge';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { OverlayScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -19,6 +27,7 @@ import { trackEvent } from '@/lib/analytics';
 import { useLocale } from '@/providers/locale-provider';
 
 type ChatPathsSheetProps = {
+  visible: boolean;
   onClose: () => void;
   /**
    * "Yola çevir" başarılı: yol aktivasyonu yapıldı; ebeveyn öneri metnini
@@ -36,10 +45,12 @@ const CARD_WIDTH = 196;
  * niyet önerisi olarak düşer. Kapı İÇERİDE: ücretsiz kullanıcı kartları
  * görür, aktivasyon CTA'sı paywall'a gider (yollar.tsx ile aynı kural).
  */
-export function ChatPathsSheet({ onClose, onTurnPath }: ChatPathsSheetProps) {
+export function ChatPathsSheet({ visible, onClose, onTurnPath }: ChatPathsSheetProps) {
   const theme = useTheme();
   const { t } = useLocale();
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
+  const bottomPadding = useSheetBottomPadding(Spacing.four);
   const { hasPaidAccess, loading: premiumLoading } = usePremiumAccess();
   const [paths, setPaths] = useState<PhilosophyPath[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +67,9 @@ export function ChatPathsSheet({ onClose, onTurnPath }: ChatPathsSheetProps) {
   }, [t]);
 
   useEffect(() => {
+    if (!visible) return;
     void load();
-  }, [load]);
+  }, [load, visible]);
 
   async function handleTurn(path: PhilosophyPath) {
     const slug = path.slug?.trim() || path.name;
@@ -85,8 +97,49 @@ export function ChatPathsSheet({ onClose, onTurnPath }: ChatPathsSheetProps) {
 
   const locked = !premiumLoading && !hasPaidAccess;
 
+  const sheetMaxHeight = Math.round(windowHeight * 0.62);
+
   return (
-    <ComposerPopover title={t.chat.pathsSheet.title} onClose={onClose}>
+    <AboveTabsLayer visible={visible} onRequestClose={onClose}>
+      <View style={styles.root} pointerEvents="box-none">
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: OverlayScrim }]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t.common.closeSection}
+        />
+        <View
+          style={[
+            styles.sheet,
+            Shadows.lifted,
+            {
+              backgroundColor: theme.backgroundElement,
+              borderColor: theme.border,
+              maxHeight: sheetMaxHeight,
+              paddingBottom: bottomPadding,
+            },
+          ]}>
+          <View style={styles.header}>
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.title}>
+              {t.chat.pathsSheet.title}
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.common.closeSection}
+              onPress={onClose}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.closeButton,
+                { backgroundColor: theme.surfaceMuted },
+                pressed && styles.pressed,
+              ]}>
+              <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sheetBody}>
       <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
         {t.chat.pathsSheet.subtitle}
       </ThemedText>
@@ -116,6 +169,7 @@ export function ChatPathsSheet({ onClose, onTurnPath }: ChatPathsSheetProps) {
           horizontal
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          style={styles.cardsScroller}
           contentContainerStyle={styles.cardsRow}>
           {paths.map((path) => {
             const slug = path.slug?.trim() || path.name;
@@ -171,11 +225,50 @@ export function ChatPathsSheet({ onClose, onTurnPath }: ChatPathsSheetProps) {
           })}
         </ScrollView>
       )}
-    </ComposerPopover>
+          </ScrollView>
+        </View>
+      </View>
+    </AboveTabsLayer>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: Radii.sheet,
+    borderTopRightRadius: Radii.sheet,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.two,
+    zIndex: 2,
+    elevation: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  title: {
+    flex: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBody: {
+    gap: Spacing.two,
+    paddingBottom: Spacing.two,
+  },
   subtitle: {
     marginTop: -Spacing.one,
   },
@@ -193,13 +286,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
+  cardsScroller: {
+    minHeight: 188,
+  },
   cardsRow: {
     gap: Spacing.two,
     paddingVertical: Spacing.one,
   },
   card: {
     width: CARD_WIDTH,
-    borderRadius: Radii.medium,
+    borderRadius: Radii.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
     gap: Spacing.two,

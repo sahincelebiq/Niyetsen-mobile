@@ -11,22 +11,28 @@ import {
 import { ChainAnimalPicker } from '@/components/chain-animal-picker';
 import { ChainCompanion, ChainCompanionCaption } from '@/components/chain-companion';
 import { ErrorBanner } from '@/components/error-banner';
-import { ProBadge } from '@/components/pro-badge';
 import { ScreenScaffold } from '@/components/screen-scaffold';
 import { StreakPill } from '@/components/streak-pill';
-import { CategoryBadge } from '@/components/ui/category-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { CountUpText } from '@/components/count-up-text';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { nextMilestone, ScoringRules } from '@/constants/scoring';
+import {
+  CHAIN_CYCLE_DAYS,
+  COMPANION_STAGE_MARKS,
+  chainEvolution,
+  companionStageIndex,
+  type CompanionStageKey,
+} from '@/constants/chain-animals';
+import { nextMilestone } from '@/constants/scoring';
 import {
   Fonts,
   Radii,
   Spacing,
 } from '@/constants/theme';
+import type { Messages } from '@/i18n/types';
 import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
@@ -35,25 +41,62 @@ import { useLocale } from '@/providers/locale-provider';
 import {
   ApiError,
   CATEGORIES,
+  getCurrentPlan,
   getState,
   type StateResponse,
 } from '@/lib/api';
 import { recordServerState } from '@/lib/gamification';
 import { CacheKeys } from '@/lib/query-cache';
+import { scoreTier, scoreTierProgress, type ScoreTierId } from '@/lib/score-tier';
+import { settleStreak } from '@/lib/streak';
+import { bugunIso, parseIsoDate, planGunu } from '@/lib/zaman';
 
 function isSproutMilestone(days: number): boolean {
   return days === 3 || days === 7 || days === 30 || (days > 30 && days % 30 === 0);
 }
 
+function tierText(id: ScoreTierId, chain: Messages['chain']): string {
+  switch (id) {
+    case 'foundation':
+      return chain.tierFoundation;
+    case 'progressing':
+      return chain.tierProgressing;
+    case 'proficient':
+      return chain.tierProficient;
+    case 'consistent':
+      return chain.tierConsistent;
+    case 'master':
+      return chain.tierMaster;
+  }
+}
+
+function stageText(key: CompanionStageKey, companion: Messages['companion']): string {
+  switch (key) {
+    case 'bebek':
+      return companion.stageBaby;
+    case 'cirak':
+      return companion.stageApprentice;
+    case 'olgun':
+      return companion.stageMature;
+    case 'bilge':
+      return companion.stageWise;
+  }
+}
+
+function formatJourneyDate(iso: string, locale: string): string {
+  return parseIsoDate(iso).toLocaleDateString(locale, { day: 'numeric', month: 'long' });
+}
+
 export default function RankScreen() {
   const theme = useTheme();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const { hasPaidAccess } = usePremiumAccess();
-  const { companionId, investedDays, investedFor, selectCompanion, syncStreak } =
-    useCompanionAnimal();
+  const { companionId, investedFor, selectCompanion, syncStreak } = useCompanionAnimal();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [state, setState] = useState<StateResponse | null>(null);
+  const [journeyDay, setJourneyDay] = useState(0);
+  const [journeyStart, setJourneyStart] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +106,19 @@ export default function RankScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const nextState = await getState();
+      const [nextState, plan] = await Promise.all([
+        getState(),
+        getCurrentPlan().catch(() => null),
+      ]);
       setState(nextState);
       recordServerState(nextState);
+      if (plan?.start_date) {
+        setJourneyDay(Math.max(1, planGunu(plan.start_date)));
+        setJourneyStart(plan.start_date);
+      } else {
+        setJourneyDay(Math.max(0, nextState.streak_len));
+        setJourneyStart(null);
+      }
     } catch (value) {
       setError(value instanceof ApiError ? value.message : t.chain.loadFailed);
     } finally {
@@ -81,11 +134,26 @@ export default function RankScreen() {
     if (state) syncStreak(state.streak_len);
   }, [state, syncStreak]);
 
-  const milestoneGlow =
-    !!state &&
-    (isSproutMilestone(state.streak_len) ||
-      (state.streak_len > 0 && state.streak_len === state.best_streak));
-  const upcoming = state ? nextMilestone(state.streak_len) : null;
+  const milestoneGlow = isSproutMilestone(journeyDay);
+  const evolution = chainEvolution(journeyDay);
+  const upcoming = state ? nextMilestone(journeyDay) : null;
+  const stageIndex = companionStageIndex(journeyDay);
+  const totalPoints = state
+    ? CATEGORIES.reduce((sum, category) => sum + state.points[category], 0)
+    : 0;
+  const overallTier = scoreTier(totalPoints / Math.max(1, CATEGORIES.length));
+  const unbroken = state
+    ? state.last_active_day
+      ? settleStreak(
+          {
+            streakLen: state.streak_len,
+            bestStreak: state.best_streak,
+            lastActiveDay: state.last_active_day,
+          },
+          bugunIso(),
+        ).state.streakLen
+      : state.streak_len
+    : 0;
 
   return (
     <ThemedView style={styles.flex}>
@@ -97,7 +165,7 @@ export default function RankScreen() {
           title={t.chain.title}
           subtitle={t.chain.subtitle}
           trailing={
-            state && !loading ? <StreakPill streakDays={state.streak_len} /> : undefined
+            state && !loading ? <StreakPill streakDays={journeyDay} /> : undefined
           }
         />
 
@@ -127,10 +195,9 @@ export default function RankScreen() {
               hero={milestoneGlow}
               style={styles.hero}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.heroLabel}>
-                {t.chain.heroLabel.toUpperCase()}
+                {t.chain.journeyLabel.toUpperCase()}
               </ThemedText>
               <View style={styles.heroRow}>
-                {/* faz8.13/6: filiz → 12 hayvanlı evrim. Dokununca seçim paneli. */}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t.chain.pickCompanion}
@@ -138,15 +205,15 @@ export default function RankScreen() {
                   hitSlop={12}
                   style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
                   <ChainCompanion
-                    streakDays={state.streak_len}
+                    streakDays={journeyDay}
                     color={theme.tint}
                     companionId={companionId}
-                    investedDays={investedDays}
+                    investedDays={journeyDay}
                   />
                 </Pressable>
                 <View style={styles.heroNumbers}>
                   <CountUpText
-                    value={state.streak_len}
+                    value={journeyDay}
                     style={[styles.heroCount, { color: theme.tint }]}
                   />
                   <ThemedText style={[styles.heroUnit, { color: theme.text }]}>
@@ -155,10 +222,10 @@ export default function RankScreen() {
                 </View>
               </View>
               <ChainCompanionCaption
-                streakDays={state.streak_len}
+                streakDays={journeyDay}
                 color={theme.textSecondary}
                 companionId={companionId}
-                investedDays={investedDays}
+                investedDays={journeyDay}
               />
               <Pressable
                 accessibilityRole="button"
@@ -169,19 +236,77 @@ export default function RankScreen() {
                   {t.chain.changeCompanion}
                 </ThemedText>
               </Pressable>
+              {journeyStart ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.chain.journeySince(formatJourneyDate(journeyStart, locale))}
+                </ThemedText>
+              ) : null}
               <ThemedText type="small" themeColor="textSecondary" style={styles.heroHint}>
                 {upcoming ? t.chain.nextMilestone(upcoming.remaining, upcoming.day) : t.chain.heroHint}
               </ThemedText>
             </SurfaceCard>
+
+            <SurfaceCard elevated>
+              <View style={styles.evolutionTop}>
+                <View style={styles.evolutionCopy}>
+                  <ThemedText type="smallBold">{evolution.animal.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {stageText(
+                      evolution.stage === 'bebek'
+                        ? 'bebek'
+                        : evolution.stage === 'genc'
+                          ? 'cirak'
+                          : 'olgun',
+                      t.companion,
+                    )}
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" themeColor="tint">
+                  {evolution.dayInCycle}/{CHAIN_CYCLE_DAYS}
+                </ThemedText>
+              </View>
+              <ProgressBar progress={evolution.cycleProgress} />
+              <ThemedText type="small" themeColor="textSecondary">
+                {evolution.nextLabel}
+              </ThemedText>
+            </SurfaceCard>
+
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle">{t.chain.milestones}</ThemedText>
+            </View>
+            <View style={styles.milestoneRow}>
+              {COMPANION_STAGE_MARKS.map((mark, index) => {
+                const active = stageIndex === index;
+                return (
+                  <View
+                    key={mark.key}
+                    style={[
+                      styles.milestone,
+                      {
+                        borderColor: active ? theme.tint : theme.border,
+                        backgroundColor: active ? theme.backgroundSelected : theme.backgroundElement,
+                      },
+                    ]}>
+                    <ThemedText type="smallBold" style={{ color: active ? theme.tint : theme.text }}>
+                      {stageText(mark.key, t.companion)}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {mark.at}+
+                    </ThemedText>
+                  </View>
+                );
+              })}
+            </View>
 
             <SurfaceCard>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 {t.chain.overallRank}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.centerText}>
-                {state.overall_rank}
+                {tierText(overallTier, t.chain)}
               </ThemedText>
               <View style={styles.streakRow}>
+                <Metric value={`${unbroken}`} label={t.chain.unbroken} />
                 <Metric value={`${state.best_streak}`} label={t.chain.bestStreak} />
                 <Metric value={`${state.freeze_tokens}`} label={t.chain.freezeToken} />
               </View>
@@ -189,20 +314,17 @@ export default function RankScreen() {
 
             <View style={styles.sectionHeader}>
               <ThemedText type="subtitle">{t.chain.categories}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.chain.pointsFloor}
-              </ThemedText>
             </View>
             <SurfaceCard style={styles.categoryList} elevated>
               {CATEGORIES.map((category) => (
                 <View key={category} style={styles.categoryRow}>
                   <View style={styles.categoryTop}>
                     <ThemedText>{category}</ThemedText>
-                    <CategoryBadge label={state.ranks[category]} />
+                    <ThemedText type="smallBold" themeColor="tint">
+                      %{Math.round(scoreTierProgress(state.points[category]) * 100)}
+                    </ThemedText>
                   </View>
-                  <ProgressBar
-                    progress={Math.min(state.points[category] / ScoringRules.kategoriTavani, 1)}
-                  />
+                  <ProgressBar progress={scoreTierProgress(state.points[category])} />
                   <ThemedText type="small" themeColor="textSecondary">
                     {t.chain.points(state.points[category])}
                   </ThemedText>
@@ -214,7 +336,7 @@ export default function RankScreen() {
               <ThemedText>{t.chain.totalPoints}</ThemedText>
               <CountUpText
                 grouped
-                value={CATEGORIES.reduce((sum, cat) => sum + state.points[cat], 0)}
+                value={totalPoints}
                 style={[styles.totalValue, { color: theme.tint }]}
               />
             </SurfaceCard>
@@ -226,39 +348,28 @@ export default function RankScreen() {
               </ThemedText>
             </SurfaceCard>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t.chain.recapOpen}
-              accessibilityHint={
-                hasPaidAccess ? undefined : t.chain.recapHintFree
-              }
-              onPress={() => {
-                router.push('/rapor' as Href);
-              }}
-              style={[
-                styles.recapBanner,
-                {
-                  backgroundColor: theme.backgroundElement,
-                  borderColor: theme.border,
-                },
-              ]}>
-              <View style={styles.recapBannerCopy}>
-                <View style={styles.recapTitleRow}>
-                  <ThemedText type="smallBold">
-                    {t.chain.reportReady}
-                  </ThemedText>
-                  {!hasPaidAccess ? <ProBadge /> : null}
-                </View>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {hasPaidAccess
-                    ? t.chain.reportReadyHint
-                    : t.chain.reportProHint}
-                </ThemedText>
-              </View>
-              <ThemedText type="smallBold" themeColor="tint">
-                {t.chain.reportOpen}
+            <SurfaceCard elevated>
+              <ThemedText type="subtitle">{t.chain.reportReady}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {hasPaidAccess ? t.chain.reportReadyHint : t.chain.reportProHint}
               </ThemedText>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t.chain.reportOpen}
+                onPress={() => router.push('/rapor' as Href)}
+                style={({ pressed }) => [
+                  styles.reportCta,
+                  {
+                    backgroundColor: hasPaidAccess ? theme.tint : theme.accentWarm,
+                    opacity: pressed ? 0.88 : 1,
+                  },
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {hasPaidAccess ? t.chain.reportOpen : t.common.proCta}
+                </ThemedText>
+              </Pressable>
+            </SurfaceCard>
+
           </>
         )}
       </ScreenScaffold>
@@ -267,7 +378,7 @@ export default function RankScreen() {
         onClose={() => setPickerOpen(false)}
         selectedId={companionId}
         investedFor={investedFor}
-        streakDays={state?.streak_len ?? 0}
+        streakDays={journeyDay}
         onSelect={selectCompanion}
         hasPaidAccess={hasPaidAccess}
         onPaywall={() => router.push('/paywall' as Href)}
@@ -291,26 +402,6 @@ function Metric({ value, label }: { value: string; label: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  recapBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-    borderRadius: Radii.large,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-  },
-  recapBannerCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  recapTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
   hero: {
     borderRadius: Radii.large,
     padding: Spacing.four,
@@ -354,6 +445,23 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  evolutionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  evolutionCopy: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  reportCta: {
+    minHeight: 44,
+    borderRadius: Radii.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
   emptyRetry: {
     alignSelf: 'flex-start',
     minHeight: 44,
@@ -377,6 +485,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     fontFamily: Fonts.serif,
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  milestone: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: Radii.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+    gap: 2,
   },
   sectionHeader: {
     flexDirection: 'row',

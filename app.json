@@ -3,7 +3,7 @@
     "name": "Niyetsen",
     "slug": "niyetsen",
     "owner": "sahincelebiq",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "niyetsen",
@@ -21,15 +21,16 @@
     },
     "android": {
       "package": "com.niyetsenai",
-      "versionCode": 14,
+      "versionCode": 28,
       "adaptiveIcon": {
         "backgroundColor": "#DA9B7C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.CAMERA",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",

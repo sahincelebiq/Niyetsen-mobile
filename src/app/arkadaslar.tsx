@@ -1,3 +1,4 @@
+import { type Href, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,6 +43,7 @@ import { useLocale } from '@/providers/locale-provider';
  */
 export default function LeagueScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { t } = useLocale();
   const screenInsets = useScreenInsets();
   const [league, setLeague] = useState<League | null>(null);
@@ -248,6 +250,27 @@ export default function LeagueScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
           }
           renderItem={({ item }) => <MemberRow member={item} />}
+          ListFooterComponent={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.paths.title}
+              onPress={() => router.push('/yollar' as Href)}
+              style={({ pressed }) => [
+                styles.pathsLink,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundElement,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}>
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.paths.title}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.paths.subtitle}
+              </ThemedText>
+            </Pressable>
+          }
         />
         </KeyboardAwareView>
       </SafeAreaView>
@@ -330,6 +353,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: Spacing.three,
     gap: Spacing.two,
+  },
+  pathsLink: {
+    marginTop: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Radii.medium,
+    padding: Spacing.three,
+    gap: Spacing.one,
+    minHeight: 44,
   },
   aliasInput: {
     borderWidth: 1,

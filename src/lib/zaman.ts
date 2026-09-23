@@ -111,6 +111,17 @@ export function gununBolumu(dakika: number): GununBolumu {
   return 'aksam';
 }
 
+/**
+ * Planın takvim günü. Başlangıç günü 1'dir.
+ * Planım ve Zincir aynı formülü kullanır — kesintisiz seri ayrı sayıdır.
+ */
+export function planGunu(startDate: string, today = bugunIso()): number {
+  const start = parseIsoDate(startDate);
+  const now = parseIsoDate(today);
+  const diff = Math.round((now.getTime() - start.getTime()) / 86_400_000);
+  return diff + 1;
+}
+
 /** Cihazın IANA saat dilimi (örn. Europe/Istanbul); çözülemezse UTC. */
 export function cihazZamanDilimi(): string {
   try {

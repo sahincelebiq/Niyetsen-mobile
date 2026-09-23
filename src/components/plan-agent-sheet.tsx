@@ -39,12 +39,21 @@ type Props = {
   visible: boolean;
   planId: string | null;
   planName: string;
+  /** Açılışta yazı kutusuna konur; gönderilmez — kullanıcı onaylar. */
+  seed?: string | null;
   onClose: () => void;
   /** Asistan yanıt verdikten sonra (etkinlik eklenmiş olabilir) — liste yenilensin. */
   onEventsChanged: () => void;
 };
 
-export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsChanged }: Props) {
+export function PlanAgentSheet({
+  visible,
+  planId,
+  planName,
+  seed,
+  onClose,
+  onEventsChanged,
+}: Props) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -59,6 +68,18 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const loadedForPlan = useRef<string | null>(null);
+  const seeded = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      seeded.current = null;
+      return;
+    }
+    if (seed && seeded.current !== seed) {
+      seeded.current = seed;
+      setDraft(seed);
+    }
+  }, [visible, seed]);
 
   useEffect(() => {
     if (!visible || !planId) return;
@@ -139,7 +160,7 @@ export function PlanAgentSheet({ visible, planId, planName, onClose, onEventsCha
           setError(t.events.agentNotDeployed);
           setErrorAction(null);
         } else {
-          setError(err instanceof Error && err.message ? err.message : t.events.agentUnavailable);
+          setError(err instanceof ApiError && err.message ? err.message : t.events.agentUnavailable);
           setErrorAction(null);
         }
       } finally {

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiLocale } from '@/lib/api-locale';
 import { normalizeLeague } from '@/lib/league-shell';
+import { ekranaGuvenliMetin } from '@/lib/app-error';
 import { uiCopy } from '@/lib/ui-copy';
 import { ApiTimeoutMs, ChatTimeoutMs, PlanTimeoutMs, ProofTimeoutMs } from '@/constants/theme';
 import { Platform } from 'react-native';
@@ -233,24 +234,33 @@ async function tekIstek<T>(
   }
 
   if (!res.ok) {
-    let detail = uiCopy().common.starsUnreachable;
+    const kopya = uiCopy();
+    const yedek =
+      res.status === 401 || res.status === 403
+        ? kopya.common.sessionExpired
+        : res.status === 402
+          ? kopya.paywall.notYetActive
+          : res.status === 429
+            ? kopya.common.rateLimited
+            : res.status >= 500
+              ? kopya.common.starsUnreachable
+              : kopya.common.errorGeneric;
+    let rawDetail: string | undefined;
     let code: string | undefined;
     try {
       const body = await res.json();
       if (body?.detail) {
         if (typeof body.detail === 'string') {
-          detail = body.detail;
+          rawDetail = body.detail;
         } else if (typeof body.detail === 'object') {
-          detail = body.detail.message ?? detail;
-          code = body.detail.code;
+          if (typeof body.detail.message === 'string') rawDetail = body.detail.message;
+          if (typeof body.detail.code === 'string') code = body.detail.code;
         }
       }
     } catch {
-      // yanıt JSON değilse varsayılan mesaj kalır
+      // yanıt JSON değilse yedek mesaj kalır
     }
-    if (res.status === 429) {
-      detail = uiCopy().common.rateLimited;
-    }
+    const detail = ekranaGuvenliMetin(rawDetail, yedek);
     throw new ApiError(res.status, detail, code, {
       istekKimligi: ctx.istekKimligi,
       neden: 'http',
@@ -374,6 +384,8 @@ export type DailyTaskItem = {
   plan_id: string;
   plan_name: string;
   task: Task;
+  /** Eski backend göndermeyebilir — o zaman ekran ayrıca adımları çeker. */
+  steps?: TaskStep[];
 };
 
 /** schemas.EventRecurrence */
@@ -440,6 +452,8 @@ export type DailyTasksResponse = {
   plan_day: number | null;
   batch_generated_until: number | null;
   active_plan_name: string;
+  /** Eski backend göndermeyebilir. */
+  active_plan_id?: string;
   has_active_plan: boolean;
 };
 
@@ -728,6 +742,32 @@ export function addPlanTask(date: string, body: TaskCreateRequest): Promise<Task
   });
 }
 
+export type TaskStep = {
+  id: string;
+  title: string;
+  done: boolean;
+  order: number;
+};
+
+export type TaskStepsResponse = {
+  task_id: string;
+  steps: TaskStep[];
+};
+
+export function getTaskSteps(taskId: string): Promise<TaskStepsResponse> {
+  return request<TaskStepsResponse>(`/plan/tasks/${encodeURIComponent(taskId)}/steps`);
+}
+
+export function saveTaskSteps(
+  taskId: string,
+  steps: { id?: string; title: string; done: boolean; order?: number }[],
+): Promise<TaskStepsResponse> {
+  return request<TaskStepsResponse>(`/plan/tasks/${encodeURIComponent(taskId)}/steps`, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
+  });
+}
+
 export function deletePlanTask(taskId: string): Promise<void> {
   return request<void>(`/plan/tasks/${encodeURIComponent(taskId)}`, {
     method: 'DELETE',
@@ -743,6 +783,7 @@ export function emptyDailyTasks(): DailyTasksResponse {
     plan_day: null,
     batch_generated_until: null,
     active_plan_name: '',
+    active_plan_id: '',
     has_active_plan: false,
   };
 }
@@ -769,7 +810,15 @@ export async function getDailyTasks(): Promise<DailyTasksResponse> {
   if (!raw || !Array.isArray((raw as DailyTasksResponse).items)) {
     throw new ApiError(502, uiCopy().common.starsUnreachable, 'gecersiz-yanit');
   }
-  return { ...raw, events: Array.isArray(raw.events) ? raw.events : [] };
+  return {
+    ...raw,
+    events: Array.isArray(raw.events) ? raw.events : [],
+    active_plan_id: typeof raw.active_plan_id === 'string' ? raw.active_plan_id : '',
+    items: raw.items.map((item) => ({
+      ...item,
+      steps: Array.isArray(item.steps) ? item.steps : undefined,
+    })),
+  };
 }
 
 // ---------- Plan etkinlikleri + plan-içi ajan (2026-09-10) ----------

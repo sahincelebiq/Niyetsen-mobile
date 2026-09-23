@@ -14,7 +14,7 @@ import {
   resolveKeyboardLift,
 } from '@/lib/keyboard-geometry';
 
-/** app.json → android.softwareKeyboardLayoutMode = "resize": ölçüm yoksa lift 0 güvenlidir. */
+/** app.json android.softwareKeyboardLayoutMode = resize. pan lift'i 0 bırakıp yazı kutusunu klavyenin altında bırakıyordu. */
 const PLATFORM_RESIZES = Platform.OS === 'android';
 /**
  * Android'de root'un küçülmesi (edge-to-edge IME padding → Yoga relayout)

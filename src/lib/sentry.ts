@@ -69,7 +69,8 @@ export function initSentry(): void {
           );
           return temiz;
         } catch {
-          return olay;
+          // Temizlenemeyen olay gönderilmez — token/e-posta ham haliyle çıkmasın.
+          return null;
         }
       },
     });

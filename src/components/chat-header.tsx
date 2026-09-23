@@ -28,6 +28,8 @@ type ChatHeaderProps = {
    * yalnız küçük bir sembol, ana akışta reklamı yapılmaz.
    */
   onSecretGesture?: () => void;
+  /** Ücretsiz hesapta Stitch başlığındaki PRO çipi — paywall. */
+  onOpenPro?: () => void;
   /** Aktif niyet adı — başlığın altında çip olarak görünür (varsa). */
   activeIntentName?: string | null;
   /** Kullanıcı geçmişe kaydırdı: başlık yapışkan ince bara küçülür. */
@@ -83,6 +85,7 @@ export function ChatHeader({
   trialDaysRemaining,
   onOpenHistory,
   onSecretGesture,
+  onOpenPro,
   activeIntentName,
   compact = false,
   keyboardOpen = false,
@@ -155,7 +158,7 @@ export function ChatHeader({
           onLongPress={onSecretGesture}>
           <Animated.View style={titleAnim}>
             <ThemedText type="screenTitle" style={styles.titleText} numberOfLines={1}>
-              {t.chat.title}
+              {t.tabs.chat}
             </ThemedText>
           </Animated.View>
         </Pressable>
@@ -177,6 +180,21 @@ export function ChatHeader({
             </Pressable>
           ) : null}
           <StreakPill streakDays={streakDays} compact />
+          {onOpenPro ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.common.proCta}
+              onPress={onOpenPro}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.proChip,
+                { backgroundColor: theme.backgroundSelected, opacity: pressed ? 0.75 : 1 },
+              ]}>
+              <ThemedText type="smallBold" themeColor="tint">
+                PRO
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </View>
       </View>
       {activeIntentName ? (
@@ -244,7 +262,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.one,
     minWidth: 44,
-    maxWidth: 120,
+    maxWidth: 168,
     flexShrink: 1,
     zIndex: 3,
   },
@@ -292,6 +310,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
+  },
+  proChip: {
+    minHeight: 32,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.7,

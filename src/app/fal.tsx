@@ -308,8 +308,8 @@ export default function FortuneScreen() {
               facing="back"
               active={cameraOpen}
               onCameraReady={() => setCameraReady(true)}
-              onMountError={(event) => {
-                setError(`Kamera açılamadı: ${event.message || 'bilinmeyen hata'}`);
+              onMountError={() => {
+                setError(t.mystic.captureFailed);
                 setCameraOpen(false);
               }}
             />

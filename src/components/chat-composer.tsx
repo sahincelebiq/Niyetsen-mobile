@@ -66,10 +66,11 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
   // Overlay + lift varken tab bar klavyenin arkasındadır → gerçek nefes payı yeter.
-  // Resize / kapalı: tab bar görünür, BottomTabInset kalmazsa yazı kutusu sekmelerin altında kaybolur.
+  // Kapalıyken NativeTabs içeriğin üstüne biner. BottomTabInset tek başına 3
+  // düğmeli Android nav'da yazı kutusunu sekmeye yapıştırıyordu.
   const bottomPadding = keyboardOpen
     ? Spacing.three
-    : Math.max(insets.bottom, Spacing.one) + BottomTabInset;
+    : BottomTabInset + Math.max(insets.bottom, 12) + Spacing.two;
 
   // Gönder butonu durumu renkle konuşur: boşken soluk yüzey, yazınca mercan
   // dolgu — Motion.fast ile yumuşak geçiş (reduce-motion'da sönümlenir).

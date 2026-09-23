@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Href, useRouter } from 'expo-router';
 
+import { AboveTabsLayer, useSheetBottomPadding } from '@/components/above-tabs-layer';
 import { KeyboardAwareView } from '@/components/keyboard-aware-view';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Fonts, MaxContentWidth, OverlayScrim, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   activateProject,
@@ -60,9 +59,9 @@ export function PlanPickerSheet({
   subscriptionStatus,
 }: PlanPickerSheetProps) {
   const theme = useTheme();
-  const scheme = useColorScheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const bottomPadding = useSheetBottomPadding();
   const [projects, setProjects] = useState<PlanSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -156,33 +155,27 @@ export function PlanPickerSheet({
   }
 
   const contentPlans = projects.filter((project) => project.has_content);
-  const overlayOpacity = scheme === 'dark' ? 0.55 : 0.32;
+  const listMaxHeight = Math.round(windowHeight * 0.46);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <AboveTabsLayer visible={visible} onRequestClose={onClose}>
       <View style={styles.sheetRoot}>
-        <View style={styles.sheetBackdrop}>
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: theme.text, opacity: overlayOpacity },
-            ]}
-          />
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Paneli kapat"
-          />
-        </View>
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: OverlayScrim }]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Paneli kapat"
+        />
         <KeyboardAwareView
           fill={false}
           style={[
             styles.sheet,
+            Shadows.lifted,
             {
               backgroundColor: theme.backgroundElement,
-              paddingBottom: insets.bottom + Spacing.three,
+              borderColor: theme.border,
+              paddingBottom: bottomPadding,
+              maxHeight: Math.round(windowHeight * 0.78),
             },
           ]}>
           <ThemedText type="subtitle">Planlarım</ThemedText>
@@ -197,7 +190,11 @@ export function PlanPickerSheet({
               </ThemedText>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={{ maxHeight: listMaxHeight }}
+              contentContainerStyle={styles.list}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
               {contentPlans.length === 0 ? (
                 <View
                   style={[
@@ -326,7 +323,7 @@ export function PlanPickerSheet({
           </Pressable>
         </KeyboardAwareView>
       </View>
-    </Modal>
+    </AboveTabsLayer>
   );
 }
 
@@ -335,18 +332,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
-  sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
   sheet: {
-    borderTopLeftRadius: Radii.large,
-    borderTopRightRadius: Radii.large,
+    borderTopLeftRadius: Radii.sheet,
+    borderTopRightRadius: Radii.sheet,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.four,
     gap: Spacing.three,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
-    maxHeight: '70%',
+    zIndex: 2,
+    elevation: 16,
   },
   stateBlock: {
     alignItems: 'center',

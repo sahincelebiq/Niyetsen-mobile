@@ -327,6 +327,14 @@ export type Messages = {
     dayCompleteBody: string;
     staleOffline: string;
     emptyAction: string;
+    microStepHint: string;
+    openChatCta: string;
+    dayReviewTitle: string;
+    dayReviewBody: string;
+    dayReviewCta: string;
+    stepsHint: string;
+    agentSeedStep: string;
+    agentSeedReview: string;
     progressLabel: (done: number, total: number) => string;
   };
   /** Plan etkinlikleri + plan-içi asistan (2026-09-10). */
@@ -400,6 +408,17 @@ export type Messages = {
     emptyBody: string;
     /** "30 güne 3 gün" — bir sonraki kilometre taşı (scoring.nextMilestone). */
     nextMilestone: (remaining: number, day: number) => string;
+    journeyLabel: string;
+    journeySince: (date: string) => string;
+    unbroken: string;
+    stageRemaining: (remaining: number, next: string) => string;
+    stageHeld: string;
+    milestones: string;
+    tierFoundation: string;
+    tierProgressing: string;
+    tierProficient: string;
+    tierConsistent: string;
+    tierMaster: string;
   };
   plan: {
     title: string;
@@ -433,9 +452,23 @@ export type Messages = {
     pastDayBlocked: string;
     titleRequired: string;
     dayProgress: (current: number, total: number) => string;
+    weekLabel: (week: number, start: number, end: number) => string;
+    weekChip: (week: number) => string;
+    weekEmpty: string;
+    weekSkipped: string;
+    horizonLockTitle: string;
+    horizonLockBody: string;
     extendCta: string;
     generateFailed: string;
     loadFailed: string;
+    stepsTitle: string;
+    stepsHint: string;
+    stepsEmpty: string;
+    stepsPlaceholder: string;
+    stepsAdd: string;
+    stepsProgress: (done: number, total: number) => string;
+    stepsDelete: string;
+    openSteps: string;
   };
   profile: {
     title: string;
@@ -583,6 +616,7 @@ export type Messages = {
     pushDisabled: string;
     consentSaveFailed: string;
     notifPrefFailed: string;
+    pushConnectFailed: string;
     sectionOpen: string;
     sectionClose: string;
     pushOffHint: string;
@@ -795,8 +829,10 @@ export type Messages = {
     filiz: string;
     sproutMotto: string;
     stageBaby: string;
+    stageApprentice: string;
     stageMature: string;
     stageAdult: string;
+    stageWise: string;
     age: (n: number) => string;
     animalNames: [string, string, string, string, string, string, string, string, string, string, string, string];
     animalMottos: [string, string, string, string, string, string, string, string, string, string, string, string];

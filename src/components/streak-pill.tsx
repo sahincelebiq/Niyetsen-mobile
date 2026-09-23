@@ -7,6 +7,7 @@ import { companionVisual } from '@/constants/chain-animals';
 import { Radii, Spacing } from '@/constants/theme';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
+import { useLocale } from '@/providers/locale-provider';
 
 type StreakPillProps = {
   streakDays: number;
@@ -31,9 +32,10 @@ export function sproutGlyph(streakDays: number): string {
  */
 export function StreakPill({ streakDays, compact = false }: StreakPillProps) {
   const theme = useTheme();
+  const { t } = useLocale();
   const { companionId, investedDays } = useCompanionAnimal();
   const visual = companionVisual(companionId, investedDays, streakDays, 14);
-  const label = streakDays > 0 ? `${streakDays} gün` : compact ? null : 'Yeni yoldaş';
+  const label = streakDays > 0 ? `${streakDays} ${t.chain.daysUnit}` : compact ? null : t.companion.filiz;
 
   return (
     <ThemedView

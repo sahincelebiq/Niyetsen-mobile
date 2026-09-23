@@ -109,6 +109,32 @@ type DayCompleteCardProps = {
   total: number;
 };
 
+/** Gün bitince ajan değerlendirmesi — metin hazırdır, gönderim kullanıcıdadır. */
+export const DayReviewCard = memo(function DayReviewCard({ onOpen }: { onOpen: () => void }) {
+  const theme = useTheme();
+  const { t } = useLocale();
+  return (
+    <SurfaceCard elevated style={styles.card}>
+      <ThemedText type="subtitle">{t.daily.dayReviewTitle}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {t.daily.dayReviewBody}
+      </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.daily.dayReviewCta}
+        onPress={onOpen}
+        style={({ pressed }) => [
+          styles.action,
+          { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+        ]}>
+        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          {t.daily.dayReviewCta}
+        </ThemedText>
+      </Pressable>
+    </SurfaceCard>
+  );
+});
+
 /** Günün son halkası kapandı — kısa, abartısız kutlama (E.6). */
 export const DayCompleteCard = memo(function DayCompleteCard({
   done,

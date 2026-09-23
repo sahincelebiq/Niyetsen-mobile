@@ -5,6 +5,7 @@ import {
   AgHatasi,
   BeklenmeyenHata,
   DogrulamaHatasi,
+  ekranaGuvenliMetin,
   hataMesaji,
   KotaHatasi,
   siniflaHata,
@@ -68,6 +69,15 @@ test('400 alan açıklaması steril taşınır, URL/e-posta maskelenir', () => {
   );
   assert.ok(hata instanceof DogrulamaHatasi);
   assert.ok(!(hata.alanMesaji ?? '').includes('ornek.com'));
+});
+
+test('ekrana çıkan metin anahtar, URL ve yığın izini yutmaz', () => {
+  const yedek = 'Bir şeyler ters gitti.';
+  assert.equal(ekranaGuvenliMetin('Görev geçmiş bir güne taşınamaz.', yedek), 'Görev geçmiş bir güne taşınamaz.');
+  assert.equal(ekranaGuvenliMetin('EXPO_PUBLIC_SUPABASE_URL eksik', yedek), yedek);
+  assert.equal(ekranaGuvenliMetin('bak https://api.example/secret', yedek), yedek);
+  assert.equal(ekranaGuvenliMetin('Internal Server Error', yedek), yedek);
+  assert.equal(ekranaGuvenliMetin('', yedek), yedek);
 });
 
 test('hata kodu korunur', () => {

@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { type Href, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,13 +21,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocale } from '@/providers/locale-provider';
 import { CountUpText } from '@/components/count-up-text';
 import { ErrorBanner } from '@/components/error-banner';
+import { CompletionMark } from '@/components/gunluk/completion-mark';
 import { DailySkeleton } from '@/components/gunluk/daily-skeleton';
 import { EventsTimeline } from '@/components/gunluk/events-timeline';
 import {
   DayCompleteCard,
+  DayReviewCard,
   NextStepCard,
   type NextStep,
 } from '@/components/gunluk/next-step-card';
+import { PlanAgentSheet } from '@/components/plan-agent-sheet';
 import { ProgressRing } from '@/components/gunluk/progress-ring';
 import { LeafConfetti } from '@/components/leaf-confetti';
 import {
@@ -36,7 +39,6 @@ import {
   type PlanTaskEditorTarget,
 } from '@/components/plan-task-editor';
 import { CategoryBadge } from '@/components/ui/category-badge';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { SurfaceCard } from '@/components/ui/surface-card';
 import { useConsentPreferences } from '@/components/consent-gate';
 import { MysticPanel, useMysticPanel } from '@/components/mystic-panel';
@@ -57,17 +59,23 @@ import { useWarmFocusReload } from '@/hooks/use-warm-focus-reload';
 import { useCompanionAnimal } from '@/hooks/use-companion-animal';
 import { useTheme } from '@/hooks/use-theme';
 import { trackEvent } from '@/lib/analytics';
+import { safeImageUri } from '@/lib/safe-image-uri';
 import {
   ApiError,
   type DailyEventItem,
   ensureTodayPlan,
   excuseTask,
+  getCurrentPlan,
   getState,
+  getTaskSteps,
   isPaywallError,
   type ProofResult,
+  saveTaskSteps,
   type Task,
+  type TaskStep,
   uploadTaskProof,
 } from '@/lib/api';
+import { dailyEmptyMode, resolveAgentPlanId } from '@/lib/daily-feed';
 import {
   completeEventOptimistic,
   getGunlukAkis,
@@ -97,7 +105,11 @@ import { useProfile } from '@/providers/profile-provider';
 
 type Outcome = { tone: 'success' | 'danger'; message: string };
 
-type DailyTask = Task & { plan_name: string };
+type DailyTask = Task & {
+  plan_name: string;
+  plan_id: string;
+  steps?: TaskStep[];
+};
 
 export default function DailyTasksScreen() {
   const { t } = useLocale();
@@ -115,7 +127,7 @@ export default function DailyTasksScreen() {
   const [yesterdayMisses, setYesterdayMisses] = useState(0);
   const [showPushHint, setShowPushHint] = useState(false);
   const autoExtendRef = useRef(false);
-  const [cameraTask, setCameraTask] = useState<Task | null>(null);
+  const [cameraTask, setCameraTask] = useState<DailyTask | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [extending, setExtending] = useState(false);
   const [extensionError, setExtensionError] = useState<string | null>(null);
@@ -123,6 +135,10 @@ export default function DailyTasksScreen() {
   const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<PlanTaskEditorTarget | null>(null);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentSeed, setAgentSeed] = useState<string | null>(null);
+  const [agentPlanId, setAgentPlanId] = useState<string | null>(null);
+  const [stepMap, setStepMap] = useState<Record<string, TaskStep[]>>({});
   // faz8.13/2a: mistiğin yeni evi — Bugün başlığındaki ☾ rozeti bu paneli açar.
   const mysticPanel = useMysticPanel();
   const screenInsets = useScreenInsets();
@@ -132,9 +148,48 @@ export default function DailyTasksScreen() {
       (akis.data?.items ?? []).map((item) => ({
         ...item.task,
         plan_name: item.plan_name,
+        plan_id: item.plan_id,
+        steps: item.steps,
       })),
     [akis.data],
   );
+  const taskStepKey = tasks.map((task) => `${task.id}:${task.steps ? 'y' : 'n'}`).join('|');
+
+  useEffect(() => {
+    let cancelled = false;
+    const known: Record<string, TaskStep[]> = {};
+    const missing: DailyTask[] = [];
+    for (const task of tasks) {
+      if (task.steps) known[task.id] = task.steps;
+      else missing.push(task);
+    }
+    if (Object.keys(known).length > 0) {
+      setStepMap((current) => ({ ...current, ...known }));
+    }
+    if (missing.length === 0) return;
+    void Promise.all(
+      missing.map(async (task) => {
+        try {
+          const response = await getTaskSteps(task.id);
+          return [task.id, response.steps] as const;
+        } catch {
+          return [task.id, [] as TaskStep[]] as const;
+        }
+      }),
+    ).then((rows) => {
+      if (cancelled) return;
+      setStepMap((current) => {
+        const next = { ...current };
+        for (const [id, steps] of rows) next[id] = steps;
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // taskStepKey görev kimliğini ve adımın gömülü olup olmadığını taşır.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskStepKey]);
   const events = useMemo<DailyEventItem[]>(() => akis.data?.events ?? [], [akis.data]);
 
   const load = useCallback(
@@ -154,14 +209,11 @@ export default function DailyTasksScreen() {
           await ensureTodayPlan();
           await refreshGunlukAkis('silent');
         } catch (value) {
-          if (isPaywallError(value)) {
-            router.push('/paywall' as Href);
-          } else {
-            // Bölümsel hata: uzatma başarısızsa ekran düşmez, ince banner.
-            setExtensionError(
-              value instanceof ApiError ? value.message : t.daily.generateFailed,
-            );
-          }
+          // Otomatik deneme ekranı paywall'a atmaz (kapı içeride). Mesaj banner'da
+          // kalır; kullanıcı "haftayı yükle"ye basınca paywall açılır.
+          setExtensionError(
+            value instanceof ApiError ? value.message : t.daily.generateFailed,
+          );
         } finally {
           setExtending(false);
         }
@@ -270,7 +322,52 @@ export default function DailyTasksScreen() {
     [setOutcome, syncStreak, t],
   );
 
-  async function openCamera(task: Task) {
+  async function openAgent(seed: string) {
+    const known = resolveAgentPlanId({
+      activePlanId: akis.data?.active_plan_id,
+      taskPlanId: tasks[0]?.plan_id,
+      eventPlanId: events[0]?.plan_id,
+    });
+    let planId = known;
+    if (!planId) {
+      try {
+        planId = (await getCurrentPlan())?.id ?? null;
+      } catch {
+        planId = null;
+      }
+    }
+    if (!planId) {
+      router.push('/(tabs)' as Href);
+      return;
+    }
+    setAgentPlanId(planId);
+    setAgentSeed(seed);
+    setAgentOpen(true);
+  }
+
+  async function toggleStep(task: DailyTask, stepId: string) {
+    const current = stepMap[task.id] ?? task.steps ?? [];
+    const next = current.map((step) =>
+      step.id === stepId ? { ...step, done: !step.done } : step,
+    );
+    const key = `step:${task.id}:${stepId}`;
+    setStepMap((map) => ({ ...map, [task.id]: next }));
+    setBusy(key);
+    try {
+      const saved = await saveTaskSteps(task.id, next);
+      setStepMap((map) => ({ ...map, [task.id]: saved.steps }));
+    } catch (value) {
+      setStepMap((map) => ({ ...map, [task.id]: current }));
+      setOutcome(task.id, {
+        tone: 'danger',
+        message: value instanceof Error ? value.message : t.common.errorGeneric,
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function openCamera(task: DailyTask) {
     if (!consentStatus.proof_photo_processing.accepted) {
       setOutcome(task.id, {
         tone: 'danger',
@@ -331,7 +428,7 @@ export default function DailyTasksScreen() {
         const sonuc = await emitGorevTamamlandi({
           olayId: `proof:${result.proof_id ?? task.id}`,
           kaynak: 'plan_gorev',
-          planId: null,
+          planId: task.plan_id,
           planAdimiId: null,
           hedefId: task.id,
           kategoriler: task.categories,
@@ -454,13 +551,18 @@ export default function DailyTasksScreen() {
             .reduceMotion(ReduceMotion.System)}>
           <TaskCard
             task={task}
+            steps={stepMap[task.id] ?? task.steps ?? []}
             outcome={outcomes[task.id]}
             busy={busy}
             emphasis={emphasis}
             iradeActive={!!profile?.irade_modu_active}
             onOpenCamera={() => void openCamera(task)}
+            onToggleStep={(stepId) => void toggleStep(task, stepId)}
             onExcuse={() => confirmExcuse(task)}
             onDeviceAction={(action) => void runDeviceAction(task, action)}
+            onOpenSteps={() =>
+              router.push({ pathname: '/plan-gorev', params: { taskId: task.id } } as unknown as Href)
+            }
             onLongPressEdit={() => {
               if (!isTaskEditable(task)) {
                 showAlert(t.plan.taskActionsTitle, t.plan.notEditable);
@@ -473,7 +575,7 @@ export default function DailyTasksScreen() {
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission, tasks, t],
+    [busy, outcomes, profile?.irade_modu_active, consentStatus, cameraPermission, tasks, stepMap, t],
   );
 
   const doneTasks = tasks.filter((task) => task.status === 'done').length;
@@ -516,71 +618,90 @@ export default function DailyTasksScreen() {
   const showSkeleton = shouldShowDailySkeleton(akis);
   const hasActivePlan = akis.data?.has_active_plan ?? true;
   const needsExtension = !!akis.data?.needs_extension;
+  const emptyMode = dailyEmptyMode({
+    showSkeleton,
+    totalCount,
+    needsExtension,
+    hasActivePlan,
+  });
+  const agentPlanName = akis.data?.active_plan_name || tasks[0]?.plan_name || events[0]?.plan_name || '';
 
   const listHeader = (
     <View style={styles.headerBlock}>
-      <ScreenHeader
-        title={t.daily.title}
-        subtitle={t.daily.subtitle}
-        trailing={
+        <View style={styles.todayHead}>
+          <View style={styles.todayTitles}>
+            <View style={styles.todayTitleRow}>
+              <ThemedText type="screenTitle">{t.daily.title}</ThemedText>
+              {akis.data?.plan_day ? (
+                <View style={[styles.dayBadge, { backgroundColor: theme.backgroundSelected }]}>
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {akis.data.plan_day}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              {t.daily.subtitle}
+            </ThemedText>
+          </View>
           <View style={styles.headerLinks}>
-            {/* faz8.13/2a: mistiğin yeni evi Bugün — ☾ panel buradan açılır. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.recap.title}
+              onPress={() => router.push('/rapor' as Href)}
+              style={({ pressed }) => [
+                styles.headerChip,
+                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" themeColor="tint">
+                {t.recap.panel}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t.bonus.title}
+              onPress={() => router.push('/bonus' as Href)}
+              style={({ pressed }) => [
+                styles.headerChip,
+                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <ThemedText type="smallBold" themeColor="accentWarm">
+                {t.chat.attachSheet.bonus}
+              </ThemedText>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t.daily.mysticOpen}
               onPress={mysticPanel.open}
               style={({ pressed }) => [
-                styles.bonusLink,
+                styles.mysticLink,
                 { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
               ]}>
               <ThemedText type="smallBold" style={{ color: theme.tint }}>
                 ☾
               </ThemedText>
             </Pressable>
-            {/* faz8.13/3: rapor girişi Bugün'den de görünür (kapı-içeride). */}
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel={t.daily.reportShort}
-              onPress={() => router.push('/rapor' as Href)}
-              style={({ pressed }) => [
-                styles.bonusLink,
-                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <ThemedText type="smallBold" style={{ color: theme.tint }}>
-                {t.daily.reportShort}
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => router.push('/bonus' as Href)}
-              style={({ pressed }) => [
-                styles.bonusLink,
-                { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <ThemedText type="smallBold" style={{ color: theme.accentWarm }}>
-                {t.daily.bonusShort}
-              </ThemedText>
-            </Pressable>
-          </View>
-        }
-      />
-      {!showSkeleton && totalCount > 0 ? (
-        <View style={styles.progressBlock}>
-          <ProgressRing
-            progress={dayProgress}
-            complete={dayComplete}
-            accessibilityLabel={t.daily.progressLabel(doneCount, totalCount)}
-          />
-          <View style={styles.progressMeta}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t.daily.dayProgress}
-            </ThemedText>
-            <ThemedText type="smallBold" themeColor="tint">
-              <CountUpText value={doneCount} />/{totalCount}
-            </ThemedText>
           </View>
         </View>
-      ) : null}
+        {!showSkeleton && totalCount > 0 ? (
+          <SurfaceCard elevated style={styles.progressCard}>
+            <View style={styles.progressBlock}>
+              <ProgressRing
+                progress={dayProgress}
+                complete={dayComplete}
+                accessibilityLabel={t.daily.progressLabel(doneCount, totalCount)}
+              />
+              <View style={styles.progressCopy}>
+                <ThemedText type="smallBold" themeColor="tint">
+                  %{Math.round(dayProgress * 100)}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.daily.progressLabel(doneCount, totalCount)}
+                </ThemedText>
+              </View>
+            </View>
+          </SurfaceCard>
+        ) : null}
       {/* Bölümsel hata (madde C): veri varken hata = ince banner; veri yokken
           de ekran komple karta düşmez — başlık + kart + tekrar dene. */}
       {akis.error && akis.data ? (
@@ -625,9 +746,17 @@ export default function DailyTasksScreen() {
       {showPushHint ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={t.daily.pushHint}
           onPress={() => router.push('/settings' as Href)}
-          style={{ marginBottom: Spacing.two }}>
-          <ThemedText type="small" themeColor="tint">
+          style={({ pressed }) => [
+            styles.staleBanner,
+            {
+              backgroundColor: theme.backgroundSelected,
+              borderColor: theme.border,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.staleText}>
             {t.daily.pushHint}
           </ThemedText>
         </Pressable>
@@ -639,7 +768,10 @@ export default function DailyTasksScreen() {
       ) : null}
       {showSkeleton ? <DailySkeleton /> : null}
       {!showSkeleton && dayComplete ? (
-        <DayCompleteCard done={doneCount} total={totalCount} />
+        <View style={styles.completeStack}>
+          <DayCompleteCard done={doneCount} total={totalCount} />
+          <DayReviewCard onOpen={() => void openAgent(t.daily.agentSeedReview)} />
+        </View>
       ) : null}
       {!showSkeleton && nextStep ? (
         <NextStepCard
@@ -653,13 +785,13 @@ export default function DailyTasksScreen() {
           onProofTask={openProofForTask}
         />
       ) : null}
-      {!akis.error && !showSkeleton && totalCount === 0 ? (
+      {emptyMode !== 'hidden' && !akis.error ? (
         <SurfaceCard elevated>
           <ThemedText type="subtitle">{t.daily.emptyTitle}</ThemedText>
           <ThemedText themeColor="textSecondary">
             {hasActivePlan ? t.daily.emptyBody : t.plan.emptyBody}
           </ThemedText>
-          {needsExtension ? (
+          {emptyMode === 'extend' ? (
             <Pressable
               accessibilityRole="button"
               disabled={extending}
@@ -677,17 +809,28 @@ export default function DailyTasksScreen() {
               )}
             </Pressable>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/explore' as Href)}
-              style={({ pressed }) => [
-                styles.emptyCta,
-                { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
-                {t.daily.emptyAction}
+            <View style={styles.emptyActions}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {t.daily.microStepHint}
               </ThemedText>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (emptyMode === 'chat') {
+                    router.push('/(tabs)' as Href);
+                    return;
+                  }
+                  void openAgent(t.daily.agentSeedStep);
+                }}
+                style={({ pressed }) => [
+                  styles.emptyCta,
+                  { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  {emptyMode === 'chat' ? t.daily.openChatCta : t.daily.emptyAction}
+                </ThemedText>
+              </Pressable>
+            </View>
           )}
         </SurfaceCard>
       ) : null}
@@ -703,19 +846,40 @@ export default function DailyTasksScreen() {
           renderItem={renderTask}
           ListHeaderComponent={listHeader}
           ListFooterComponent={
-            !showSkeleton && events.length > 0 ? (
+            !showSkeleton && (events.length > 0 || (totalCount > 0 && hasActivePlan && !dayComplete)) ? (
               <View style={styles.eventsBlock}>
-                <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.events.sectionHint(ScoringRules.planEtkinlik)}
-                </ThemedText>
-                <EventsTimeline
-                  events={events}
-                  nowMinutes={nowMinutes}
-                  busyKey={busy}
-                  outcomes={outcomes}
-                  onComplete={(event) => void completeEvent(event)}
-                />
+                {totalCount > 0 && hasActivePlan && !dayComplete ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t.daily.emptyAction}
+                    onPress={() => void openAgent(t.daily.agentSeedStep)}
+                    style={({ pressed }) => [
+                      styles.microStep,
+                      { borderColor: theme.border, opacity: pressed ? 0.8 : 1 },
+                    ]}>
+                    <ThemedText type="smallBold" themeColor="tint">
+                      {t.daily.emptyAction}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.daily.microStepHint}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+                {events.length > 0 ? (
+                  <>
+                    <ThemedText type="subtitle">{t.events.sectionTitle}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.events.sectionHint(ScoringRules.planEtkinlik)}
+                    </ThemedText>
+                    <EventsTimeline
+                      events={events}
+                      nowMinutes={nowMinutes}
+                      busyKey={busy}
+                      outcomes={outcomes}
+                      onComplete={(event) => void completeEvent(event)}
+                    />
+                  </>
+                ) : null}
               </View>
             ) : null
           }
@@ -749,13 +913,12 @@ export default function DailyTasksScreen() {
               facing="back"
               active={cameraTask !== null}
               onCameraReady={() => setCameraReady(true)}
-              onMountError={(event) => {
-                const message = event.message || t.daily.cameraFailed;
-                setCameraError(message);
+              onMountError={() => {
+                setCameraError(t.daily.cameraFailed);
                 if (cameraTask) {
                   setOutcome(cameraTask.id, {
                     tone: 'danger',
-                    message: t.daily.cameraOpenFailed(message),
+                    message: t.daily.cameraFailed,
                   });
                 }
                 setCameraTask(null);
@@ -804,6 +967,15 @@ export default function DailyTasksScreen() {
       />
 
       {/* faz8.13/2a: mistik panel — Bugün ile senkron bottom sheet. */}
+      <PlanAgentSheet
+        visible={agentOpen}
+        planId={agentPlanId}
+        planName={agentPlanName}
+        seed={agentSeed}
+        onClose={() => setAgentOpen(false)}
+        onEventsChanged={() => invalidateGunlukAkis()}
+      />
+
       <MysticPanel visible={mysticPanel.visible} onClose={mysticPanel.close} />
     </ThemedView>
   );
@@ -811,31 +983,41 @@ export default function DailyTasksScreen() {
 
 const TaskCard = memo(function TaskCard({
   task,
+  steps,
   outcome,
   busy,
   emphasis,
   iradeActive,
   onOpenCamera,
+  onToggleStep,
   onExcuse,
   onDeviceAction,
   onLongPressEdit,
+  onOpenSteps,
 }: {
   task: DailyTask;
+  steps: TaskStep[];
   outcome?: Outcome;
   busy: string | null;
   emphasis: 'hero' | 'lifted' | 'muted';
   iradeActive: boolean;
   onOpenCamera: () => void;
+  onToggleStep: (stepId: string) => void;
   onExcuse: () => void;
   onDeviceAction: (action: 'notification' | 'calendar') => void;
   onLongPressEdit: () => void;
+  onOpenSteps: () => void;
 }) {
   const theme = useTheme();
   const { t } = useLocale();
   const scheme = useColorScheme();
   const scrimColor = (scheme === 'dark' ? ImageScrim.dark : ImageScrim.light)[1];
   const pending = task.status === 'pending';
+  const missed = task.status === 'missed_silent' || task.status === 'missed_excused';
+  const markState = task.status === 'done' ? 'done' : missed ? 'missed' : 'pending';
   const willpowerTask = supportsWillpowerReminder(task);
+  const coverUri = safeImageUri(task.image_url);
+  const categories = task.categories ?? [];
   const celebrate = outcome?.tone === 'success' || task.status === 'done';
   const awardedPoints =
     outcome?.tone === 'success' ? awardedPointsFromMessage(outcome.message, 0) : 0;
@@ -844,8 +1026,10 @@ const TaskCard = memo(function TaskCard({
     <View style={styles.cardShell}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={t.plan.openSteps}
         accessibilityHint={pending ? t.common.longPressEdit : undefined}
         delayLongPress={380}
+        onPress={onOpenSteps}
         onLongPress={onLongPressEdit}>
         <SurfaceCard
           style={{
@@ -854,9 +1038,9 @@ const TaskCard = memo(function TaskCard({
           }}
           elevated={emphasis === 'lifted'}
           hero={emphasis === 'hero'}>
-          {!!task.image_url && (
+          {coverUri ? (
             <ThemedView style={styles.imageWrapper}>
-              <Image source={{ uri: task.image_url }} style={styles.taskImage} contentFit="cover" />
+              <Image source={{ uri: coverUri }} style={styles.taskImage} contentFit="cover" />
               {/* faz8.13/8: tek alt bant — görsel canlı kalır, yalnız alt kenar koyulaşır. */}
               <View
                 pointerEvents="none"
@@ -892,7 +1076,7 @@ const TaskCard = memo(function TaskCard({
                 </Pressable>
               )}
             </ThemedView>
-          )}
+          ) : null}
           <ThemedView
             style={[
               styles.cardBody,
@@ -901,7 +1085,7 @@ const TaskCard = memo(function TaskCard({
             <View style={styles.cardHeader}>
               <View style={styles.cardTitle}>
                 <View style={styles.badgeRow}>
-                  <CategoryBadge label={task.categories[0] ?? 'İstikrar'} />
+                  <CategoryBadge label={categories[0] ?? 'İstikrar'} />
                   <CategoryBadge label={task.plan_name} variant="points" />
                 </View>
                 <ThemedText type="subtitle" style={styles.taskTitle}>
@@ -909,16 +1093,57 @@ const TaskCard = memo(function TaskCard({
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   {task.duration_min} dk
-                  {task.categories.length > 1 ? ` · ${task.categories.slice(1).join(' · ')}` : ''}
+                  {categories.length > 1 ? ` · ${categories.slice(1).join(' · ')}` : ''}
                 </ThemedText>
               </View>
-              <StatusPill status={task.status} />
+              <CompletionMark
+                state={markState}
+                busy={busy === `proof:${task.id}`}
+                label={
+                  task.status === 'done'
+                    ? `${t.daily.statusDone}: ${task.title}`
+                    : missed
+                      ? `${t.daily.statusMissed}: ${task.title}`
+                      : `${t.daily.addProof}: ${task.title}`
+                }
+                onPress={pending ? onOpenCamera : undefined}
+              />
             </View>
             {!!task.tiny_version && (
               <ThemedText themeColor="textSecondary">
                 {t.daily.tinyPrefix}: {task.tiny_version}
               </ThemedText>
             )}
+            {steps.length > 0 ? (
+              <View style={styles.steps}>
+                {steps.map((step) => (
+                  <Pressable
+                    key={step.id}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: step.done }}
+                    accessibilityLabel={step.title}
+                    disabled={busy === `step:${task.id}:${step.id}`}
+                    onPress={() => onToggleStep(step.id)}
+                    style={styles.stepRow}>
+                    <CompletionMark
+                      decorative
+                      state={step.done ? 'done' : 'pending'}
+                      busy={busy === `step:${task.id}:${step.id}`}
+                      label={step.title}
+                    />
+                    <ThemedText
+                      type="small"
+                      themeColor={step.done ? 'textSecondary' : 'text'}
+                      style={step.done ? styles.stepDone : undefined}>
+                      {step.title}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+                <ThemedText type="small" themeColor="textSecondary">
+                  {t.daily.stepsHint}
+                </ThemedText>
+              </View>
+            ) : null}
             {outcome ? (
               <View style={styles.outcomeRow}>
                 <ThemedText themeColor={outcome.tone}>{outcome.message}</ThemedText>
@@ -966,21 +1191,6 @@ const TaskCard = memo(function TaskCard({
   );
 });
 
-function StatusPill({ status }: { status: Task['status'] }) {
-  const { t } = useLocale();
-  const labels: Record<Task['status'], string> = {
-    pending: t.daily.statusPending,
-    done: t.daily.statusDone,
-    missed_silent: t.daily.statusMissed,
-    missed_excused: t.daily.statusExcused,
-  };
-  return (
-    <ThemedView type="backgroundSelected" style={styles.pill}>
-      <ThemedText type="smallBold">{labels[status]}</ThemedText>
-    </ThemedView>
-  );
-}
-
 function TaskButton({
   label,
   onPress,
@@ -1000,7 +1210,7 @@ function TaskButton({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: primary ? theme.accentWarm : theme.surfaceMuted,
+          backgroundColor: primary ? theme.tint : theme.surfaceMuted,
           opacity: pressed || busy ? 0.65 : 1,
         },
       ]}>
@@ -1034,16 +1244,48 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: Spacing.three,
   },
+  todayHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    minHeight: 44,
+  },
+  todayTitles: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  todayTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  dayBadge: {
+    minWidth: 28,
+    minHeight: 28,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerChip: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressCard: {
+    paddingVertical: Spacing.three,
+  },
   progressBlock: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
   },
-  progressMeta: {
+  progressCopy: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.half,
   },
   staleBanner: {
     flexDirection: 'row',
@@ -1074,14 +1316,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyActions: {
+    gap: Spacing.two,
+  },
+  completeStack: {
+    gap: Spacing.two,
+  },
+  microStep: {
+    minHeight: 44,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radii.medium,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    gap: Spacing.half,
+    justifyContent: 'center',
+  },
+  steps: {
+    gap: Spacing.one,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    minHeight: 44,
+  },
+  stepDone: {
+    textDecorationLine: 'line-through',
+  },
   headerLinks: {
     flexDirection: 'row',
     gap: Spacing.one,
   },
-  bonusLink: {
-    minHeight: 40,
+  mysticLink: {
+    minHeight: 44,
+    minWidth: 44,
     borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1146,11 +1416,6 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   cardTitle: { flex: 1, gap: Spacing.one },
-  pill: {
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-  },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   button: {
     minHeight: 44,

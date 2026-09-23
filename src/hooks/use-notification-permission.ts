@@ -5,6 +5,7 @@ import {
   disablePushNotifications,
   enablePushNotifications,
   getPushStatus,
+  reconcilePushWithSystem,
   type PushStatus,
 } from '@/lib/push-notifications';
 import { captureException } from '@/lib/sentry';
@@ -23,7 +24,16 @@ export function useNotificationPermission(userId: string | null) {
   const refresh = useCallback(async () => {
     if (!userId) return;
     try {
-      setStatus(await getPushStatus(userId));
+      const next = await reconcilePushWithSystem(userId);
+      setStatus(next);
+      if (
+        next.state === 'ready' ||
+        next.state === 'denied' ||
+        next.state === 'undetermined' ||
+        next.state === 'granted_no_token'
+      ) {
+        setError(null);
+      }
     } catch (value) {
       captureException(value, 'hook:push-refresh');
       setError(value instanceof Error ? value.message : uiCopy().settings.pushStatusFailed);
@@ -39,31 +49,35 @@ export function useNotificationPermission(userId: string | null) {
   }, []);
 
   const setEnabled = useCallback(
-    async (enabled: boolean) => {
-      if (!userId || busy) return;
+    async (enabled: boolean): Promise<PushStatus | null> => {
+      if (!userId || busy) return null;
       setBusy(true);
       setError(null);
       try {
-        // Kalıcı rette sistemi yorma — doğrudan ayarlara gönder.
         if (enabled && status?.state === 'denied') {
           await Linking.openSettings().catch((value: unknown) =>
             captureException(value, 'hook:push-settings'),
           );
-          setStatus(await getPushStatus(userId));
-          return;
+          const next = await getPushStatus(userId);
+          setStatus(next);
+          return next;
         }
         const next = enabled
           ? await enablePushNotifications(userId)
           : await disablePushNotifications(userId);
         setStatus(next);
+        return next;
       } catch (value) {
         captureException(value, 'hook:push-toggle');
-        setError(value instanceof Error ? value.message : uiCopy().settings.notifPrefFailed);
+        console.error('push:toggle', value);
+        const message = value instanceof Error ? value.message : uiCopy().settings.pushStatusFailed;
+        setError(message === uiCopy().settings.notifPrefFailed ? uiCopy().settings.pushStatusFailed : message);
         try {
           setStatus(await getPushStatus(userId));
         } catch {
           // Yenileme hatası sessiz — mevcut durum korunur.
         }
+        return null;
       } finally {
         setBusy(false);
       }
