@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <ThemedText
                 type="smallBold"
                 style={
-                  durum.ton === 'basari' ? { color: theme.onAccent } : undefined
+                  durum.ton === 'basari' ? { color: theme.onFill } : undefined
                 }>
                 {durum.ileti}
               </ThemedText>

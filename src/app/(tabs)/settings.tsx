@@ -300,7 +300,10 @@ export default function SettingsScreen() {
                       ? t.settings.premium
                       : subscriptionStatus?.status === 'trial'
                         ? t.settings.subTrial(subscriptionStatus.trial_days_remaining)
-                        : t.settings.subEnded}
+                        : subscriptionStatus?.status === 'expired' ||
+                            subscriptionStatus?.status === 'cancelled'
+                          ? t.settings.subEnded
+                          : t.settings.subFree}
                   </ThemedText>
                 </View>
               </View>
@@ -309,7 +312,12 @@ export default function SettingsScreen() {
                   ? zodiacDisplayName(previewZodiac, t.zodiac)
                   : subscriptionStatus?.status === 'active'
                     ? t.settings.subActive
-                    : t.settings.subTrial(subscriptionStatus?.trial_days_remaining ?? 0)}
+                    : subscriptionStatus?.status === 'trial'
+                      ? t.settings.subTrial(subscriptionStatus.trial_days_remaining)
+                      : subscriptionStatus?.status === 'expired' ||
+                          subscriptionStatus?.status === 'cancelled'
+                        ? t.settings.subEnded
+                        : t.settings.subFree}
               </ThemedText>
             </View>
           </View>
@@ -346,7 +354,7 @@ export default function SettingsScreen() {
                 styles.proCta,
                 { backgroundColor: theme.accentWarm, opacity: pressed ? 0.88 : 1 },
               ]}>
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                 {t.paywall.subscribeCta}
               </ThemedText>
             </Pressable>
@@ -563,9 +571,10 @@ export default function SettingsScreen() {
                 ? t.settings.premium
                 : subscriptionStatus?.status === 'trial'
                   ? t.settings.subTrial(subscriptionStatus.trial_days_remaining)
-                  : subscriptionStatus?.show_paywall
+                  : subscriptionStatus?.status === 'expired' ||
+                      subscriptionStatus?.status === 'cancelled'
                     ? t.settings.subEnded
-                    : '…'
+                    : t.settings.subFree
             }
           />
           {subscriptionStatus?.show_paywall
@@ -900,7 +909,7 @@ function ActionButton({
 }) {
   const theme = useTheme();
   const color = danger ? theme.danger : theme.accentWarm;
-  const labelColor = danger ? theme.background : theme.onAccent;
+  const labelColor = danger ? theme.background : theme.onFill;
   return (
     <Pressable
       disabled={busy}

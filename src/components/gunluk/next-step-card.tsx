@@ -93,9 +93,9 @@ export const NextStepCard = memo(function NextStepCard({
           { backgroundColor: theme.tint, opacity: pressed || busy ? 0.85 : 1 },
         ]}>
         {busy ? (
-          <ActivityIndicator color={theme.onAccent} />
+          <ActivityIndicator color={theme.onFill} />
         ) : (
-          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
             {isEvent ? t.events.markDone : t.daily.addProof}
           </ThemedText>
         )}
@@ -127,7 +127,7 @@ export const DayReviewCard = memo(function DayReviewCard({ onOpen }: { onOpen: (
           styles.action,
           { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
         ]}>
-        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+        <ThemedText type="smallBold" style={{ color: theme.onFill }}>
           {t.daily.dayReviewCta}
         </ThemedText>
       </Pressable>

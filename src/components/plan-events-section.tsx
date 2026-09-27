@@ -145,7 +145,7 @@ export function PlanEventsSection({ planId, planName, reloadKey = 0, onChanged }
             styles.action,
             { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
           ]}>
-          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
             ✦ {t.events.agentOpen}
           </ThemedText>
         </Pressable>

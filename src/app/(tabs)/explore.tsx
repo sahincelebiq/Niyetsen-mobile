@@ -77,6 +77,7 @@ export default function PlanScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [weekError, setWeekError] = useState<string | null>(null);
   const [focusedDay, setFocusedDay] = useState<number | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [horizonDenied, setHorizonDenied] = useState(false);
@@ -85,6 +86,27 @@ export default function PlanScreen() {
   const [extending, setExtending] = useState(false);
   // Etkinlik bölümü kendi verisini çeker; ekran yenilenince o da yenilensin.
   const [eventsReloadKey, setEventsReloadKey] = useState(0);
+
+  const loadWeek = useCallback(async () => {
+    setExtending(true);
+    setWeekError(null);
+    try {
+      const next = await ensureTodayPlan();
+      setPlan(next);
+      setHorizonDenied(false);
+      horizonWatch.current = '';
+      horizonKey.current = null;
+      invalidateGunlukAkis();
+    } catch (extendError) {
+      if (isPaywallError(extendError)) {
+        setHorizonDenied(true);
+      } else {
+        setWeekError(extendError instanceof ApiError ? extendError.message : t.plan.generateFailed);
+      }
+    } finally {
+      setExtending(false);
+    }
+  }, [t.plan.generateFailed]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -118,7 +140,7 @@ export default function PlanScreen() {
               if (pastHorizon && isPaywallError(extendError)) {
                 setHorizonDenied(true);
               } else {
-                setError(
+                setWeekError(
                   extendError instanceof ApiError
                     ? extendError.message
                     : t.plan.generateFailed,
@@ -285,7 +307,7 @@ export default function PlanScreen() {
                     styles.ctaButton,
                     { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
                   ]}>
-                  <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                     {t.common.proCta}
                   </ThemedText>
                 </Pressable>
@@ -297,19 +319,27 @@ export default function PlanScreen() {
               </ThemedText>
             ) : null}
             {focusedMissing ? (
-              <ThemedText type="small" themeColor="textSecondary" style={{ paddingHorizontal: Spacing.three }}>
-                {t.plan.weekEmpty}
-              </ThemedText>
+              extending ? (
+                <View style={styles.cardSkeleton} accessibilityRole="progressbar">
+                  <View style={[styles.skeletonImage, { backgroundColor: theme.backgroundSelected }]} />
+                  <View style={[styles.skeletonLine, { backgroundColor: theme.backgroundSelected }]} />
+                </View>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary" style={{ paddingHorizontal: Spacing.three }}>
+                  {t.plan.weekEmpty}
+                </ThemedText>
+              )
             ) : null}
             {canExtend ? (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => void load(true)}
+                disabled={extending}
+                onPress={() => void loadWeek()}
                 style={({ pressed }) => [
                   styles.ctaButton,
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1, marginHorizontal: Spacing.three },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.plan.extendCta}
                 </ThemedText>
               </Pressable>
@@ -339,14 +369,18 @@ export default function PlanScreen() {
                 { backgroundColor: theme.accentWarm },
                 pressed && styles.pressed,
               ]}>
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                 {t.plan.startChat}
               </ThemedText>
             </Pressable>
           </SurfaceCard>
         )}
 
-        {!loading && !error && plan && (
+        {!loading && weekError && plan ? (
+          <ErrorBanner message={weekError} onRetry={() => void loadWeek()} retrying={extending} />
+        ) : null}
+
+        {!loading && plan && (
           <PlanEventsSection
             planId={plan.id}
             planName={plan.name ?? t.events.planNameFallback}
@@ -355,7 +389,7 @@ export default function PlanScreen() {
           />
         )}
 
-        {!loading && !error && plan && (
+        {!loading && plan && (
           <ThemedView style={styles.daysWrapper}>
             {visibleDays.map((day) => (
               <DaySection
@@ -513,7 +547,7 @@ function DayStrip({
             <ThemedText
               type="smallBold"
               themeColor={isPast && !isToday ? 'textSecondary' : 'text'}
-              style={isToday ? { color: theme.onAccent } : undefined}>
+              style={isToday ? { color: theme.onFill } : undefined}>
               {day}
             </ThemedText>
           </Pressable>
@@ -754,6 +788,22 @@ const styles = StyleSheet.create({
   centerBlock: {
     paddingVertical: Spacing.six,
     alignItems: 'center',
+  },
+  cardSkeleton: {
+    marginHorizontal: Spacing.three,
+    borderRadius: Radii.large,
+    overflow: 'hidden',
+    gap: Spacing.two,
+  },
+  skeletonImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: Radii.medium,
+  },
+  skeletonLine: {
+    height: 14,
+    width: '62%',
+    borderRadius: Radii.pill,
   },
   emptyState: {
     alignItems: 'center',

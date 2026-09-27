@@ -308,9 +308,9 @@ function BonusButton({
         { backgroundColor: theme.accentWarm, opacity: pressed || locked ? 0.45 : 1 },
       ]}>
       {busy ? (
-        <ActivityIndicator color={theme.onAccent} />
+        <ActivityIndicator color={theme.onFill} />
       ) : (
-        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+        <ThemedText type="smallBold" style={{ color: theme.onFill }}>
           {label}
         </ThemedText>
       )}

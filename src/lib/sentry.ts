@@ -40,7 +40,7 @@ function loadSdk(): SentrySdk | null {
 function surumBilgisi(): { release: string; dist: string } {
   const cfg = Constants.expoConfig;
   const ad = cfg?.slug ?? 'niyetsen';
-  const surum = cfg?.version ?? '1.1.2';
+  const surum = cfg?.version ?? '1.2.3';
   const dagitim = Constants.nativeBuildVersion ?? Constants.nativeAppVersion ?? '0';
   return { release: `${ad}@${surum}`, dist: String(dagitim) };
 }

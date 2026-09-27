@@ -71,6 +71,7 @@ export type Messages = {
     signIn: string;
     signUp: string;
     switchToSignUp: string;
+    noAccount: string;
     switchToSignIn: string;
     verifySent: string;
     passwordUpdated: string;
@@ -514,6 +515,7 @@ export type Messages = {
     syncing: string;
     restoreSyncing: string;
     notYetActive: string;
+    featureLocked: string;
     priceLoading: string;
     storeUnavailable: string;
     retryPrices: string;
@@ -588,6 +590,7 @@ export type Messages = {
     subActive: string;
     subTrial: (days: number) => string;
     subEnded: string;
+    subFree: string;
     goPro: string;
     manageSub: string;
     restorePurchases: string;

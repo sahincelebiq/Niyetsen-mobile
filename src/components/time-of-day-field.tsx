@@ -112,7 +112,7 @@ export function TimeOfDayField({ label, hint, doneLabel, value, onChange }: Time
                 styles.doneButton,
                 { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
               ]}>
-              <ThemedText style={{ color: theme.onAccent }} type="smallBold">
+              <ThemedText style={{ color: theme.onFill }} type="smallBold">
                 {doneLabel}
               </ThemedText>
             </Pressable>

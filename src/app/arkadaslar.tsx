@@ -173,12 +173,12 @@ export default function LeagueScreen() {
               },
             ]}>
             {busy ? (
-              <ActivityIndicator color={theme.onAccent} />
+              <ActivityIndicator color={theme.onFill} />
             ) : (
               <ThemedText
                 type="smallBold"
                 style={{
-                  color: alias.trim().length < 2 ? theme.textSecondary : theme.onAccent,
+                  color: alias.trim().length < 2 ? theme.textSecondary : theme.onFill,
                 }}>
                 {t.league.joinCta}
               </ThemedText>
@@ -300,7 +300,7 @@ export default function LeagueScreen() {
                 styles.cta,
                 { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
               ]}>
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                 {t.common.done}
               </ThemedText>
             </Pressable>

@@ -60,6 +60,7 @@ export const de: Messages = {
     signIn: 'Anmelden',
     signUp: 'Registrieren',
     switchToSignUp: 'Noch kein Konto? Registrieren',
+    noAccount: 'Noch kein Konto?',
     switchToSignIn: 'Schon ein Konto? Anmelden',
     verifySent: 'Niyetsen hat einen Bestätigungscode an deine E-Mail gesendet.',
     passwordUpdated: 'Dein Passwort wurde aktualisiert.',
@@ -498,10 +499,10 @@ export const de: Messages = {
     title: 'Deine Kette wartet',
     brandTitle: 'Niyetsen PRO',
     body:
-      'Alles bleibt sichtbar. Chat ist unbegrenzt und kostenlos. Mit dem Kauf öffnen sich Plan, Wege, Mystik, Berichte und Gefährten.',
+      'Alles bleibt sichtbar. Chat ist unbegrenzt und kostenlos. PRO öffnet den Rest des Plans, den Nachweis, eine zweite Absicht und den 30-Tage-Bericht.',
     trialEnded: 'Deine Testphase ist vorbei — deine Absicht bleibt.',
     closedTesterHint:
-      'In einem geschlossenen Test muss deine Anmelde-E-Mail auf der Testerliste stehen. Die Store-Einladung allein reicht nicht.',
+      'Der geschlossene Test läuft wie der Store. Die Gratisversion ist offen; PRO öffnet sich mit einem Google-Play-Kauf.',
     subscribeCta: 'Abonnieren',
     restoreShort: 'Wiederherstellen',
     cancelAnytime: 'Du kannst jederzeit im App Store oder bei Google Play kündigen.',
@@ -523,6 +524,7 @@ export const de: Messages = {
     restoreSyncing: 'Wiederherstellung fertig; die Synchronisation kann kurz dauern.',
     notYetActive:
       'Das Abo ist noch nicht aktiv. Warte ein paar Sekunden, dann Wiederherstellen oder erneut versuchen.',
+    featureLocked: 'Das ist eine PRO-Funktion. Deine Absicht bleibt — sie öffnet sich mit dem Abo.',
     priceLoading: 'Preis wird geladen…',
     storeUnavailable: 'Store-Preise fehlen. Erneut versuchen — wir erfinden keinen Preis.',
     retryPrices: 'Preise aktualisieren',
@@ -565,6 +567,7 @@ export const de: Messages = {
     subActive: 'Abo aktiv',
     subTrial: (days) => `Test · ${days} T.`,
     subEnded: 'Beendet',
+    subFree: 'Kostenlos',
     goPro: 'Zu PRO',
     manageSub: 'Abo verwalten',
     restorePurchases: 'Käufe wiederherstellen',

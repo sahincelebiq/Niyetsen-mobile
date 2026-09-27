@@ -127,7 +127,7 @@ export function PlanEventEditor({ visible, planId, onClose, onCreated }: Props) 
       borderColor: selected ? theme.tint : theme.border,
     },
   ];
-  const chipText = (selected: boolean) => ({ color: selected ? theme.onAccent : theme.text });
+  const chipText = (selected: boolean) => ({ color: selected ? theme.onFill : theme.text });
   const overlayOpacity = scheme === 'dark' ? 0.55 : 0.32;
 
   return (
@@ -283,9 +283,9 @@ export function PlanEventEditor({ visible, planId, onClose, onCreated }: Props) 
                 { backgroundColor: theme.accentWarm, opacity: pressed || saving ? 0.85 : 1 },
               ]}>
               {saving ? (
-                <ActivityIndicator color={theme.onAccent} />
+                <ActivityIndicator color={theme.onFill} />
               ) : (
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.events.addAction}
                 </ThemedText>
               )}

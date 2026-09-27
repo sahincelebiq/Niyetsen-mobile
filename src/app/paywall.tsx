@@ -133,7 +133,9 @@ export default function PaywallScreen() {
     }
   }
 
-  const shouldRedirectHome = Boolean(status?.has_premium_access && !status.show_paywall);
+  // Yalnız ödenmiş hesap çıksın. free/trial `has_premium_access` taşıyabiliyor;
+  // o bayrakla replace('/') mağazayı açmadan kapatıyordu.
+  const shouldRedirectHome = status?.status === 'active';
   useEffect(() => {
     if (shouldRedirectHome) {
       router.replace('/' as Href);
@@ -371,9 +373,9 @@ export default function PaywallScreen() {
                 pressed && busy === null && selectedHasPrice ? { opacity: 0.9 } : null,
               ]}>
               {subscribeBusy ? (
-                <ActivityIndicator color={theme.onAccent} />
+                <ActivityIndicator color={theme.onFill} />
               ) : (
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.paywall.subscribeCta}
                 </ThemedText>
               )}

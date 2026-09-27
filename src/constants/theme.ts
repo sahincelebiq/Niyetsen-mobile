@@ -25,6 +25,8 @@ export const Colors = {
     success: '#3A8A4C',
     danger: '#C94F44',
     onAccent: '#FFFCF4',
+    /** Dolgulu tint / accentWarm üstü. Light’ta krem. Fotoğraf bandı `onAccent` kullanır. */
+    onFill: '#FFFCF4',
     surfaceMuted: '#F1F3E8',
     categoryBadge: '#E2F0E0',
     categoryBadgeText: '#2F6B3E',
@@ -46,6 +48,8 @@ export const Colors = {
     success: '#86C992',
     danger: '#E98F85',
     onAccent: '#FFF8EE',
+    /** Soft dark aksanı açık; krem yazı ~2:1 kalır. Dolguda kömür, scrim’de `onAccent`. */
+    onFill: '#14161C',
     surfaceMuted: '#22262E',
     categoryBadge: '#243028',
     categoryBadgeText: '#B4D4AC',

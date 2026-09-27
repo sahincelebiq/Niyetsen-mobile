@@ -434,9 +434,9 @@ function PrimaryButton({
         },
       ]}>
       {busy ? (
-        <ActivityIndicator color={theme.onAccent} />
+        <ActivityIndicator color={theme.onFill} />
       ) : (
-        <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+        <ThemedText type="smallBold" style={{ color: theme.onFill }}>
           {label}
         </ThemedText>
       )}
@@ -532,7 +532,7 @@ function DateGrid({
                 <ThemedText
                   type="smallBold"
                   style={{
-                    color: selected ? theme.onAccent : disabled ? theme.textSecondary : theme.text,
+                    color: selected ? theme.onFill : disabled ? theme.textSecondary : theme.text,
                   }}>
                   {Number(iso.slice(8, 10))}
                 </ThemedText>

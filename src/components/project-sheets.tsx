@@ -314,9 +314,9 @@ export function PlanPickerSheet({
               { backgroundColor: theme.accentWarm, opacity: pressed ? 0.85 : 1 },
             ]}>
             {busyId === 'new' ? (
-              <ActivityIndicator color={theme.onAccent} />
+              <ActivityIndicator color={theme.onFill} />
             ) : (
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                 Yeni Plan Ekle
               </ThemedText>
             )}

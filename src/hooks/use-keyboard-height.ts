@@ -90,6 +90,7 @@ export function useKeyboardLift(
   const bottomInset = opts.bottomInset ?? 0;
   const [state, setState] = useState<KeyboardLiftState>(KEYBOARD_CLOSED);
   const frameRef = useRef<KeyboardFrame>(NO_KEYBOARD);
+  const restingBottomRef = useRef<number | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearTimers = useCallback(() => {
@@ -99,17 +100,19 @@ export function useKeyboardLift(
 
   const measureAndApply = useCallback(() => {
     const frame = frameRef.current;
-    if (!frame.open) {
-      setState(KEYBOARD_CLOSED);
-      return;
-    }
     const finish = (containerBottom: number | null) => {
-      // Ölçüm döndüğünde klavye kapanmış olabilir (hızlı dismiss) — eski kareyi uygulama.
-      if (!frameRef.current.open) return;
+      if (!frameRef.current.open) {
+        if (containerBottom != null && containerBottom > 1) {
+          restingBottomRef.current = containerBottom;
+        }
+        setState(KEYBOARD_CLOSED);
+        return;
+      }
       const lift = resolveKeyboardLift({
         keyboardHeight: frame.height,
         keyboardTop: frame.top,
         containerBottom,
+        restingBottom: restingBottomRef.current,
         bottomInset,
         gap,
         platformResizes: PLATFORM_RESIZES,
@@ -170,7 +173,7 @@ export function useKeyboardLift(
   }, [clearTimers, schedule]);
 
   const onLayout = useCallback(() => {
-    if (frameRef.current.open) measureAndApply();
+    measureAndApply();
   }, [measureAndApply]);
 
   return { ...state, onLayout };

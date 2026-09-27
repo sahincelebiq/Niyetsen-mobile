@@ -87,6 +87,39 @@ test('ölçüm yoksa yedek: iOS klavye yüksekliği, Android resize 0', () => {
   );
 });
 
+test('edge-to-edge: kap oynamadı, screenY dibi yalanlıyor → lift klavye yüksekliği', () => {
+  const lift = resolveKeyboardLift({
+    keyboardHeight: 320,
+    keyboardTop: 800,
+    containerBottom: 800,
+    restingBottom: 800,
+    platformResizes: true,
+  });
+  assert.equal(lift, 320 + KEYBOARD_GAP_PX);
+});
+
+test('gerçek resize: kap klavye kadar yükseldi → lift 0 (screenY yalanlasa da)', () => {
+  const lift = resolveKeyboardLift({
+    keyboardHeight: 320,
+    keyboardTop: 480,
+    containerBottom: 480,
+    restingBottom: 800,
+    platformResizes: true,
+  });
+  assert.equal(lift, 0);
+});
+
+test('kısmi resize: kalan örtüşme klavye yüksekliğinden düşülür', () => {
+  const lift = resolveKeyboardLift({
+    keyboardHeight: 320,
+    keyboardTop: 752,
+    containerBottom: 752,
+    restingBottom: 800,
+    platformResizes: true,
+  });
+  assert.equal(lift, 320 - 48 + KEYBOARD_GAP_PX);
+});
+
 test('klavye kapalıyken her durumda 0', () => {
   assert.equal(
     resolveKeyboardLift({

@@ -211,11 +211,11 @@ export function ChatPathsSheet({ visible, onClose, onTurnPath }: ChatPathsSheetP
                     },
                   ]}>
                   {busy ? (
-                    <ActivityIndicator size="small" color={theme.onAccent} />
+                    <ActivityIndicator size="small" color={locked ? theme.tint : theme.onFill} />
                   ) : (
                     <ThemedText
                       type="smallBold"
-                      style={{ color: locked ? theme.tint : theme.onAccent }}>
+                      style={{ color: locked ? theme.tint : theme.onFill }}>
                       {locked ? t.paths.startPro : t.chat.pathsSheet.turn}
                     </ThemedText>
                   )}

@@ -269,9 +269,9 @@ export function ConsentGate({ children }: PropsWithChildren) {
                   },
                 ]}>
                 {saving ? (
-                  <ActivityIndicator color={theme.onAccent} />
+                  <ActivityIndicator color={theme.onFill} />
                 ) : (
-                  <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                  <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                     {t.legal.gateSave}
                   </ThemedText>
                 )}

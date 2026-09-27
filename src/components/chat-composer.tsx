@@ -138,6 +138,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             accessibilityLabel={t.chat.inputPlaceholder}
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
+            scrollEnabled
             textAlignVertical="center"
             underlineColorAndroid="transparent"
             selectionColor={theme.tint}
@@ -178,7 +179,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             <ThemedText
               style={[
                 styles.sendGlyph,
-                { color: canSend ? theme.onAccent : theme.textSecondary },
+                { color: canSend ? theme.onFill : theme.textSecondary },
               ]}>
               ↑
             </ThemedText>
@@ -209,14 +210,14 @@ const styles = StyleSheet.create({
   },
   inputShell: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: Spacing.half,
-    borderRadius: Radii.pill,
+    borderRadius: Radii.large,
     borderWidth: StyleSheet.hairlineWidth,
     paddingLeft: Spacing.one,
     paddingRight: Spacing.one,
-    paddingVertical: Spacing.one,
-    minHeight: 56,
+    paddingVertical: Spacing.half,
+    minHeight: 48,
   },
   attachButton: {
     width: 44,
@@ -253,11 +254,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 36,
     fontSize: 16,
     lineHeight: 22,
-    // 5 satır + dikey padding; sonrasında kendi içinde kayar.
-    maxHeight: 126,
+    // ~4 satır; sonrası kutunun kendi içinde kayar, kabı şişirmez.
+    maxHeight: 104,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
     includeFontPadding: false,

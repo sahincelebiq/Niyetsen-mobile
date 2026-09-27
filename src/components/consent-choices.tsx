@@ -127,7 +127,7 @@ function ConsentRow({
           },
         ]}>
         {checked ? (
-          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
             ✓
           </ThemedText>
         ) : null}

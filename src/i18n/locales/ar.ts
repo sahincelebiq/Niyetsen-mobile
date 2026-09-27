@@ -60,6 +60,7 @@ export const ar: Messages = {
     signIn: 'تسجيل الدخول',
     signUp: 'إنشاء حساب',
     switchToSignUp: 'ليس لديك حساب؟ سجّل',
+    noAccount: 'ليس لديك حساب؟',
     switchToSignIn: 'لديك حساب؟ سجّل الدخول',
     verifySent: 'أرسلت نيتسن رمز التحقق إلى بريدك.',
     passwordUpdated: 'تم تحديث كلمة المرور.',
@@ -495,10 +496,10 @@ export const ar: Messages = {
     title: 'سلسلتك بانتظارك',
     brandTitle: 'Niyetsen PRO',
     body:
-      'كل شيء يبقى ظاهرًا. الدردشة مجانية بلا حد. الشراء يفتح الخطة والمسارات والروحانيات والتقارير والرفاق.',
+      'كل شيء يبقى ظاهرًا. الدردشة مجانية بلا حد. PRO يفتح بقية الخطة والإثبات والنية الثانية وتقرير 30 يومًا.',
     trialEnded: 'انتهت التجربة — نيتك لم تُحذف.',
     closedTesterHint:
-      'إذا كنت في الاختبار المغلق فيجب أن يكون بريد الدخول في قائمة المختبرين. دعوة المتجر وحدها لا تكفي.',
+      'الاختبار المغلق يتبع المتجر. النسخة المجانية مفتوحة؛ ميزات PRO تُفتح بشراء Google Play.',
     subscribeCta: 'اشترك',
     restoreShort: 'استعادة',
     cancelAnytime: 'يمكنك الإلغاء في أي وقت من App Store أو Google Play.',
@@ -520,6 +521,7 @@ export const ar: Messages = {
     restoreSyncing: 'اكتملت الاستعادة؛ قد تستغرق المزامنة ثواني.',
     notYetActive:
       'الاشتراك لم يفعّل بعد. انتظر ثواني ثم استعد المشتريات أو أعد المحاولة.',
+    featureLocked: 'هذه ميزة PRO. نيتك باقية — تُفتح عند الاشتراك.',
     priceLoading: 'جارٍ تحميل السعر…',
     storeUnavailable: 'لم تصل أسعار المتجر. أعد المحاولة — لا نخترع سعرًا.',
     retryPrices: 'تحديث الأسعار',
@@ -562,6 +564,7 @@ export const ar: Messages = {
     subActive: 'الاشتراك نشط',
     subTrial: (days) => `تجربة · ${days}ي`,
     subEnded: 'انتهى',
+    subFree: 'مجاني',
     goPro: 'انتقل إلى PRO',
     manageSub: 'إدارة الاشتراك',
     restorePurchases: 'استعادة المشتريات',

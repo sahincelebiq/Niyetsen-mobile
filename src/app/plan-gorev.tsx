@@ -254,7 +254,7 @@ export default function PlanGorevScreen() {
                         opacity: !draft.trim() || saving ? 0.45 : pressed ? 0.85 : 1,
                       },
                     ]}>
-                    <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                    <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                       {saving ? t.common.saving : t.plan.stepsAdd}
                     </ThemedText>
                   </Pressable>

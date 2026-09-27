@@ -100,7 +100,7 @@ function KurtarmaEkrani({
             styles.birincil,
             { backgroundColor: theme.tint, opacity: pressed ? 0.8 : 1 },
           ]}>
-          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
             {metinler.tekrarDene}
           </ThemedText>
         </Pressable>

@@ -60,6 +60,7 @@ export const fr: Messages = {
     signIn: 'Se connecter',
     signUp: "S'inscrire",
     switchToSignUp: 'Pas de compte ? Inscris-toi',
+    noAccount: 'Pas de compte ?',
     switchToSignIn: 'Déjà un compte ? Connecte-toi',
     verifySent: 'Niyetsen a envoyé un code de vérification à ton e-mail.',
     passwordUpdated: 'Ton mot de passe a été mis à jour.',
@@ -497,10 +498,10 @@ export const fr: Messages = {
     title: 'Ta chaîne t’attend',
     brandTitle: 'Niyetsen PRO',
     body:
-      'Tout reste visible. Le chat est illimité et gratuit. L’achat ouvre plan, chemins, mystique, rapports et compagnons.',
+      'Tout reste visible. Le chat est illimité et gratuit. PRO ouvre la suite du plan, la preuve, une deuxième intention et le rapport de 30 jours.',
     trialEnded: 'Ton essai est terminé — ton intention n’a pas été effacée.',
     closedTesterHint:
-      'En test fermé, l’e-mail de connexion doit être sur la liste. L’invitation magasin ne suffit pas.',
+      'Le test fermé suit la boutique. La version gratuite est ouverte ; PRO s’ouvre avec un achat Google Play.',
     subscribeCta: 'S’abonner',
     restoreShort: 'Restaurer',
     cancelAnytime: 'Tu peux annuler à tout moment sur l’App Store ou Google Play.',
@@ -522,6 +523,7 @@ export const fr: Messages = {
     restoreSyncing: 'Restauration terminée ; la synchro peut prendre quelques secondes.',
     notYetActive:
       'L’abonnement n’est pas encore actif. Attends quelques secondes, puis Restaurer ou réessaie.',
+    featureLocked: 'C’est une fonction PRO. Ton intention reste — elle s’ouvre avec l’abonnement.',
     priceLoading: 'Chargement du prix…',
     storeUnavailable: 'Les prix magasin n’arrivent pas. Réessaie — on n’invente jamais un prix.',
     retryPrices: 'Actualiser les prix',
@@ -564,6 +566,7 @@ export const fr: Messages = {
     subActive: 'Abonnement actif',
     subTrial: (days) => `Essai · ${days} j`,
     subEnded: 'Terminé',
+    subFree: 'Gratuit',
     goPro: 'Passer PRO',
     manageSub: 'Gérer l’abonnement',
     restorePurchases: 'Restaurer les achats',

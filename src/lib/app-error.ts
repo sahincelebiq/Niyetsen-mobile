@@ -246,7 +246,7 @@ export function hataMesaji(hata: UygulamaHatasi, t: Messages): string {
     case 'kota':
       return hata instanceof KotaHatasi && hata.hizSiniri
         ? t.common.rateLimited
-        : t.paywall.notYetActive;
+        : t.paywall.featureLocked;
     case 'dogrulama':
       return hata instanceof DogrulamaHatasi && hata.alanMesaji
         ? hata.alanMesaji

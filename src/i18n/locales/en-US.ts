@@ -60,6 +60,7 @@ export const enUS: Messages = {
     signIn: 'Sign in',
     signUp: 'Sign up',
     switchToSignUp: 'No account? Sign up',
+    noAccount: 'No account?',
     switchToSignIn: 'Already have an account? Sign in',
     verifySent: 'Niyetsen sent a verification code to your email.',
     passwordUpdated: 'Your password was updated.',
@@ -496,10 +497,10 @@ export const enUS: Messages = {
     title: 'Your streak is waiting',
     brandTitle: 'Niyetsen PRO',
     body:
-      'Everything stays visible. Chat is unlimited and free. Buying unlocks plan, paths, mystic, reports and companions.',
+      'Everything stays visible. Chat is unlimited and free. PRO unlocks the rest of the plan, proof, a second intention and the 30-day report.',
     trialEnded: 'Your trial ended — your intention was not deleted.',
     closedTesterHint:
-      'If you are in closed testing, your sign-in email must be on the test list. A store invite alone is not enough.',
+      'Closed testing uses the store flow. The free version is open; PRO features unlock with a Google Play purchase.',
     subscribeCta: 'Subscribe',
     restoreShort: 'Restore',
     cancelAnytime: 'You can cancel anytime in the App Store or Google Play.',
@@ -521,6 +522,7 @@ export const enUS: Messages = {
     restoreSyncing: 'Restore complete; sync may take a few seconds.',
     notYetActive:
       'The subscription is not active yet. Wait a few seconds, then Restore or try again.',
+    featureLocked: 'This is a PRO feature. Your intention stays — it opens when you subscribe.',
     priceLoading: 'Loading price…',
     storeUnavailable: 'Store prices did not load. Retry — we never invent a price.',
     retryPrices: 'Refresh prices',
@@ -563,6 +565,7 @@ export const enUS: Messages = {
     subActive: 'Subscription active',
     subTrial: (days) => `Trial · ${days}d`,
     subEnded: 'Ended',
+    subFree: 'Free',
     goPro: 'Go PRO',
     manageSub: 'Manage subscription',
     restorePurchases: 'Restore purchases',

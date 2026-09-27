@@ -109,7 +109,7 @@ export function ChatComposer({
         ]}>
         <ThemedText
           type="smallBold"
-          style={{ color: canSend ? theme.onAccent : theme.textSecondary }}>
+          style={{ color: canSend ? theme.onFill : theme.textSecondary }}>
           {t.chat.sendShort}
         </ThemedText>
       </Pressable>

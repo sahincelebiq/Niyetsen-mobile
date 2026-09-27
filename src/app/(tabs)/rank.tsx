@@ -364,7 +364,7 @@ export default function RankScreen() {
                     opacity: pressed ? 0.88 : 1,
                   },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {hasPaidAccess ? t.chain.reportOpen : t.common.proCta}
                 </ThemedText>
               </Pressable>

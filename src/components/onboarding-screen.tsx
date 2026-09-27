@@ -440,9 +440,9 @@ export function OnboardingScreen() {
                     },
                   ]}>
                   {busy ? (
-                    <ActivityIndicator color={theme.onAccent} />
+                    <ActivityIndicator color={theme.onFill} />
                   ) : (
-                    <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                    <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                       {isLast ? t.common.done : t.common.continue}
                     </ThemedText>
                   )}

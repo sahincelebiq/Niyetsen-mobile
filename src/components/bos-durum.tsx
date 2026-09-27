@@ -34,9 +34,9 @@ export function BosDurum({ baslik, govde, eylemEtiketi, onEylem, mesgul }: BosDu
             { backgroundColor: theme.tint, opacity: pressed || mesgul ? 0.7 : 1 },
           ]}>
           {mesgul ? (
-            <ActivityIndicator color={theme.onAccent} />
+            <ActivityIndicator color={theme.onFill} />
           ) : (
-            <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+            <ThemedText type="smallBold" style={{ color: theme.onFill }}>
               {eylemEtiketi}
             </ThemedText>
           )}

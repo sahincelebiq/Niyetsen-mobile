@@ -145,7 +145,7 @@ export default function PhilosophyPathsScreen() {
                   styles.lockCta,
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.paths.startPro}
                 </ThemedText>
               </Pressable>
@@ -250,7 +250,7 @@ export default function PhilosophyPathsScreen() {
                               opacity: pressed ? 0.88 : 1,
                             },
                           ]}>
-                          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                             {activateLocked ? t.paths.startPro : t.paths.start}
                           </ThemedText>
                         </Pressable>

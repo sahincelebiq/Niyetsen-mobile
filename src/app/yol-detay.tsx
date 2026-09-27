@@ -179,7 +179,7 @@ export default function PathDetailScreen() {
                   styles.lockCta,
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.paths.applyPro}
                 </ThemedText>
               </Pressable>
@@ -222,7 +222,7 @@ export default function PathDetailScreen() {
                   styles.applyCta,
                   { backgroundColor: theme.accentWarm, opacity: pressed ? 0.88 : 1 },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {activateLocked ? t.paths.applyPro : t.paths.apply}
                 </ThemedText>
               </Pressable>

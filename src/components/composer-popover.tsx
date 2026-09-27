@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -9,6 +9,7 @@ import Animated, {
   SlideOutDown,
 } from 'react-native-reanimated';
 
+import { useSheetBottomPadding } from '@/components/above-tabs-layer';
 import { ThemedText } from '@/components/themed-text';
 import { Motion, Radii, Shadows, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,6 +30,7 @@ type ComposerPopoverProps = {
 export function ComposerPopover({ title, onClose, children }: ComposerPopoverProps) {
   const theme = useTheme();
   const { t } = useLocale();
+  const bottomPad = useSheetBottomPadding(Spacing.three);
 
   return (
     <View style={styles.root} pointerEvents="box-none">
@@ -52,6 +54,7 @@ export function ComposerPopover({ title, onClose, children }: ComposerPopoverPro
           {
             backgroundColor: theme.backgroundElement,
             borderColor: theme.border,
+            marginBottom: bottomPad,
           },
         ]}>
         <View style={styles.header}>
@@ -71,7 +74,13 @@ export function ComposerPopover({ title, onClose, children }: ComposerPopoverPro
             <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
           </Pressable>
         </View>
-        {children}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}>
+          {children}
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -88,12 +97,18 @@ const styles = StyleSheet.create({
   },
   sheet: {
     marginHorizontal: Spacing.two,
-    marginBottom: Spacing.two,
     borderRadius: Radii.large,
     borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
     gap: Spacing.two,
-    maxHeight: '62%',
+    maxHeight: '70%',
+  },
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  scrollContent: {
+    gap: Spacing.two,
   },
   header: {
     flexDirection: 'row',

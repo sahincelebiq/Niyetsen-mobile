@@ -60,6 +60,7 @@ export const tr: Messages = {
     signIn: 'Giriş yap',
     signUp: 'Kayıt ol',
     switchToSignUp: 'Hesabın yok mu? Kayıt ol',
+    noAccount: 'Hesabın yok mu?',
     switchToSignIn: 'Zaten hesabın var mı? Giriş yap',
     verifySent: 'Niyetsen doğrulama kodunu e-posta adresine gönderdi.',
     passwordUpdated: 'Şifren güncellendi.',
@@ -501,10 +502,10 @@ export const tr: Messages = {
     title: 'Zincirin seni bekliyor',
     brandTitle: 'Niyetsen PRO',
     body:
-      'Her şey görünür kalır. Sohbet sınırsız ve ücretsiz. Satın alınca plan, yol, mistik, rapor ve yoldaşlar açılır.',
+      'Her şey görünür kalır. Sohbet sınırsız ve ücretsiz. PRO ile planın devamı, kanıt, ikinci niyet ve 30 günlük rapor açılır.',
     trialEnded: 'Deneme süren doldu — niyetin silinmedi.',
     closedTesterHint:
-      'Kapalı testteysen giriş e-postanın test listesinde olduğundan emin ol. Mağaza daveti tek başına yetmez.',
+      'Kapalı test de mağaza akışıdır. Ücretsiz sürüm açık; PRO özellikler Google Play satın almasıyla açılır.',
     subscribeCta: 'Abone ol',
     restoreShort: 'Geri Yükle',
     cancelAnytime: 'İstediğin zaman App Store veya Google Play üzerinden iptal edebilirsin.',
@@ -526,6 +527,7 @@ export const tr: Messages = {
     restoreSyncing: 'Geri yükleme tamamlandı; senkron birkaç saniye sürebilir.',
     notYetActive:
       'Abonelik henüz aktifleşmedi. Birkaç saniye sonra Geri Yükle veya tekrar dene.',
+    featureLocked: 'Bu özellik PRO. Niyetin duruyor — abone olunca açılır.',
     priceLoading: 'Fiyat yükleniyor…',
     storeUnavailable: 'Mağaza fiyatı şu an gelmedi. Tekrar dene — uydurma fiyat göstermiyoruz.',
     retryPrices: 'Fiyatları yenile',
@@ -568,6 +570,7 @@ export const tr: Messages = {
     subActive: 'Abonelik aktif',
     subTrial: (days) => `Deneme · ${days}g`,
     subEnded: 'Bitti',
+    subFree: 'Ücretsiz',
     goPro: "PRO'ya Geç",
     manageSub: 'Aboneliği Yönet',
     restorePurchases: 'Satın Alımları Geri Yükle',

@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
+import { AboveTabsLayer } from '@/components/above-tabs-layer';
 import { AssistantMessage } from '@/components/assistant-message';
 import { ChatAttachMenu } from '@/components/chat-attach-menu';
 import { ChatMessageBody } from '@/components/chat-message-body';
@@ -96,7 +97,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
           borderColor: theme.tint,
         },
       ]}>
-      <ChatMessageBody content={content} color={theme.onAccent} />
+      <ChatMessageBody content={content} color={theme.onFill} />
     </ThemedView>
   );
 });
@@ -343,16 +344,13 @@ export default function ChatScreen() {
         selectionHaptic(); // yeni asistan mesajı: çok hafif tik
         void refreshStreak();
       } catch (e) {
-        if (isPaywallError(e)) {
-          router.push('/paywall');
-          return;
-        }
+        // Sohbet ücretsiz. 402 plan/kanıt kapısıdır; buradan paywall'a atma.
         setError(e instanceof ApiError ? e.message : t.chat.unexpectedError);
       } finally {
         setSending(false);
       }
     },
-    [collected, refreshStreak, router, scrollToEnd, t],
+    [collected, refreshStreak, scrollToEnd, t],
   );
 
   useEffect(() => {
@@ -560,9 +558,9 @@ export default function ChatScreen() {
             pressed && styles.pressed,
           ]}>
           {generatingPlan ? (
-            <ActivityIndicator size="small" color={theme.onAccent} />
+            <ActivityIndicator size="small" color={theme.onFill} />
           ) : (
-            <ThemedText style={{ color: theme.onAccent }} type="smallBold">
+            <ThemedText style={{ color: theme.onFill }} type="smallBold">
               {t.chat.planCta}
             </ThemedText>
           )}
@@ -683,15 +681,6 @@ export default function ChatScreen() {
               keyboardOpen={keyboard.open && keyboard.covering}
             />
 
-            {attachMenuOpen ? (
-              <ChatAttachMenu
-                onClose={() => setAttachMenuOpen(false)}
-                onPickImage={handlePickImage}
-                onPickFile={handlePickFile}
-                onOpenBonus={handleOpenBonus}
-                attaching={attaching}
-              />
-            ) : null}
             <ChatPathsSheet
               visible={pathsOpen}
               onClose={() => setPathsOpen(false)}
@@ -699,6 +688,19 @@ export default function ChatScreen() {
             />
           </View>
         </KeyboardAwareView>
+        <AboveTabsLayer
+          visible={attachMenuOpen}
+          onRequestClose={() => setAttachMenuOpen(false)}>
+          <View style={styles.flex}>
+            <ChatAttachMenu
+              onClose={() => setAttachMenuOpen(false)}
+              onPickImage={handlePickImage}
+              onPickFile={handlePickFile}
+              onOpenBonus={handleOpenBonus}
+              attaching={attaching}
+            />
+          </View>
+        </AboveTabsLayer>
         <ChatHistorySheet
           visible={historyOpen}
           onClose={closeHistory}

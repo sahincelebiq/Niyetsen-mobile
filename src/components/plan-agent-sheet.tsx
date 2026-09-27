@@ -256,7 +256,7 @@ export function PlanAgentSheet({
                       ]}>
                       <ChatMessageBody
                         content={item.content}
-                        color={mine ? theme.onAccent : theme.text}
+                        color={mine ? theme.onFill : theme.text}
                       />
                     </View>
                   </View>
@@ -307,6 +307,7 @@ export function PlanAgentSheet({
               placeholder={t.events.agentPlaceholder}
               placeholderTextColor={theme.textSecondary}
               multiline
+              scrollEnabled
               maxLength={600}
               editable={!!planId}
               onSubmitEditing={() => void send(draft)}
@@ -334,7 +335,7 @@ export function PlanAgentSheet({
               ]}>
               <ThemedText
                 type="smallBold"
-                style={{ color: canSend ? theme.onAccent : theme.textSecondary }}>
+                style={{ color: canSend ? theme.onFill : theme.textSecondary }}>
                 ↑
               </ThemedText>
             </Pressable>
@@ -454,8 +455,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 46,
-    maxHeight: 120,
+    minHeight: 44,
+    maxHeight: 104,
     borderWidth: 1,
     borderRadius: Radii.bubble,
     paddingHorizontal: Spacing.three,

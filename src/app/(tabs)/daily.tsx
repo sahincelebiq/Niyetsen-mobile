@@ -101,6 +101,7 @@ import {
 } from '@/lib/task-reminders';
 import { showAlert } from '@/lib/web-alert';
 import { hhmmToMinutes } from '@/lib/zaman';
+import { usePremiumAccess } from '@/hooks/use-premium-access';
 import { useProfile } from '@/providers/profile-provider';
 
 type Outcome = { tone: 'success' | 'danger'; message: string };
@@ -116,6 +117,7 @@ export default function DailyTasksScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { profile } = useProfile();
+  const { hasPremium } = usePremiumAccess();
   const { user } = useAuth();
   const { syncStreak } = useCompanionAnimal();
   const { status: consentStatus } = useConsentPreferences();
@@ -274,6 +276,10 @@ export default function DailyTasksScreen() {
 
   const completeEvent = useCallback(
     async (event: DailyEventItem) => {
+      if (!hasPremium) {
+        router.push('/paywall' as Href);
+        return;
+      }
       const key = `event:${event.occurrence_id}`;
       setBusy(key);
       try {
@@ -314,12 +320,16 @@ export default function DailyTasksScreen() {
                   ? value.message
                   : t.common.errorGeneric,
         });
+        if (status === 402) {
+          router.push('/paywall' as Href);
+          return;
+        }
         if (status === 400) invalidateGunlukAkis();
       } finally {
         setBusy(null);
       }
     },
-    [setOutcome, syncStreak, t],
+    [hasPremium, router, setOutcome, syncStreak, t],
   );
 
   async function openAgent(seed: string) {
@@ -450,6 +460,10 @@ export default function DailyTasksScreen() {
           : value instanceof Error
             ? value.message
             : t.daily.proofFailed;
+      if (value instanceof ApiError && value.status === 402) {
+        router.push('/paywall' as Href);
+        return;
+      }
       if (value instanceof ApiError && value.status === 409) {
         message = t.daily.proofBusy;
       }
@@ -526,11 +540,15 @@ export default function DailyTasksScreen() {
 
   const openProofForTask = useCallback(
     (taskId: string) => {
+      if (!hasPremium) {
+        router.push('/paywall' as Href);
+        return;
+      }
       const task = tasks.find((item) => item.id === taskId);
       if (task) void openCamera(task);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, consentStatus, cameraPermission],
+    [hasPremium, router, tasks, consentStatus, cameraPermission],
   );
 
   const renderTask = useCallback<ListRenderItem<DailyTask>>(
@@ -801,9 +819,9 @@ export default function DailyTasksScreen() {
                 { backgroundColor: theme.tint, opacity: pressed || extending ? 0.85 : 1 },
               ]}>
               {extending ? (
-                <ActivityIndicator color={theme.onAccent} />
+                <ActivityIndicator color={theme.onFill} />
               ) : (
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {t.daily.extendCta}
                 </ThemedText>
               )}
@@ -826,7 +844,7 @@ export default function DailyTasksScreen() {
                   styles.emptyCta,
                   { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+                <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                   {emptyMode === 'chat' ? t.daily.openChatCta : t.daily.emptyAction}
                 </ThemedText>
               </Pressable>
@@ -1215,11 +1233,11 @@ function TaskButton({
         },
       ]}>
       {busy ? (
-        <ActivityIndicator color={primary ? theme.onAccent : theme.text} />
+        <ActivityIndicator color={primary ? theme.onFill : theme.text} />
       ) : (
         <ThemedText
           type="smallBold"
-          style={primary ? { color: theme.onAccent } : { color: theme.text }}>
+          style={primary ? { color: theme.onFill } : { color: theme.text }}>
           {label}
         </ThemedText>
       )}

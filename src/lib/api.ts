@@ -941,7 +941,7 @@ export async function waitForPremiumAccess(
         // yeniden dene
       }
     }
-    if (last?.has_premium_access && !last.show_paywall) return last;
+    if (last?.status === 'active') return last;
     await sleep(1500);
   }
   throw new ApiError(

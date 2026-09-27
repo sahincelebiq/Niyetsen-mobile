@@ -487,6 +487,17 @@ export function AuthScreen() {
                       />
                     </Pressable>
                   </View>
+                  {screen === 'sign-in' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={!!busy}
+                      onPress={() => openEmailScreen('forgot')}
+                      style={styles.forgotHit}>
+                      <ThemedText type="small" themeColor="tint">
+                        {t.auth.forgotPassword}
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -565,26 +576,18 @@ export function AuthScreen() {
                     primary
                     warm
                   />
-                  <View style={styles.linkRow}>
-                    <Pressable
-                      accessibilityRole="button"
-                      disabled={!!busy}
-                      onPress={() => openEmailScreen('sign-up')}
-                      style={styles.textHit}>
-                      <ThemedText type="smallBold" themeColor="tint">
-                        {t.auth.switchToSignUp}
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      disabled={!!busy}
-                      onPress={() => openEmailScreen('forgot')}
-                      style={styles.textHit}>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {t.auth.forgotPassword}
-                      </ThemedText>
-                    </Pressable>
-                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!!busy}
+                    onPress={() => openEmailScreen('sign-up')}
+                    style={styles.signUpHit}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {t.auth.noAccount}{' '}
+                    </ThemedText>
+                    <ThemedText type="smallBold" themeColor="tint">
+                      {t.auth.signUp}
+                    </ThemedText>
+                  </Pressable>
                 </>
               ) : null}
 
@@ -662,7 +665,7 @@ function AuthButton({
 }) {
   const theme = useTheme();
   const fill = primary ? (warm ? theme.accentWarm : theme.tint) : theme.backgroundElement;
-  const onFill = primary ? theme.onAccent : highlighted ? theme.tint : theme.text;
+  const onFill = primary ? theme.onFill : highlighted ? theme.tint : theme.text;
   const scale = useSharedValue(1);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -708,7 +711,7 @@ function AuthButton({
           },
         ]}>
         {busy ? (
-          <ActivityIndicator color={primary ? theme.onAccent : theme.tint} />
+          <ActivityIndicator color={primary ? theme.onFill : theme.tint} />
         ) : (
           <View style={styles.buttonInner}>
             {icon ? (
@@ -797,11 +800,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
-  linkRow: {
+  forgotHit: {
+    alignSelf: 'flex-end',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  signUpHit: {
+    minHeight: 44,
+    marginTop: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
   },
   buttonInner: {
     flexDirection: 'row',

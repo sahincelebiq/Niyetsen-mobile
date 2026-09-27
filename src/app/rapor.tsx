@@ -200,6 +200,7 @@ export default function RecapScreen() {
 
   const advance = useCallback(
     (dir: 1 | -1) => {
+      remainingMsRef.current = STORY_MS;
       const next = index + dir;
       if (next < 0) return;
       if (next >= cards.length) {
@@ -333,7 +334,7 @@ export default function RecapScreen() {
                   ]}>
                   <ThemedText
                     type="smallBold"
-                    style={{ color: active ? theme.onAccent : theme.textSecondary }}>
+                    style={{ color: active ? theme.onFill : theme.textSecondary }}>
                     {option.label}
                     {option.id === '30d' && !hasPaidAccess ? ' · PRO' : ''}
                   </ThemedText>
@@ -401,7 +402,7 @@ export default function RecapScreen() {
                 styles.lockCta,
                 { backgroundColor: theme.tint, opacity: pressed ? 0.85 : 1 },
               ]}>
-              <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+              <ThemedText type="smallBold" style={{ color: theme.onFill }}>
                 {t.common.proCta}
               </ThemedText>
             </Pressable>
@@ -496,7 +497,7 @@ export default function RecapScreen() {
               opacity: sharing ? 0.7 : 1,
             },
           ]}>
-          <ThemedText type="smallBold" style={{ color: theme.onAccent }}>
+          <ThemedText type="smallBold" style={{ color: theme.onFill }}>
             {sharing ? t.recap.sharing : t.recap.share}
           </ThemedText>
         </Pressable>
@@ -506,7 +507,7 @@ export default function RecapScreen() {
         style={[styles.tapZones, mode !== 'story' && styles.hidden]}
         pointerEvents={mode === 'story' && !storyLocked ? 'box-none' : 'none'}>
         <Pressable
-          style={styles.tapZone}
+          style={styles.tapPrev}
           onPress={() => advance(-1)}
           onLongPress={() => setPaused(true)}
           onPressOut={() => setPaused(false)}
@@ -514,7 +515,7 @@ export default function RecapScreen() {
           accessibilityLabel={t.recap.prevCard}
         />
         <Pressable
-          style={styles.tapZone}
+          style={styles.tapNext}
           onPress={() => advance(1)}
           onLongPress={() => setPaused(true)}
           onPressOut={() => setPaused(false)}
@@ -524,6 +525,10 @@ export default function RecapScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+function recapMentionsMiss(line: string): boolean {
+  return /kaçıyor|kaçır|sessizce geçtin|takılınca haber/i.test(line);
 }
 
 function DashboardPanel({
@@ -541,8 +546,9 @@ function DashboardPanel({
 }) {
   const theme = useTheme();
   const { t } = useLocale();
-  const maxWeekly = Math.max(...dashboard.weekly_completed, 1);
-  const maxCategory = Math.max(...Object.values(dashboard.category_counts), 1);
+  const weeks = dashboard.weekly_completed ?? [];
+  const maxWeekly = Math.max(1, ...weeks);
+  const maxCategory = Math.max(1, ...Object.values(dashboard.category_counts ?? {}));
   const emptyTrail = dashboard.completed_tasks === 0;
   // Hazır metrikler (sunucu toplar; yoksa kart gizlenir — istemci türetmez).
   const rates = completionRates(dashboard);
@@ -600,7 +606,7 @@ function DashboardPanel({
         </SurfaceCard>
       </Animated.View>
 
-      {dashboard.mirror_line ? (
+      {dashboard.mirror_line && !recapMentionsMiss(dashboard.mirror_line) ? (
         <Animated.View entering={enter(Motion.stagger)}>
           <SurfaceCard
             elevated
@@ -656,8 +662,8 @@ function DashboardPanel({
             {t.recap.growth}
           </ThemedText>
           <View style={styles.weeklyRow}>
-            {dashboard.weekly_completed.map((count, i) => {
-              const last = i === dashboard.weekly_completed.length - 1;
+            {weeks.map((count, i) => {
+              const last = i === weeks.length - 1;
               return (
                 <View key={i} style={styles.weeklyCol}>
                   <View style={[styles.weeklyTrack, { backgroundColor: theme.progressTrack }]}>
@@ -704,7 +710,7 @@ function DashboardPanel({
                   </ThemedText>
                 </View>
               ) : null}
-              {(dashboard.insights ?? []).map((line, i) => (
+              {(dashboard.insights ?? []).filter((line) => !recapMentionsMiss(line)).map((line, i) => (
                 <View key={i} style={styles.insightRow}>
                   <ThemedText type="small" themeColor="tint">
                     ◆
@@ -728,7 +734,7 @@ function DashboardPanel({
           <ThemedText type="smallBold" style={styles.panelCardTitle}>
             {t.recap.gained}
           </ThemedText>
-          {Object.entries(dashboard.category_counts).map(([category, count]) => (
+          {Object.entries(dashboard.category_counts ?? {}).map(([category, count]) => (
             <View key={category} style={styles.categoryRow}>
               <View style={styles.categoryLabel}>
                 <CategoryBadge label={category} />
@@ -774,14 +780,14 @@ function DashboardPanel({
             <View style={styles.storyCtaTitle}>
               <ThemedText
                 type="smallBold"
-                style={{ color: locked ? theme.tint : theme.onAccent }}>
+                style={{ color: locked ? theme.tint : theme.onFill }}>
                 {t.recap.openStory}
               </ThemedText>
               {locked ? <ProBadge /> : null}
             </View>
             <ThemedText
               type="small"
-              style={{ color: locked ? theme.textSecondary : theme.onAccent }}>
+              style={{ color: locked ? theme.textSecondary : theme.onFill }}>
               {locked ? t.recap.openStoryLocked : t.recap.openStoryHint}
             </ThemedText>
           </View>
@@ -1159,7 +1165,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.five,
     gap: Spacing.four,
-    zIndex: 1,
+    zIndex: 0,
   },
   shot: {
     alignItems: 'center',
@@ -1226,6 +1232,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 0 },
-  tapZone: { flex: 1 },
+  tapZones: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', zIndex: 1 },
+  tapPrev: { flex: 2 },
+  tapNext: { flex: 3 },
 });

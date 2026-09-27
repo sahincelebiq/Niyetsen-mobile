@@ -38,6 +38,13 @@ export function resolveKeyboardLift(opts: {
   keyboardHeight: number;
   keyboardTop: number;
   containerBottom: number | null;
+  /**
+   * Klavye kapalıyken ölçülen kap dibi. Pencere gerçekten küçüldüyse
+   * containerBottom bundan klavye yüksekliği kadar yukarıdadır.
+   * Edge-to-edge Android'de pencere küçülmez ama screenY "zaten oturdu"
+   * diye yalan söyler; o zaman lift = klavye yüksekliği.
+   */
+  restingBottom?: number | null;
   bottomInset?: number;
   gap?: number;
   platformResizes: boolean;
@@ -45,11 +52,28 @@ export function resolveKeyboardLift(opts: {
   if (!isKeyboardOpen(opts.keyboardHeight)) return 0;
   const gap = opts.gap ?? KEYBOARD_GAP_PX;
   const measured = opts.containerBottom != null && opts.containerBottom > 1;
+  const dockBottom = measured
+    ? (opts.containerBottom as number) - (opts.bottomInset ?? 0)
+    : null;
+  const resting =
+    opts.restingBottom != null && opts.restingBottom > 1 ? opts.restingBottom : null;
+  const shrunk =
+    resting != null && dockBottom != null ? Math.round(resting - dockBottom) : null;
+
+  if (shrunk != null && shrunk >= opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX) return 0;
+
+  if (dockBottom != null && opts.keyboardTop > 0) {
+    const overlap = Math.round(dockBottom - opts.keyboardTop);
+    if (overlap > KEYBOARD_FIT_SLACK_PX) return overlap + gap;
+  }
+
+  // screenY örtüşme görmüyor ama kap yerinden oynamadı: IME üstüne çiziyor.
+  if (shrunk != null && shrunk < opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX) {
+    return Math.max(0, Math.round(opts.keyboardHeight - Math.max(shrunk, 0) + gap));
+  }
+
   if (!measured || opts.keyboardTop <= 0) {
     return opts.platformResizes ? 0 : Math.max(0, Math.round(opts.keyboardHeight - gap));
   }
-  const dockBottom = (opts.containerBottom as number) - (opts.bottomInset ?? 0);
-  const overlap = Math.round(dockBottom - opts.keyboardTop);
-  if (overlap <= KEYBOARD_FIT_SLACK_PX) return 0;
-  return overlap + gap;
+  return 0;
 }
