@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.niyetsenai",
-      "versionCode": 29,
+      "versionCode": 30,
       "adaptiveIcon": {
         "backgroundColor": "#DA9B7C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
