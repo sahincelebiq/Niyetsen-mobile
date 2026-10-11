@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { forwardRef } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
   ReduceMotion,
   useAnimatedStyle,
@@ -37,11 +37,17 @@ export type ChatComposerProps = {
   /** Composer yanındaki ✿ ikonu: Felsefe Yolları mini sayfasını açar. */
   onOpenPaths?: () => void;
   /**
-   * Overlay klavye açıkken tab payı düşer (kutu klavyenin üstüne oturur).
-   * adjustResize'da false kalmalı — tab bar hâlâ görünür, pay silinirse yazı gizlenir.
+   * Tab payı artık klavyeyle düşmez (düşünce kutu, lift animasyonu bitmeden
+   * IME'nin altına iner). Lift `chatComposerBottomInset` kadar kısılır.
+   * Prop web ile aynı kalsın diye durur.
    */
   keyboardOpen?: boolean;
 };
+
+/** Sekme + home indicator payı. KeyboardAwareView bottomInset ile aynı olmalı. */
+export function chatComposerBottomInset(safeBottom: number): number {
+  return BottomTabInset + Math.max(safeBottom, 12) + Spacing.two;
+}
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -57,7 +63,6 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
     onClearAttachment,
     attaching = false,
     onOpenPaths,
-    keyboardOpen = false,
   },
   ref,
 ) {
@@ -65,12 +70,11 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const canSend = !disabled && !sending && (!!value.trim() || !!pendingAttachment);
-  // Overlay + lift varken tab bar klavyenin arkasındadır → gerçek nefes payı yeter.
+  // Pay sabit. Overlay'de KeyboardAwareView aynı değeri bottomInset olarak düşer;
+  // payı burada silmek lift ile çift hareket ettirip kutuyu IME'ye sokuyordu.
   // Kapalıyken NativeTabs içeriğin üstüne biner. BottomTabInset tek başına 3
   // düğmeli Android nav'da yazı kutusunu sekmeye yapıştırıyordu.
-  const bottomPadding = keyboardOpen
-    ? Spacing.three
-    : BottomTabInset + Math.max(insets.bottom, 12) + Spacing.two;
+  const bottomPadding = chatComposerBottomInset(insets.bottom);
 
   // Gönder butonu durumu renkle konuşur: boşken soluk yüzey, yazınca mercan
   // dolgu — Motion.fast ile yumuşak geçiş (reduce-motion'da sönümlenir).
@@ -139,7 +143,7 @@ export const ChatComposer = forwardRef<View, ChatComposerProps>(function ChatCom
             style={[styles.input, { color: theme.text, fontFamily: Fonts.sansMedium }]}
             multiline
             scrollEnabled
-            textAlignVertical="center"
+            textAlignVertical={Platform.OS === 'android' ? 'top' : 'center'}
             underlineColorAndroid="transparent"
             selectionColor={theme.tint}
             editable={!disabled}
@@ -196,6 +200,7 @@ ChatComposer.displayName = 'ChatComposer';
 const styles = StyleSheet.create({
   dockMeasure: {
     width: '100%',
+    zIndex: 2,
   },
   dock: {
     width: '100%',

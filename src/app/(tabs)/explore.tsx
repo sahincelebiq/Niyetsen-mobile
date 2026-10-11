@@ -586,7 +586,7 @@ function DaySection({
         {relation === 'today' ? (
           <View style={[styles.todayRing, { borderColor: theme.tint }]}>
             <ThemedText type="smallBold" themeColor="tint">
-              Bugün
+              {t.tabs.today}
             </ThemedText>
           </View>
         ) : null}

@@ -12,7 +12,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { AboveTabsLayer } from '@/components/above-tabs-layer';
@@ -20,7 +20,7 @@ import { AssistantMessage } from '@/components/assistant-message';
 import { ChatAttachMenu } from '@/components/chat-attach-menu';
 import { ChatMessageBody } from '@/components/chat-message-body';
 import { ChainThinkingIndicator } from '@/components/chain-thinking-indicator';
-import { ChatComposer, type PendingAttachment } from '@/components/chat-composer';
+import { ChatComposer, chatComposerBottomInset, type PendingAttachment } from '@/components/chat-composer';
 import { ChatEdgeDrawer } from '@/components/chat-edge-drawer';
 import { ChatPathsSheet } from '@/components/chat-paths-sheet';
 import { ChatQuickReplies } from '@/components/chat-quick-replies';
@@ -106,8 +106,11 @@ export default function ChatScreen() {
   const { t, locale } = useLocale();
   const theme = useTheme();
   const router = useRouter();
-  // Klavye telafisi KeyboardAwareView'de; burada yalnız durum (composer padding + scroll).
+  const insets = useSafeAreaInsets();
+  // Klavye telafisi KeyboardAwareView'de; burada yalnız durum (başlık + scroll).
+  // bottomInset = composer'ın sabit sekme payı, lift onu bir kez düşer.
   const [keyboard, setKeyboard] = useState<KeyboardLiftState>(KEYBOARD_CLOSED);
+  const composerInset = chatComposerBottomInset(insets.bottom);
   const { status: consentStatus } = useConsentPreferences();
   const { status: subscriptionStatus } = useSubscription();
   const { syncStreak } = useCompanionAnimal();
@@ -495,9 +498,9 @@ export default function ChatScreen() {
         return;
       }
       if (e instanceof ApiError && e.status === 409) {
-        setError(t.plan.alreadyExists);
         setPlanHasContent(true);
         setReadyForPlan(false);
+        router.push('/explore');
         return;
       }
       setError(e instanceof ApiError ? e.message : t.chat.planFailed);
@@ -593,7 +596,7 @@ export default function ChatScreen() {
           compact={headerCompact}
           keyboardOpen={keyboard.open}
         />
-        <KeyboardAwareView onKeyboardChange={setKeyboard}>
+        <KeyboardAwareView onKeyboardChange={setKeyboard} bottomInset={composerInset}>
           <View style={styles.chatColumn}>
             <ChatWallpaper />
             <ChatEdgeDrawer onOpen={openHistory} enabled={!historyOpen}>
@@ -678,7 +681,6 @@ export default function ChatScreen() {
               onClearAttachment={() => setPendingAttachment(null)}
               attaching={attaching}
               onOpenPaths={openPathsSheet}
-              keyboardOpen={keyboard.open && keyboard.covering}
             />
 
             <ChatPathsSheet

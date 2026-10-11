@@ -8,9 +8,9 @@ import {
 } from 'react-native';
 
 import {
+  KEYBOARD_FIT_SLACK_PX,
   KEYBOARD_GAP_PX,
-  isKeyboardFrameOnScreen,
-  isKeyboardOpen,
+  normalizeKeyboardFrame,
   resolveKeyboardLift,
 } from '@/lib/keyboard-geometry';
 
@@ -44,11 +44,14 @@ type KeyboardFrame = { top: number; height: number; open: boolean };
 const NO_KEYBOARD: KeyboardFrame = { top: 0, height: 0, open: false };
 
 function frameFromEvent(event: KeyboardEvent): KeyboardFrame {
-  const height = event.endCoordinates?.height ?? 0;
-  const top = event.endCoordinates?.screenY ?? 0;
-  const open =
-    isKeyboardOpen(height) && isKeyboardFrameOnScreen(top, Dimensions.get('screen').height);
-  return { top, height: open ? height : 0, open };
+  const platform =
+    Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'other';
+  return normalizeKeyboardFrame(
+    event.endCoordinates?.height ?? 0,
+    event.endCoordinates?.screenY ?? 0,
+    Dimensions.get('screen').height,
+    platform,
+  );
 }
 
 export function useKeyboardHeight(): number {
@@ -92,18 +95,27 @@ export function useKeyboardLift(
   const frameRef = useRef<KeyboardFrame>(NO_KEYBOARD);
   const restingBottomRef = useRef<number | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const measureTokenRef = useRef(0);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => clearTimeout(timer));
     timersRef.current = [];
   }, []);
 
-  const measureAndApply = useCallback(() => {
-    const frame = frameRef.current;
+  const measureAndApply = useCallback((allowUnconfirmed: boolean) => {
+    const token = ++measureTokenRef.current;
+    const startedOpen = frameRef.current.open;
     const finish = (containerBottom: number | null) => {
-      if (!frameRef.current.open) {
-        if (containerBottom != null && containerBottom > 1) {
-          restingBottomRef.current = containerBottom;
+      if (token !== measureTokenRef.current) return;
+      const frame = frameRef.current;
+      if (!frame.open) {
+        // Kapanış karesi hâlâ küçülmüş kabı görebilir; daha büyük (kapalı)
+        // dibi ezmesin. Dönüş boyutu Dimensions change'de sıfırlanır.
+        if (!startedOpen && containerBottom != null && containerBottom > 1) {
+          const previous = restingBottomRef.current;
+          if (previous == null || containerBottom + KEYBOARD_FIT_SLACK_PX >= previous) {
+            restingBottomRef.current = containerBottom;
+          }
         }
         setState(KEYBOARD_CLOSED);
         return;
@@ -116,7 +128,12 @@ export function useKeyboardLift(
         bottomInset,
         gap,
         platformResizes: PLATFORM_RESIZES,
+        screenHeight: Dimensions.get('screen').height,
       });
+      // Android didShow, adjustResize bitmeden ölçülür. O anki pozitif lift
+      // yayınlanırsa pencere küçülünce geri iner — sheet zıplar, çift kayar.
+      // Sıfır lift hemen uygulanır; pozitif lift layout veya gecikmeli ölçü ister.
+      if (PLATFORM_RESIZES && !allowUnconfirmed && lift > 0) return;
       setState((prev) =>
         prev.open && prev.lift === lift && prev.height === frame.height
           ? prev
@@ -135,19 +152,25 @@ export function useKeyboardLift(
 
   const schedule = useCallback(() => {
     clearTimers();
-    measureAndApply();
+    measureAndApply(false);
     for (const delay of REMEASURE_DELAYS_MS) {
-      timersRef.current.push(setTimeout(measureAndApply, delay));
+      timersRef.current.push(setTimeout(() => measureAndApply(true), delay));
     }
   }, [clearTimers, measureAndApply]);
 
   useEffect(() => {
     const onFrame = (event: KeyboardEvent) => {
-      frameRef.current = frameFromEvent(event);
+      const next = frameFromEvent(event);
+      const prev = frameRef.current;
+      if (prev.open === next.open && prev.top === next.top && prev.height === next.height) {
+        return;
+      }
+      frameRef.current = next;
       schedule();
     };
     const onHide = () => {
       frameRef.current = NO_KEYBOARD;
+      measureTokenRef.current += 1;
       clearTimers();
       setState(KEYBOARD_CLOSED);
     };
@@ -163,6 +186,7 @@ export function useKeyboardLift(
             Keyboard.addListener('keyboardDidHide', onHide),
           ];
     const dim = Dimensions.addEventListener('change', () => {
+      restingBottomRef.current = null;
       if (frameRef.current.open) schedule();
     });
     return () => {
@@ -173,7 +197,9 @@ export function useKeyboardLift(
   }, [clearTimers, schedule]);
 
   const onLayout = useCallback(() => {
-    measureAndApply();
+    // Dış kabın layout'u pencere boyudur (padding içtedir). Android'de bu,
+    // didShow'dan önce gelen tahmin değil, resize'ın kendisidir.
+    measureAndApply(true);
   }, [measureAndApply]);
 
   return { ...state, onLayout };

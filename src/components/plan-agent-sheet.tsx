@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -173,14 +174,22 @@ export function PlanAgentSheet({
   const overlayOpacity = scheme === 'dark' ? 0.55 : 0.32;
   const canSend = !!draft.trim() && !sending && !!planId;
   const inverted = [...messages].reverse();
+  // Yazı kutusunun altındaki sabit pay. Lift hesabı bunu düşer; düşmezse
+  // safe-area ile klavye payı üst üste biner ve sheet fazladan yükselir.
+  const sheetBottomPad = Math.max(insets.bottom, Spacing.two);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}>
       <View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor: theme.text, opacity: overlayOpacity }]}
       />
-      <KeyboardAwareView style={styles.wrap}>
+      <KeyboardAwareView style={styles.wrap} bottomInset={sheetBottomPad}>
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
@@ -193,7 +202,7 @@ export function PlanAgentSheet({
             {
               backgroundColor: theme.background,
               borderColor: theme.border,
-              paddingBottom: Math.max(insets.bottom, Spacing.two),
+              paddingBottom: sheetBottomPad,
             },
           ]}>
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
@@ -235,7 +244,8 @@ export function PlanAgentSheet({
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
-              contentContainerStyle={styles.list}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
               ListEmptyComponent={
                 <View style={styles.emptyWrap}>
                   <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
@@ -308,6 +318,7 @@ export function PlanAgentSheet({
               placeholderTextColor={theme.textSecondary}
               multiline
               scrollEnabled
+              textAlignVertical={Platform.OS === 'android' ? 'top' : 'center'}
               maxLength={600}
               editable={!!planId}
               onSubmitEditing={() => void send(draft)}
@@ -361,6 +372,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   header: {
+    flexShrink: 0,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
@@ -396,6 +408,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: {
+    flex: 1,
+  },
+  listContent: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     gap: Spacing.two,
@@ -446,6 +461,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   composer: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.two,
@@ -463,6 +479,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 2,
     fontFamily: Fonts.sans,
     fontSize: 16,
+    includeFontPadding: false,
   },
   send: {
     width: 46,

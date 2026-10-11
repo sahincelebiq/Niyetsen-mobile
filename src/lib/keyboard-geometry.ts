@@ -22,6 +22,27 @@ export function isKeyboardFrameOnScreen(keyboardTop: number, screenHeight: numbe
   return keyboardTop < screenHeight - 1;
 }
 
+export type KeyboardFrame = { top: number; height: number; open: boolean };
+
+/**
+ * Klavye olayını tek çerçeveye indirger.
+ * iOS gizlenirken screenY ekran dibine yapışır → kapalı.
+ * Android'de yükseklik > eşik ise açıktır; screenY 0 veya ekran dışıysa
+ * top bilinmiyor sayılır (edge-to-edge yalanı lift'i sıfırlamasın).
+ */
+export function normalizeKeyboardFrame(
+  height: number,
+  screenY: number,
+  screenHeight: number,
+  platform: 'ios' | 'android' | 'other',
+): KeyboardFrame {
+  if (!isKeyboardOpen(height)) return { top: 0, height: 0, open: false };
+  const onScreen = isKeyboardFrameOnScreen(screenY, screenHeight);
+  if (platform === 'ios' && !onScreen) return { top: 0, height: 0, open: false };
+  if (!onScreen || screenY <= 0) return { top: 0, height, open: true };
+  return { top: screenY, height, open: true };
+}
+
 /**
  * TEK lift hesabı — Dimensions tahmini YOK, yalnız ölçüm.
  *
@@ -48,6 +69,12 @@ export function resolveKeyboardLift(opts: {
   bottomInset?: number;
   gap?: number;
   platformResizes: boolean;
+  /**
+   * Klavye screenY'sinin koordinat uzayı (Dimensions.screen).
+   * Pencere küçüldü mü tahmini DEĞİL: screenY yalan söylediğinde
+   * klavye üstü = screenHeight − yükseklik.
+   */
+  screenHeight?: number;
 }): number {
   if (!isKeyboardOpen(opts.keyboardHeight)) return 0;
   const gap = opts.gap ?? KEYBOARD_GAP_PX;
@@ -62,18 +89,50 @@ export function resolveKeyboardLift(opts: {
 
   if (shrunk != null && shrunk >= opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX) return 0;
 
-  if (dockBottom != null && opts.keyboardTop > 0) {
-    const overlap = Math.round(dockBottom - opts.keyboardTop);
-    if (overlap > KEYBOARD_FIT_SLACK_PX) return overlap + gap;
+  const screenHeight = opts.screenHeight ?? 0;
+  const impliedTop =
+    screenHeight > opts.keyboardHeight ? screenHeight - opts.keyboardHeight : 0;
+
+  let sawKeyboardTop = false;
+  if (dockBottom != null) {
+    const reported = opts.keyboardTop > 0 ? opts.keyboardTop : impliedTop;
+    if (reported > 0) {
+      sawKeyboardTop = true;
+      let overlap = Math.round(dockBottom - reported);
+      const barelyMoved =
+        shrunk == null || shrunk < opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX;
+      // screenY kabın dibine yapışık yalan: gerçek üst = ekran − yükseklik.
+      if (
+        overlap <= KEYBOARD_FIT_SLACK_PX &&
+        barelyMoved &&
+        impliedTop > 0 &&
+        opts.keyboardTop > impliedTop + KEYBOARD_FIT_SLACK_PX
+      ) {
+        overlap = Math.round(dockBottom - impliedTop);
+      }
+      if (overlap > KEYBOARD_FIT_SLACK_PX) return overlap + gap;
+    }
   }
 
-  // screenY örtüşme görmüyor ama kap yerinden oynamadı: IME üstüne çiziyor.
-  if (shrunk != null && shrunk < opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX) {
-    return Math.max(0, Math.round(opts.keyboardHeight - Math.max(shrunk, 0) + gap));
+  // Örtüşme yok. Kap kıpırdamadıysa IME üstüne çiziyor olabilir; kap zaten
+  // ima edilen klavye üstündeyse kalan yüksekliği eklemek ikinci kaydırmadır.
+  const clearsImplied =
+    dockBottom != null &&
+    impliedTop > 0 &&
+    dockBottom <= impliedTop + KEYBOARD_FIT_SLACK_PX;
+  if (
+    shrunk != null &&
+    shrunk >= 0 &&
+    shrunk < opts.keyboardHeight - KEYBOARD_FIT_SLACK_PX &&
+    !clearsImplied
+  ) {
+    return Math.max(0, Math.round(opts.keyboardHeight - shrunk + gap));
   }
 
-  if (!measured || opts.keyboardTop <= 0) {
-    return opts.platformResizes ? 0 : Math.max(0, Math.round(opts.keyboardHeight - gap));
+  // Ölçüm veya klavye üstü yok. Android resize varsayımı → 0.
+  // iOS yedek = klavye yüksekliği (gap düşülmez; düşülürse kutu IME'ye girer).
+  if (!measured || !sawKeyboardTop) {
+    return opts.platformResizes ? 0 : Math.max(0, Math.round(opts.keyboardHeight));
   }
   return 0;
 }

@@ -75,6 +75,8 @@ let state: GunlukAkisState = INITIAL;
 const listeners = new Set<(next: GunlukAkisState) => void>();
 let hydratePromise: Promise<void> | null = null;
 let refreshInFlight: Promise<void> | null = null;
+/** Uçuştaki istek plan düzenlemesinden ÖNCE çıktıysa, bitince bir kez daha çek. */
+let refreshAgain = false;
 
 function emit(next: Partial<GunlukAkisState>): void {
   state = { ...state, ...next };
@@ -188,7 +190,12 @@ async function fetchDailyWithRetry(): Promise<DailyTasksResponse> {
  * eldeki veri dururken arka planda tazeleme. Aynı anda tek istek uçar.
  */
 export function refreshGunlukAkis(mode: 'full' | 'silent' = 'silent'): Promise<void> {
-  if (refreshInFlight) return refreshInFlight;
+  if (refreshInFlight) {
+    // Eski yanıt plan düzenlemesini ezmesin: bu tur bitince bir tur daha.
+    refreshAgain = true;
+    const current = refreshInFlight;
+    return current.then(() => refreshInFlight ?? Promise.resolve());
+  }
   const hasData = state.data !== null;
   emit({
     loading: mode === 'full' && !hasData,
@@ -196,15 +203,20 @@ export function refreshGunlukAkis(mode: 'full' | 'silent' = 'silent'): Promise<v
     error: null,
   });
   refreshInFlight = (async () => {
+    let failed = false;
     try {
       const data = await fetchDailyWithRetry();
       emit({ data, date: bugunIso(), savedAt: Date.now(), stale: false, error: null });
       await persist(state.data as DailyTasksResponse);
     } catch (error) {
+      failed = true;
       emit({ error: error instanceof ApiError ? error : new ApiError(0, String(error)) });
     } finally {
-      emit({ loading: false, refreshing: false, stale: false });
+      const again = refreshAgain;
+      refreshAgain = false;
       refreshInFlight = null;
+      emit({ loading: false, refreshing: false, stale: again || failed });
+      if (again) void refreshGunlukAkis('silent');
     }
   })();
   return refreshInFlight;
@@ -273,6 +285,7 @@ export function rolloverGunlukAkisIfNeeded(): boolean {
 export async function clearGunlukAkis(): Promise<void> {
   hydratePromise = null;
   refreshInFlight = null;
+  refreshAgain = false;
   state = { ...INITIAL, date: bugunIso(), hydrated: true, stale: true, data: null };
   listeners.forEach((listener) => listener(state));
   try {

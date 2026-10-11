@@ -23,7 +23,9 @@ import {
   CHAIN_CYCLE_DAYS,
   COMPANION_STAGE_MARKS,
   chainEvolution,
+  companionLabelsFromMessages,
   companionStageIndex,
+  companionVisual,
   type CompanionStageKey,
 } from '@/constants/chain-animals';
 import { nextMilestone } from '@/constants/scoring';
@@ -136,6 +138,16 @@ export default function RankScreen() {
 
   const milestoneGlow = isSproutMilestone(journeyDay);
   const evolution = chainEvolution(journeyDay);
+  // İkon ve alt yazı `companionVisual` kullanır. Kart da aynı kaynaktan
+  // okusun: seçilen yoldaş + doğru aşama (Olgun/Erişkin) + dil.
+  const visual = companionVisual(
+    companionId,
+    journeyDay,
+    journeyDay,
+    30,
+    companionLabelsFromMessages(t.companion),
+  );
+  const showCycleCount = companionId == null;
   const upcoming = state ? nextMilestone(journeyDay) : null;
   const stageIndex = companionStageIndex(journeyDay);
   const totalPoints = state
@@ -249,25 +261,20 @@ export default function RankScreen() {
             <SurfaceCard elevated>
               <View style={styles.evolutionTop}>
                 <View style={styles.evolutionCopy}>
-                  <ThemedText type="smallBold">{evolution.animal.name}</ThemedText>
+                  <ThemedText type="smallBold">{visual.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {stageText(
-                      evolution.stage === 'bebek'
-                        ? 'bebek'
-                        : evolution.stage === 'genc'
-                          ? 'cirak'
-                          : 'olgun',
-                      t.companion,
-                    )}
+                    {visual.stageLabel}
                   </ThemedText>
                 </View>
-                <ThemedText type="smallBold" themeColor="tint">
-                  {evolution.dayInCycle}/{CHAIN_CYCLE_DAYS}
-                </ThemedText>
+                {showCycleCount ? (
+                  <ThemedText type="smallBold" themeColor="tint">
+                    {evolution.dayInCycle}/{CHAIN_CYCLE_DAYS}
+                  </ThemedText>
+                ) : null}
               </View>
-              <ProgressBar progress={evolution.cycleProgress} />
+              <ProgressBar progress={visual.progress} />
               <ThemedText type="small" themeColor="textSecondary">
-                {evolution.nextLabel}
+                {visual.nextLabel}
               </ThemedText>
             </SurfaceCard>
 

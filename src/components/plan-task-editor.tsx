@@ -31,7 +31,6 @@ import {
 import {
   addDaysIso,
   formatIsoDate,
-  formatTrDate,
   isPastIso,
   parseIsoDate,
   resolveTaskDate,
@@ -55,12 +54,18 @@ type PlanTaskEditorProps = {
   onChanged: () => void;
 };
 
-const WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'] as const;
-
-function monthLabel(year: number, monthIndex: number): string {
-  return new Date(year, monthIndex, 1).toLocaleDateString('tr-TR', {
+function monthLabel(year: number, monthIndex: number, locale: string): string {
+  return new Date(year, monthIndex, 1).toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric',
+  });
+}
+
+function formatPlanDate(iso: string, locale: string): string {
+  return parseIsoDate(iso).toLocaleDateString(locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
   });
 }
 
@@ -90,7 +95,7 @@ export function isTaskEditable(
 
 export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTaskEditorProps) {
   const theme = useTheme();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const visible = target !== null || !!addDate;
@@ -153,12 +158,11 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
       onChanged();
       onClose();
     } catch (error) {
-      showAlert(
-        'İşlem tamamlanamadı',
-        error instanceof ApiError
-          ? error.message
-          : 'Birazdan tekrar dene.',
-      );
+      if (error instanceof ApiError) {
+        showAlert(t.common.errorGeneric, error.message);
+      } else {
+        showAlert(t.common.errorGeneric);
+      }
     } finally {
       setBusy(false);
     }
@@ -235,7 +239,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
             style={StyleSheet.absoluteFill}
             onPress={close}
             accessibilityRole="button"
-            accessibilityLabel="Paneli kapat"
+            accessibilityLabel={t.common.closeSection}
           />
         </View>
 
@@ -302,9 +306,9 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
                 }
               />
               <ThemedText type="small" themeColor="tint">
-                Seçili: {formatTrDate(selectedDate)}
+                {formatPlanDate(selectedDate, locale)}
               </ThemedText>
-              <PrimaryButton label="Taşı" busy={busy} onPress={saveMove} />
+              <PrimaryButton label={t.plan.move} busy={busy} onPress={saveMove} />
               <ActionRow label={t.plan.cancel} muted onPress={() => setMode('actions')} disabled={busy} />
             </>
           ) : null}
@@ -345,7 +349,7 @@ export function PlanTaskEditor({ target, addDate, onClose, onChanged }: PlanTask
               </ThemedText>
               {addDate ? (
                 <ThemedText type="smallBold" themeColor="tint">
-                  {formatTrDate(addDate)}
+                  {formatPlanDate(addDate, locale)}
                 </ThemedText>
               ) : null}
               <TextInput
@@ -466,12 +470,13 @@ function DateGrid({
   onNext: () => void;
 }) {
   const theme = useTheme();
+  const { t, locale } = useLocale();
   return (
     <View style={styles.calendar}>
       <View style={styles.monthNav}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Önceki ay"
+          accessibilityLabel={t.common.back}
           hitSlop={12}
           onPress={onPrev}
           style={({ pressed }) => [styles.navChip, { opacity: pressed ? 0.7 : 1 }]}>
@@ -480,11 +485,11 @@ function DateGrid({
           </ThemedText>
         </Pressable>
         <ThemedText type="smallBold" style={styles.monthTitle}>
-          {monthLabel(year, month)}
+          {monthLabel(year, month, locale)}
         </ThemedText>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Sonraki ay"
+          accessibilityLabel={t.common.next}
           hitSlop={12}
           onPress={onNext}
           style={({ pressed }) => [styles.navChip, { opacity: pressed ? 0.7 : 1 }]}>
@@ -494,7 +499,7 @@ function DateGrid({
         </Pressable>
       </View>
       <View style={styles.weekRow}>
-        {WEEKDAYS.map((day) => (
+        {t.events.weekdaysShort.map((day) => (
           <ThemedText key={day} type="small" themeColor="textSecondary" style={styles.weekCell}>
             {day}
           </ThemedText>

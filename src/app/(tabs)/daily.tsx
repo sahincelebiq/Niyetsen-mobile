@@ -488,7 +488,7 @@ export default function DailyTasksScreen() {
       tone: result.approved ? 'success' : 'danger',
       message: result.approved
         ? `${t.daily.proofApproved(puan, result.confidence)}${declaration}${celebration}`
-        : `${result.reason} Güven ${result.confidence}/100 · deneme ${result.attempt_no}/3. Yeni bir kare deneyebilirsin.`,
+        : t.daily.proofRejected(result.reason, result.confidence, result.attempt_no),
     });
   }
 

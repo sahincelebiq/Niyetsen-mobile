@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   ScrollView,
+  Platform,
   StyleSheet,
   TextInput,
   View,
@@ -264,7 +265,7 @@ export default function MysticChatScreen() {
               placeholder={t.mystic.placeholder}
               placeholderTextColor={colors.textSecondary}
               multiline
-              textAlignVertical="center"
+              textAlignVertical={Platform.OS === 'android' ? 'top' : 'center'}
               underlineColorAndroid="transparent"
               selectionColor={colors.tint}
               accessibilityLabel={t.mystic.writeToGuide}
